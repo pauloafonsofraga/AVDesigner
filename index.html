@@ -503,6 +503,17 @@
       vertical-align: middle;
     }
 
+    .panel-title:has(#importDevicePackage) {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .panel-title #importDevicePackage { margin-left: 0; }
+
+    .editor-device-basics output { overflow-wrap: anywhere; }
+
     .zoom-control {
       min-width: 28px;
       padding: 0 6px;
@@ -5581,7 +5592,8 @@
     <aside class="panel library">
       <section class="library-section device-library-section">
         <div class="panel-header">
-          <h1 class="panel-title">Device Library <button class="tool-button library-add-button" id="addLibraryDevice" type="button">Add</button><button class="tool-button library-add-button hidden" id="restoreFactoryDevices" type="button" title="Restore removed factory devices">Restore Removed</button></h1>
+          <h1 class="panel-title">Device Library <button class="tool-button library-add-button" id="addLibraryDevice" type="button">Add</button><button class="tool-button library-add-button" id="importDevicePackage" type="button" title="Import a portable .wnx device">Import Device</button><button class="tool-button library-add-button hidden" id="restoreFactoryDevices" type="button" title="Restore removed factory devices">Restore Removed</button></h1>
+          <input id="devicePackageFile" type="file" accept=".wnx" hidden>
           <div class="search-wrap">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path fill="currentColor" d="M9.6 4a5.6 5.6 0 0 1 4.45 9l4.48 4.47-1.06 1.06L13 14.05A5.6 5.6 0 1 1 9.6 4Zm0 1.5a4.1 4.1 0 1 0 0 8.2 4.1 4.1 0 0 0 0-8.2Z"/>
@@ -5748,6 +5760,8 @@
                     <label for="editorDeviceBrand">Brand</label>
                     <input id="editorDeviceBrand">
                   </div>
+                  <div class="field"><span>Created by</span><output id="editorDeviceCreator">Unknown creator (unverified)</output></div>
+                  <div class="field"><span>Creation date</span><output id="editorDeviceCreatedAt">Unknown date</output></div>
                   <div class="field">
                     <label for="editorDeviceCategory">Category</label>
                     <select id="editorDeviceCategory"></select>
@@ -5968,6 +5982,7 @@
       <div class="modal-footer">
         <button class="tool-button" id="resetDeviceEditor" type="button">Discard Unsaved Changes</button>
         <button class="tool-button" id="exportDeviceLibrary" type="button">Export Device JSON</button>
+        <button class="tool-button" id="exportDevicePackage" type="button">Export Device</button>
         <button class="primary-button" id="applyDeviceEditor" type="button">Apply Device Library</button>
       </div>
     </div>
@@ -14075,6 +14090,79 @@
       }
     }
 
+    async function devicePackageTrust() {
+      try {
+        const response = await fetch("./api/device-package", { credentials: "same-origin", cache: "no-store" });
+        return response.ok ? await response.json() : { keys: [], signingAvailable: false };
+      } catch { return { keys: [], signingAvailable: false }; }
+    }
+
+    async function exportSelectedDevicePackage(template, context) {
+      try {
+        const module = await import(engineImportUrl("./src/devicePackage.js"));
+        const payload = await module.collectDevicePackage(template, { library: context.devices, nodes: completeEditorNodeDefinitions(context.nodes), resolveImage: imagePathToDataUrl, factoryNodeTypes: window.WireNexusFactoryCatalogue.nodeTypes });
+        const trust = await devicePackageTrust();
+        const creator = accountLibraryUi?.publicCreator?.();
+        if (trust.signingAvailable && creator && payload.devices[0].attribution?.creatorId === creator.id) {
+          const response = await fetch("./api/device-package", { method: "POST", credentials: "same-origin",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${await accountLibraryUi.publishingToken()}` },
+            body: JSON.stringify({ digest: await module.devicePackageDigest(payload), creatorId: creator.id, previousProof: payload.devices[0].attribution?.proof }) });
+          if (!response.ok) throw new Error("Authorship could not be verified. Sign in again before exporting.");
+          payload.devices[0].attribution = (await response.json()).attribution;
+        }
+        const status = await module.verifyDeviceAttribution(payload, trust.keys);
+        const bytes = await module.encodeDevicePackage(payload);
+        downloadBlob(bytes, `${String(template.name || "device").replace(/[^a-zA-Z0-9._-]+/g, "-")}.wnx`, "application/vnd.wirenexus.device");
+        setStatus(`${template.name} exported. Authorship: ${status}.`);
+      } catch (error) { alert(`Device could not be exported: ${error.message}`); }
+    }
+
+    async function importDevicePackageFile(file) {
+      if (!file) return;
+      try {
+        if (accountLibraryUi?.canSave() === false) throw new Error("Sign in before importing into your library.");
+        const owner = localUserSettingsOwner;
+        if (!owner) throw new Error("The personal library is not ready.");
+        const module = await import(engineImportUrl("./src/devicePackage.js"));
+        if (file.size > module.PACKAGE_LIMITS.compressed + 46) throw new Error("Device package is too large.");
+        const payload = await module.decodeDevicePackage(await file.arrayBuffer());
+        const status = await module.verifyDeviceAttribution(payload, (await devicePackageTrust()).keys);
+        const context = personalLibraryNodeContext();
+        const prepared = module.prepareDevicePackageImport(payload, { library: context.devices, nodes: context.nodes, factoryNodeTypes: window.WireNexusFactoryCatalogue.nodeTypes });
+        prepared.devices.forEach(device => validateEditorTemplateForApply(structuredClone(device), prepared.nodes));
+        if (!confirm(`Import ${payload.devices[0].name}?\nCreated by: ${module.attributionLabel(payload.devices[0].attribution, status).name}\n${prepared.copied ? "Existing IDs will be imported as separate copies. " : ""}Existing devices and projects will not be changed.`)) return;
+        if (owner !== localUserSettingsOwner) throw new Error("The account changed. Reopen the package and try again.");
+        await owner.save(prepared.definition, { library: prepared.devices, nodes: prepared.nodes, expectedRevision: null });
+        setStatus(`${prepared.definition.name} imported into My Library. Authorship: ${status}.`);
+      } catch (error) { alert(`Device could not be imported: ${error.message}`); }
+    }
+
+    let deviceAttributionRender = 0;
+    async function renderDeviceAttribution(template) {
+      const ticket = ++deviceAttributionRender;
+      const creator = document.getElementById("editorDeviceCreator"), date = document.getElementById("editorDeviceCreatedAt");
+      creator.textContent = "Unknown creator (unverified)"; date.textContent = "Unknown date";
+      const module = await import(engineImportUrl("./src/devicePackage.js"));
+      let status = "unverified";
+      if (template.attribution?.proof) {
+        try {
+          const context = editorDependencyContext();
+          const payload = await module.collectDevicePackage(template, { library: context.devices, nodes: completeEditorNodeDefinitions(context.nodes), resolveImage: imagePathToDataUrl, factoryNodeTypes: window.WireNexusFactoryCatalogue.nodeTypes });
+          status = await module.verifyDeviceAttribution(payload, (await devicePackageTrust()).keys);
+        } catch { /* Modified or incomplete definitions retain their claim, never a verified badge. */ }
+      }
+      if (ticket !== deviceAttributionRender) return;
+      const label = module.attributionLabel(template.attribution, status);
+      creator.textContent = label.name; date.textContent = label.date;
+    }
+
+    function initializeDeviceAttribution(definition) {
+      const creator = accountLibraryUi?.publicCreator?.();
+      delete definition.attribution;
+      if (creator) definition.attribution = { version: 1, creatorId: creator.id, displayName: creator.displayName, createdAt: new Date().toISOString() };
+      return definition;
+    }
+
     async function exportDeviceLibraryJson() {
       try {
         syncEditorFieldsToDraft();
@@ -16723,6 +16811,7 @@
       syncEditorDeviceHeightControls(template);
       editorDeviceName.value = editorMode === "instance" ? (editorInstanceName || template.name || "") : (template.name || "");
       editorDeviceBrand.value = template.brand || "";
+      void renderDeviceAttribution(template).catch(() => {});
       editorDeviceCategory.innerHTML = deviceCategorySelectOptions(template.category || "Misc.");
       editorDeviceCategory.value = template.category || "Misc.";
       if (editorDeviceTechSpecs) editorDeviceTechSpecs.value = template.techSpecs || "";
@@ -19378,7 +19467,7 @@
     }
 
     function createBlankDeviceTemplate() {
-      return {
+      return initializeDeviceAttribution({
         id: `custom-device-${Date.now().toString(36)}`,
         schemaVersion: EDITOR_DEVICE_DEFINITION_SCHEMA_VERSION,
         deviceDefinitionVersion: EDITOR_DEVICE_DEFINITION_SCHEMA_VERSION,
@@ -19421,7 +19510,7 @@
           relationships: []
         },
         defaultConfiguration: null
-      };
+      });
     }
 
     function deviceMinimumHeight(template, startY = CONNECTOR_START_Y) {
@@ -29519,6 +29608,9 @@
           templateId: projectCustomTemplateId
         });
         if (projectCustomAction === "edit") openDeviceEditorForProjectTemplate(projectCustomTemplateId);
+        if (projectCustomAction === "export") void exportSelectedDevicePackage(projectCustomTemplateById(projectCustomTemplateId), {
+          devices: deviceLibrary, nodes: Object.entries(cableTypes).map(([id, node]) => ({ ...structuredClone(node), id }))
+        });
         if (projectCustomAction === "duplicate") duplicateProjectCustomDeviceTemplate(projectCustomTemplateId);
         if (projectCustomAction === "delete") deleteProjectCustomDeviceTemplate(projectCustomTemplateId);
         return;
@@ -29529,6 +29621,7 @@
         event.stopPropagation();
         hideDeviceContextMenu();
         if (templateAction === "edit") openDeviceEditorForTemplate(templateId);
+        if (templateAction === "export") void exportSelectedDevicePackage(libraryTemplateById(templateId), personalLibraryNodeContext());
         return;
       }
       const titleBlockAction = event.target.closest("[data-title-block-menu]")?.dataset.titleBlockMenu;
@@ -30029,6 +30122,7 @@
       if (!libraryTemplateById(templateId)) return;
       deviceContextMenu.innerHTML = `
         <button type="button" data-library-device-menu="edit">Edit in Device Editor</button>
+        <button type="button" data-library-device-menu="export">Export Device</button>
       `;
       deviceContextMenu.style.left = `${event.clientX}px`;
       deviceContextMenu.style.top = `${event.clientY}px`;
@@ -30046,6 +30140,7 @@
       if (!projectCustomTemplateById(templateId)) return;
       deviceContextMenu.innerHTML = `
         <button type="button" data-project-custom-device-menu="edit">Edit in Device Editor</button>
+        <button type="button" data-project-custom-device-menu="export">Export Device</button>
         <button type="button" data-project-custom-device-menu="duplicate">Duplicate the Device</button>
         <button type="button" class="danger" data-project-custom-device-menu="delete">Delete</button>
       `;
@@ -30072,6 +30167,7 @@
       const nextIdValue = uniqueDeviceTemplateId(idBase, collection || deviceLibrary);
       copy.id = nextIdValue;
       copy.name = nextName;
+      initializeDeviceAttribution(copy);
       copy.model = copy.model || nextName;
       copy.favorite = false;
       copy.isPartOfPair = false;
@@ -35432,6 +35528,15 @@ document.addEventListener("click", function(event) {
       discardEditorUnsavedChanges();
     });
     document.getElementById("exportDeviceLibrary").addEventListener("click", exportDeviceLibraryJson);
+    document.getElementById("exportDevicePackage").addEventListener("click", () => {
+      syncEditorFieldsToDraft();
+      void exportSelectedDevicePackage(currentEditorTemplate(), editorDependencyContext());
+    });
+    document.getElementById("importDevicePackage").addEventListener("click", () => document.getElementById("devicePackageFile").click());
+    document.getElementById("devicePackageFile").addEventListener("change", async event => {
+      const file = event.target.files[0]; event.target.value = "";
+      await importDevicePackageFile(file);
+    });
     document.getElementById("applyDeviceEditor").addEventListener("click", applyDeviceEditor);
     editorTabs.addEventListener("click", event => {
       const tab = event.target.closest("[data-editor-tab]");

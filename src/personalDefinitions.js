@@ -74,10 +74,24 @@ export function resolvePersonalNodeContext(definition, sourceNodes, destinationN
   restoreSemanticConnectorTypes(copy);
   const fields = ["type", "cableType", "physicalType", "connectorType", "switchPortType"];
   visitConnectorTypes(copy, type => { used.add(type); return type; }, fields);
+  const byId = new Map(scopedNodes.map(node => [node.id, node]));
+  for (const type of used) {
+    const parent = byId.get(type)?.compatibilityType;
+    if (parent && byId.has(parent)) used.add(parent);
+  }
   const required = scopedNodes.filter(node => used.has(node.id)
     && !(isSemanticNodeType(node.id) && destinationNodes.some(destination => destination.id === node.id)));
+  const sourceNodesSet = new Set(scopedNodes), destinationById = new Map(destinationNodes.map(node => [node.id, node]));
+  const dependencyKey = (node, lookup, seen = new Set()) => {
+    const content = nodeContent(node, artworkIdentity, canonicalIds), parent = lookup.get(node.compatibilityType);
+    if (!parent || canonicalIds.has(node.compatibilityType) || seen.has(node)) return content;
+    return definitionContent({ content, compatibilityDefinition: dependencyKey(parent, lookup, new Set([...seen, node])) });
+  };
   const { nodeDefinitions, nodeMap } = resolveNodeDefinitionCollisions(required, destinationNodes, "personal",
-    node => nodeContent(node, artworkIdentity, canonicalIds), canonicalIds);
+    node => dependencyKey(node, sourceNodesSet.has(node) ? byId : destinationById), canonicalIds);
+  for (const node of nodeDefinitions) {
+    if (node.compatibilityType && !canonicalIds.has(node.compatibilityType)) node.compatibilityType = nodeMap.get(node.compatibilityType) || node.compatibilityType;
+  }
   visitConnectorTypes(copy, type => nodeMap.get(type) || type, fields);
   return { definition: copy, nodes: nodeDefinitions };
 }
@@ -125,6 +139,10 @@ export function collectDefinitionDependencies(definition, library, nodes) {
     if (!node) throw new Error(`Required node definition ${id} is missing.`);
     return structuredClone(node);
   });
+  for (const node of requiredNodes) {
+    const parent = nodeById.get(node.compatibilityType);
+    if (parent && !used.has(parent.id)) { used.add(parent.id); requiredNodes.push(structuredClone(parent)); }
+  }
   return { devices: [...devices.values()].slice(1), nodes: requiredNodes };
 }
 

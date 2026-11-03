@@ -7,7 +7,7 @@ const artworkPrefix = "factory-artwork:";
 const hashPattern = /^[a-f0-9]{64}$/;
 const deviceKeys = new Set([...CONFIGURATION_KEYS, "id", "name", "width", "category", "model", "description", "techSpecs", "configSchema",
   "defaultConfiguration", "objectType", "isAdapterBreakout", "faceImage", "thumbnailImage", "faceImageNaturalWidth", "faceImageNaturalHeight",
-  "manufacturer", "vendor", "make"]);
+  "manufacturer", "vendor", "make", "attribution"]);
 const ignored = new Set(["favorite", "factoryTemplateId", "libraryProvenance", "derivedFromFactoryId", "projectCustomDevice", "isProjectCustomDevice", "projectCustomRevision", "visualRevision",
   "x", "y", "instanceId", "instanceName", "connections", "wires", "projectName", "projectId", "projectMetadata", "privateMetadata", "selected", "updatedAt", "createdAt"]);
 const fail = message => { throw new Error(message); };

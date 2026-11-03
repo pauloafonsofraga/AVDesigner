@@ -231,11 +231,25 @@ async function duplicateEditorHarness(mode = "library") {
     openDeviceEditorForProjectTemplateDraft(copy, nextMode, options) { c.projectCopy = { copy, nextMode, options }; }
   });
   const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
-  for (const name of ["uniqueDeviceTemplateId", "duplicateDeviceTemplateForCollection", "duplicateCurrentEditorDevice"]) {
+  for (const name of ["initializeDeviceAttribution", "uniqueDeviceTemplateId", "duplicateDeviceTemplateForCollection", "duplicateCurrentEditorDevice"]) {
     vm.runInContext(html.match(new RegExp(`^    (?:async )?function ${name}\\([^\\n]*\\) \\{[\\s\\S]*?^    \\}`, "m"))[0], c);
   }
   return harness;
 }
+
+test("authenticated device duplication gets its own public attribution without changing the original author", async () => {
+  const { c, owner } = await duplicateEditorHarness();
+  c.accountLibraryUi = { publicCreator: () => ({ id: "creator-account", displayName: "Video Engineer" }), canSave: () => true, isAccount: () => true };
+  c.editorDraft[0].attribution = { version: 1, creatorId: "original-author", displayName: "Original Author", createdAt: "2020-01-01" };
+  await c.duplicateCurrentEditorDevice();
+  assert.deepEqual(c.alerts, []);
+  assert.equal(c.editorDraft[0].attribution.creatorId, "original-author");
+  const duplicate = owner.entry(c.editorDraft[1].id).definition;
+  assert.equal(duplicate.attribution.creatorId, "creator-account");
+  assert.equal(duplicate.attribution.displayName, "Video Engineer");
+  assert.ok(Date.parse(duplicate.attribution.createdAt));
+  assert.equal(duplicate.attribution.proof, undefined);
+});
 
 test("Device Editor duplication saves an independent reusable definition before closing, without a separate Defaults save", async () => {
   const { c, owner, store } = await duplicateEditorHarness();

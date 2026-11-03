@@ -1,6 +1,7 @@
 import { createAccountLibraryStore, reviewBrowserImport, importBrowserLibrary } from './accountLibrary.js';
 import {mountPlansPanel} from './plansUi.js';
 import {mountOrganizationsPanel} from './organizationsUi.js';
+import {publicDisplayName} from './devicePackage.js';
 
 // The UI capability is display-only. Every storage operation reauthorizes at the
 // RPC boundary using auth.uid(), including promotion receipt writes/removals.
@@ -29,7 +30,7 @@ export async function mountAccountLibrary({ container, recoveryStore, createOwne
   let client, store, owner, identity=null, configured = false, registrationEnabled=false,
     recoveryRequested=false,passwordRecovery=false,registrationPending=false,factorId='',pendingFactor='',
     state = 'Browser recovery only - account service not configured', detail = '', epoch = 0, activeId = null, busy = false, selectedWorkspaceId=null,
-    entryHost=null,authMode='password',ready=false,configurationKnown=false,requiresMfa=false,projectAuthor='';
+    entryHost=null,authMode='password',ready=false,configurationKnown=false,requiresMfa=false,projectAuthor='',publicCreator=null;
   const listeners=new Set();
   const snapshot=()=>({ready,configurationKnown,configured,authenticated:!!owner && !!identity,accountId:activeId,
     requiresMfa,passwordRecovery,recoveryRequested,registrationPending,busy,status:state,detail});
@@ -209,6 +210,7 @@ export async function mountAccountLibrary({ container, recoveryStore, createOwne
   async function activate(session) {
     const ticket = ++epoch;
     projectAuthor=session?.user?.user_metadata?.full_name || session?.user?.email || '';
+    publicCreator=session?.user?.id ? {id:session.user.id,displayName:publicDisplayName(session.user.user_metadata)} : null;
     plansPanel.clear();
     teamsPanel.clear();
     if (!session) {
@@ -271,6 +273,7 @@ export async function mountAccountLibrary({ container, recoveryStore, createOwne
   return Object.freeze({ isAccount: () => !!owner, canSave: () => !configured || (!!owner && identity?.workspaceRole!=='viewer'), status: () => state,
     entryState:snapshot,
     projectAuthor:()=>owner && identity?String(projectAuthor):'',
+    publicCreator:()=>owner && identity && publicCreator?structuredClone(publicCreator):null,
     subscribe(listener){listeners.add(listener);listener(snapshot());return()=>listeners.delete(listener);},
     showAccount,selectWorkspace,signOut:()=>run(signOutAccount),
     async planStatus(){
