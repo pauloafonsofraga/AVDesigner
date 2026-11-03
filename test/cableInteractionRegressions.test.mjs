@@ -5,7 +5,7 @@ import {readFileSync} from 'node:fs';
 import {normalizeAvDesignerProject} from '../src/engine/projectAdapter.js';
 import {SceneGraph} from '../src/engine/sceneGraph.js';
 import {resolvePlayableSignalPath,jumpNodeCenter,jumpLinkBezierPolyline} from '../src/engine/jumpNodeModel.js';
-import {wirePlaybackDurationMs} from '../src/engine/wirePlayback.js';
+import {wirePlaybackDurationMs,wirePlaybackEase,polylineLength,polylinePointAtDistance} from '../src/engine/wirePlayback.js';
 import {outputPdfJumpFixture} from '../fixtures/output-pdf-jumps.mjs';
 
 const source=readFileSync(new URL('../src/engine/productionBridge.js',import.meta.url),'utf8');
@@ -14,6 +14,34 @@ function method(name){
   const tail=source.slice(start+1),end=tail.slice(1).search(/\n  (?:async )?[a-zA-Z]\w*\(/);
   return tail.slice(0,end+1);
 }
+
+function playbackHarness(steps){
+  const b=vm.runInNewContext(`({${['advanceWirePlayback','wirePlaybackOverlayState'].map(method).join(',')}})`,
+    {wirePlaybackEase,polylineLength,polylinePointAtDistance,WIRE_PLAYBACK_COMPLETE_HOLD_MS:350});
+  Object.assign(b,{wirePlayback:{active:true,steps,stepIndex:0,progress:0,stepStartedAt:100,teleportCount:0},
+    centerCameraAtWorldPoint(){},recordWirePlaybackDiagnostics(){},scheduleRender(){},requestWirePlaybackFrame(){},stopWirePlayback(){this.wirePlayback=null;}});
+  return b;
+}
+test('completed physical and Jump segments never render the next path at the previous segment progress',()=>{
+  const steps=[{type:'wire',wireId:'a',points:[{x:0,y:0},{x:100,y:0}],durationMs:100},
+    {type:'jump-link',jumpLinkId:'pair',points:[{x:100,y:0},{x:300,y:0}],durationMs:100},
+    {type:'wire',wireId:'b',points:[{x:300,y:0},{x:400,y:0}],durationMs:100}];
+  const before=structuredClone(steps),b=playbackHarness(steps);
+  b.advanceWirePlayback(200);
+  let overlay=b.wirePlaybackOverlayState();assert.equal(overlay.stepType,'jump-link');assert.equal(overlay.progress,0);
+  b.advanceWirePlayback(225);assert.equal(b.wirePlaybackOverlayState().progress,.25);
+  b.advanceWirePlayback(300);overlay=b.wirePlaybackOverlayState();assert.equal(overlay.wireId,'b');assert.equal(overlay.progress,0);
+  b.advanceWirePlayback(325);assert.equal(b.wirePlaybackOverlayState().progress,.25);
+  b.advanceWirePlayback(400);assert.equal(b.wirePlayback.progress,1,'final segment completion is preserved');
+  b.advanceWirePlayback(401);assert.equal(b.wirePlaybackOverlayState().stepType,'complete');assert.equal(b.wirePlaybackOverlayState().progress,1);
+  assert.deepEqual(steps,before);
+});
+test('teleport transitions also start the following trace at zero rather than flashing its whole path',()=>{
+  const b=playbackHarness([{type:'teleport',to:{x:100,y:0}},
+    {type:'jump-link',jumpLinkId:'pair',points:[{x:100,y:0},{x:300,y:0}],durationMs:100}]);
+  b.advanceWirePlayback(200);assert.equal(b.wirePlaybackOverlayState().progress,0);assert.equal(b.wirePlayback.teleportCount,1);
+  b.advanceWirePlayback(225);assert.equal(b.wirePlaybackOverlayState().progress,.25);
+});
 test('pointer-up commits custom and orthogonal endpoint replugs rather than leaving a drawing gesture active',()=>{
   for(const routeStyle of ['custom','orthogonal','bezier']){
     const b=vm.runInNewContext(`({${method('handlePointerUp')}})`);

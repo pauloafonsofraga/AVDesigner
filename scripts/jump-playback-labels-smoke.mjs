@@ -28,6 +28,10 @@ try{
     await scope.evaluate(output=>{
       window.testPlaybackHost=output?outputViewer:activeEngineBridge();window.playbackCaptions=[];
       const h=testPlaybackHost,ctx=h.renderer.labelContext,fill=ctx.fillText,clear=ctx.clearRect;
+      if(!output){
+        window.playbackTransitions=[];const advance=h.advanceWirePlayback;
+        h.advanceWirePlayback=function(now){const index=this.wirePlayback?.stepIndex;advance.call(this,now);const overlay=this.wirePlaybackOverlayState();if(this.wirePlayback?.stepIndex!==index && overlay)playbackTransitions.push({stepType:overlay.stepType,progress:overlay.progress});};
+      }
       ctx.fillText=function(text,...args){playbackCaptions.push(String(text));return fill.call(this,text,...args);};
       ctx.clearRect=function(...args){playbackCaptions=[];return clear.call(this,...args);};
       if(output){h.select({type:'device',id:'strict-a'});h.fit();h.renderNow();}
@@ -44,6 +48,7 @@ try{
       return (output?h.playback?.steps[h.playback.index]?.type==='jump-link':h.wirePlaybackOverlayState()?.stepType==='jump-link') && h.renderer.frameStats().wirePlayback>0;
     },output);
     assert.equal(await scope.evaluate(caption=>playbackCaptions.includes(caption),caption),false,'Jump caption must not float over the playback path');
+    if(!output)assert.equal(await scope.evaluate(()=>playbackTransitions.find(step=>step.stepType==='jump-link')?.progress),0,'the first Jump frame must start at zero, not flash a completed path');
     await scope.screenshot({path:join(dir,`${output?'viewer':'editor'}-playing.png`)});
     await scope.evaluate(output=>{
       const h=testPlaybackHost;

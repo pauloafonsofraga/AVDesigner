@@ -6245,8 +6245,8 @@ class ProductionEngineBridge {
       state.teleportCount += 1;
       state.lastPoint = step.to;
       state.lastPoints = [];
-      state.progress = 1;
       state.stepIndex += 1;
+      state.progress = state.steps[state.stepIndex] ? 0 : 1;
       state.stepStartedAt = now;
       this.centerCameraAtWorldPoint(step.to, "play-wire-teleport", { render: false, zoom: state.playbackZoom });
       this.recordWirePlaybackDiagnostics("teleport");
@@ -6267,6 +6267,7 @@ class ProductionEngineBridge {
     if (progress >= 1) state.lastPoint = step.points.at(-1) || state.lastPoint;
     if (progress >= 1) {
       state.stepIndex += 1;
+      state.progress = state.steps[state.stepIndex] ? 0 : 1;
       state.stepStartedAt = now;
     }
     this.recordWirePlaybackDiagnostics(progress >= 1 ? "step-complete" : "frame");
