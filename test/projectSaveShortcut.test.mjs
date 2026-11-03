@@ -6,7 +6,7 @@ import {readFileSync} from 'node:fs';
 const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 const handler=html.match(/^    async function handleProjectSaveShortcut\(event\) \{[\s\S]*?^    \}/m)[0];
 const setup=(saveProject,globals={})=>{
-  const context=vm.createContext({saveProject,...globals});
+  const context=vm.createContext({saveProject,closeCommentEditor(){},...globals});
   vm.runInContext('let projectShortcutSavePending=false;\n'+handler,context);
   return context.handleProjectSaveShortcut;
 };
@@ -40,6 +40,10 @@ test('failed saves release the shortcut guard',async()=>{
 });
 test('shortcut uses window capture to own browser save before focused controls',()=>{
   assert.match(html,/window\.addEventListener\("keydown", handleProjectSaveShortcut, true\)/);
+});
+test('an explicit save commits active comment text before serializing the project',async()=>{
+  const calls=[],run=setup(async()=>calls.push('save'),{closeCommentEditor:save=>{assert.equal(save,true);calls.push('comment');}});
+  await run(key({metaKey:true,target:{tagName:'TEXTAREA'}}));assert.deepEqual(calls,['comment','save']);
 });
 test('account entry consumes browser Save without saving the hidden project',async()=>{
   let calls=0;const run=setup(()=>{calls++;},{wireNexusAccountPortal:{visible:()=>true}}),event=key({metaKey:true});

@@ -3471,7 +3471,7 @@ class ProductionEngineBridge {
     this.updateSelectionHud();
     this.updateInteractionHud("canvas-object-select", hit);
     if (device.kind === "comment") {
-      if (hit.part === "body" && !this.deviceMovementLocked(device)) {
+      if ((hit.part === "body" || hit.part === "arrow") && !this.deviceMovementLocked(device)) {
         this.beginCommentBoxDrag(hit, point, world, event);
       } else {
         this.scheduleRender();
@@ -3492,15 +3492,18 @@ class ProductionEngineBridge {
     const raw = this.rawSceneObjectSnapshot("comment", sourceId);
     if (!device || !raw?.objectData) return false;
     const box = commentRawBox(raw.objectData);
+    const moveAnchor = hit.part === "arrow";
+    const origin = moveAnchor ? commentRawAnchor(raw.objectData) : box;
     this.commentBoxDrag = {
       deviceId: device.id,
       sourceId,
       kind: "comment",
+      moveAnchor,
       beforeRaw: raw.objectData,
       currentRaw: deepClone(raw.objectData),
       index: raw.index,
-      offsetX: Number(worldPoint?.x || 0) - box.x,
-      offsetY: Number(worldPoint?.y || 0) - box.y,
+      offsetX: Number(worldPoint?.x || 0) - origin.x,
+      offsetY: Number(worldPoint?.y || 0) - origin.y,
       startScreen: screenPoint ? { ...screenPoint } : null,
       startWorld: worldPoint ? { ...worldPoint } : null,
       moved: false
@@ -3517,12 +3520,19 @@ class ProductionEngineBridge {
     const next = deepClone(session.currentRaw || session.beforeRaw || {});
     const nextX = Math.round(Number(worldPoint.x || 0) - session.offsetX);
     const nextY = Math.round(Number(worldPoint.y || 0) - session.offsetY);
-    if (Math.abs((Number(next.x) || 0) - nextX) < 0.001 && Math.abs((Number(next.y) || 0) - nextY) < 0.001) {
+    const origin = session.moveAnchor ? commentRawAnchor(next) : next;
+    if (Math.abs((Number(origin.x) || 0) - nextX) < 0.001 && Math.abs((Number(origin.y) || 0) - nextY) < 0.001) {
       return false;
     }
-    next.x = nextX;
-    next.y = nextY;
-    preserveCommentRawAnchor(next, session.beforeRaw);
+    if (session.moveAnchor) {
+      if (next.anchor || !("anchorX" in next && "anchorY" in next)) next.anchor = { ...next.anchor, x: nextX, y: nextY };
+      if ("anchorX" in next) next.anchorX = nextX;
+      if ("anchorY" in next) next.anchorY = nextY;
+    } else {
+      next.x = nextX;
+      next.y = nextY;
+      preserveCommentRawAnchor(next, session.beforeRaw);
+    }
     session.currentRaw = next;
     session.moved = true;
     this.replaceCanvasObjectSceneFromRaw("comment", next, {
@@ -3552,7 +3562,7 @@ class ProductionEngineBridge {
     }
     this.commitCanvasObjectSnapshot("comment", session.beforeRaw, session.currentRaw, {
       index: session.index,
-      label: "move comment box",
+      label: session.moveAnchor ? "move comment arrow" : "move comment box",
       select: true
     });
     this.hud?.setMetric("comment anchor", formatDebugPoint(commentRawAnchor(session.currentRaw)));
