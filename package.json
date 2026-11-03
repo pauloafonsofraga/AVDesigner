@@ -11,7 +11,9 @@
     "build:pdf": "node scripts/build-pdf.mjs",
     "check:pdf": "node scripts/build-pdf.mjs --check",
     "build:cloud-run": "node scripts/build-cloud-run-public.mjs",
-    "start:cloud-run": "node scripts/start-cloud-run.mjs"
+    "start:cloud-run": "node scripts/start-cloud-run.mjs",
+    "build:community-package": "node scripts/build-community-package.mjs",
+    "check:community-library": "node scripts/community-library-validation.mjs"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.3.14",
@@ -25,7 +27,8 @@
     "@supabase/supabase-js": "2.117.2",
     "@vercel/blob": "2.8.0",
     "exceljs": "4.4.0",
-    "pdfjs-dist": "6.4.299"
+    "pdfjs-dist": "6.4.299",
+    "sharp": "0.35.5"
   },
   "overrides": {
     "@vercel/blob": {"undici": "6.29.1"}

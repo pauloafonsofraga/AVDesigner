@@ -69,6 +69,8 @@ test('signatures authenticate public attribution, survive device ID collisions a
   assert.equal(response.code,200);assert.doesNotMatch(JSON.stringify(response.body),/private@example|"d":|fixture/);
   payload.devices[0].attribution=response.body.attribution;
   assert.equal(await packages.verifyDeviceAttribution(payload,trust.keys),'verified');
+  payload.devices[0].attribution.proof.claims=Object.fromEntries(Object.entries(payload.devices[0].attribution.proof.claims).reverse());
+  assert.equal(await packages.verifyDeviceAttribution(payload,trust.keys),'verified','JSONB key ordering must not invalidate an authenticated signature');
   assert.equal(await packages.verifyDeviceAttribution(payload,[]),'unverified');
   const copied=packages.prepareDevicePackageImport(payload,{library:[root()],nodes:[]});
   const roundtrip=await packages.collectDevicePackage(copied.definition,{library:copied.devices,nodes:copied.nodes,factoryNodeTypes:catalogue.nodeTypes});
@@ -153,7 +155,7 @@ test('attribution API cold-starts without the browser Engine dependency graph in
   const directory=mkdtempSync(join(tmpdir(),'wnx-attribution-server-'));
   t.after(()=>rmSync(directory,{recursive:true,force:true}));
   for(const dir of ['api','src/server'])mkdirSync(join(directory,dir),{recursive:true});
-  for(const file of ['api/device-package.js','src/server/publishing.js','src/deviceAttributionIdentity.js'])copyFileSync(new URL('../'+file,import.meta.url),join(directory,file));
+  for(const file of ['api/device-package.js','src/server/publishing.js','src/server/deviceAttribution.js','src/deviceAttributionIdentity.js'])copyFileSync(new URL('../'+file,import.meta.url),join(directory,file));
   writeFileSync(join(directory,'package.json'),JSON.stringify({type:'module'}));
   symlinkSync(fileURLToPath(new URL('../node_modules',import.meta.url)),join(directory,'node_modules'));
   const module=await import(pathToFileURL(join(directory,'api/device-package.js')).href);

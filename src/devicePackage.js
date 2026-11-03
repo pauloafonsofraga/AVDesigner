@@ -2,7 +2,7 @@ import {authoredDefinition, collectDefinitionDependencies, contentRevision, defi
 import {inlineProjectArtwork, imageDataUrl} from './imageAssets.js';
 import {visitConnectorTypes} from './engine/canvasClipboard.js';
 import {canonicalFactoryNodeIds,generatedPersonalAliasBase} from './engine/nodeCompatibilityIdentity.js';
-import {publicDisplayName} from './deviceAttributionIdentity.js';
+import {publicDisplayName,attributionClaimText} from './deviceAttributionIdentity.js';
 export {publicDisplayName} from './deviceAttributionIdentity.js';
 
 export const DEVICE_PACKAGE_VERSION = 1;
@@ -175,7 +175,7 @@ export async function verifyDeviceAttribution(payload,trustedKeys=[]) {
     if(claims.digest!==await devicePackageDigest(payload) || claims.creatorId!==attribution.creatorId || claims.displayName!==attribution.displayName || claims.createdAt!==attribution.createdAt)return 'unverified';
     const key=await crypto.subtle.importKey('jwk',trusted.jwk,{name:'ECDSA',namedCurve:'P-256'},false,['verify']);
     const sig=Uint8Array.from(atob(proof.signature),c=>c.charCodeAt(0));
-    return await crypto.subtle.verify({name:'ECDSA',hash:'SHA-256'},key,sig,new TextEncoder().encode(JSON.stringify(claims)))?'verified':'unverified';
+    return await crypto.subtle.verify({name:'ECDSA',hash:'SHA-256'},key,sig,new TextEncoder().encode(attributionClaimText(claims)))?'verified':'unverified';
   }catch{return 'unverified';}
 }
 export function prepareDevicePackageImport(payload,{library=[],nodes=[],factoryNodeTypes={},uuid=()=>crypto.randomUUID()}={}) {

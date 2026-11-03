@@ -8,6 +8,7 @@ import {createPublishHandler} from '../../api/publish.js';
 import {createProjectHandler} from '../../api/project.js';
 import {createOrganizationInviteHandler} from '../../api/organization-invite.js';
 import {createDevicePackageHandler} from '../../api/device-package.js';
+import {createCommunityDevicesHandler} from '../../api/community-devices.js';
 import {createCollaborationHandler} from '../../api/collaboration-operations.js';
 import {createCollaborationLiveHandler} from '../../api/collaboration-live.js';
 import {createPublishingSecurity,PublishingError,LIMITS,send,failure} from './publishing.js';
@@ -44,6 +45,7 @@ export function createCloudRunRoutes({env,storage=createGcsPublicationStorage({b
     ['/api/project',createProjectHandler({security:guard,blobGet:storage.get})],
     ['/api/organization-invite',createOrganizationInviteHandler({env:settings,security:guard})],
     ['/api/device-package',createDevicePackageHandler({env:settings,security:guard})],
+    ['/api/community-devices',createCommunityDevicesHandler({env:settings,security:guard})],
     ['/api/collaboration-operations',createCollaborationHandler({env:settings,security:guard})],
     ['/api/collaboration-live',createCollaborationLiveHandler({env:settings,security:guard})],
     ['/api/health',(req,res)=>send(res,200,{ok:true,blobConfigured:false,storageProvider:'gcs',method:req.method})],

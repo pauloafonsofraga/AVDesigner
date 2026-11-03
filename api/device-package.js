@@ -1,21 +1,9 @@
-import {createPrivateKey,createPublicKey,createHash,sign,verify} from 'node:crypto';
+import {createPublicKey,verify} from 'node:crypto';
 import {createClient} from '@supabase/supabase-js';
 import {createPublishingSecurity,PublishingError,readBody,send} from '../src/server/publishing.js';
-import {publicDisplayName} from '../src/deviceAttributionIdentity.js';
+import {publicDisplayName,attributionClaimText} from '../src/deviceAttributionIdentity.js';
+import {signingConfiguration,signDeviceAttribution} from '../src/server/deviceAttribution.js';
 
-function signingConfiguration(env) {
-  const keys=JSON.parse(env.WIRENEXUS_DEVICE_ATTRIBUTION_PUBLIC_KEYS || '[]');
-  if(!Array.isArray(keys) || keys.some(k=>!k.id || k.jwk?.kty!=='EC' || k.jwk?.crv!=='P-256' || k.jwk.d))throw Error('Invalid public attribution key configuration.');
-  let privateKey,active;
-  if(env.WIRENEXUS_DEVICE_ATTRIBUTION_PRIVATE_JWK){
-    privateKey=createPrivateKey({key:JSON.parse(env.WIRENEXUS_DEVICE_ATTRIBUTION_PRIVATE_JWK),format:'jwk'});
-    const jwk=createPublicKey(privateKey).export({format:'jwk'});
-    if(jwk.kty!=='EC' || jwk.crv!=='P-256')throw Error('Attribution requires P-256.');
-    active={id:createHash('sha256').update(JSON.stringify(jwk)).digest('hex'),jwk};
-    if(!keys.some(k=>k.id===active.id))keys.push(active);
-  }
-  return {keys,privateKey,active};
-}
 export function createDevicePackageHandler({env=process.env,security=()=>createPublishingSecurity({env}),clientFactory=createClient,now=()=>new Date().toISOString()}={}) {
   return async(req,res)=>{
     try {
@@ -33,13 +21,11 @@ export function createDevicePackageHandler({env=process.env,security=()=>createP
       let createdAt=now();
       const previous=body.previousProof,key=config.keys.find(k=>k.id===previous?.keyId);
       if(key && previous.algorithm==='ES256' && previous.version===1 && previous.claims?.creatorId===actor
-        && verify('sha256',Buffer.from(JSON.stringify(previous.claims)),{key:createPublicKey({key:key.jwk,format:'jwk'}),dsaEncoding:'ieee-p1363'},Buffer.from(previous.signature || '','base64'))){
+        && verify('sha256',Buffer.from(attributionClaimText(previous.claims)),{key:createPublicKey({key:key.jwk,format:'jwk'}),dsaEncoding:'ieee-p1363'},Buffer.from(previous.signature || '','base64'))){
         createdAt=previous.claims.createdAt;
       }
       const claims={digest:body.digest,creatorId:actor,displayName:publicDisplayName(data.user.user_metadata),createdAt};
-      const proof={version:1,algorithm:'ES256',keyId:config.active.id,claims,
-        signature:sign('sha256',Buffer.from(JSON.stringify(claims)),{key:config.privateKey,dsaEncoding:'ieee-p1363'}).toString('base64')};
-      return send(res,200,{attribution:{version:1,creatorId:actor,displayName:claims.displayName,createdAt,proof}});
+      return send(res,200,{attribution:signDeviceAttribution(config,claims)});
     }catch(error){return send(res,error instanceof PublishingError?error.status:503,{error:error instanceof PublishingError?error.message:'Device attribution is temporarily unavailable.'});}
   };
 }

@@ -6,3 +6,6 @@ export function publicDisplayName(metadata={}) {
   }
   return 'WireNexus contributor';
 }
+
+// JSONB can reorder object keys. Keep v1 signatures stable across persistence.
+export const attributionClaimText=claims=>JSON.stringify({digest:claims.digest,creatorId:claims.creatorId,displayName:claims.displayName,createdAt:claims.createdAt});
