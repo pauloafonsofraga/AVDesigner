@@ -20,7 +20,8 @@ test('compact toolbar buttons keep 22px artwork and reduce captions by ten perce
 });
 
 test('toolbar icons cover every icon action, leaving voltage and placement as explicit values',()=>{
-  assert.equal(Object.keys(api.buttons).length,31);
+  assert.equal(Object.keys(api.buttons).length,32);
+  assert.equal(api.buttons.projectRevisionsButton,'history');assert.equal(api.labels.projectRevisionsButton,'Revisions');
   assert.equal(api.buttons.saveCloudProject,'cloud-upload');assert.equal(api.buttons.openCloudProject,'folder-open');
   assert.equal(api.buttons.deviceEditorButton,'chassis');
   assert.equal(api.buttons.createCableLoom,'loom');assert.equal(api.buttons.createMultiCore,'multi-core');
@@ -61,7 +62,7 @@ test('toolbar controls retain their original order and the original SVG-independ
   const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
   const toolbar=html.slice(html.indexOf('<div class="toolbar" aria-label="Project actions">'),html.indexOf('</header>'));
   const ids=[...toolbar.matchAll(/<(?:button|select)[^>]*\bid="([^"]+)"/g)].map(m=>m[1]);
-  assert.deepEqual(ids,['zoomOut','zoomIn','zoomFit','undoAction','redoAction','darkModeToggle','gridToggle','objectSnappingToggle','wireModeToggle','wirePlacementSelect','createCableLoom','createMultiCore','cableHopsToggle','voltageToggle','deviceEditorButton','nodeBuilderButton','rackBuilderButton','importLedGrid','commentTool','areaTool','jumpNodeTool','titleBlockButton','newProject','loadProject','saveProject','saveProjectAs','saveCloudProject','openCloudProject','exportHtml','publishProjectButton','projectReportButton','cableScheduleButton','exportPdf']);
+  assert.deepEqual(ids,['zoomOut','zoomIn','zoomFit','undoAction','redoAction','darkModeToggle','gridToggle','objectSnappingToggle','wireModeToggle','wirePlacementSelect','createCableLoom','createMultiCore','cableHopsToggle','voltageToggle','deviceEditorButton','nodeBuilderButton','rackBuilderButton','importLedGrid','commentTool','areaTool','jumpNodeTool','titleBlockButton','newProject','loadProject','saveProject','saveProjectAs','projectRevisionsButton','saveCloudProject','openCloudProject','exportHtml','publishProjectButton','projectReportButton','cableScheduleButton','exportPdf']);
   assert.match(source,/old\.replaceWith\(svg\)/);
   assert.doesNotMatch(source,/addEventListener|preventDefault|keydown|fetch\(/);
 });

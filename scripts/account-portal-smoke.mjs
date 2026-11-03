@@ -64,6 +64,7 @@ try{
   await page.getByLabel('Password',{exact:true}).fill('local-test-password');await page.getByLabel('Password',{exact:true}).press('Enter');
   await page.locator('#portalLaunch').waitFor({state:'visible'});assert.equal(await page.evaluate(()=>portal.view()),'dashboard');
   assert.equal(otpRequests,0,'Password login must never request an email OTP');
+  assert.equal(await page.evaluate(()=>portalAccount.projectAuthor()),user.email,'Revision author comes from the authenticated session');
   const restored=await browser.newContext({storageState:await context.storageState()});await configure(restored);
   const restoredPage=await restored.newPage();await restoredPage.goto(base);await restoredPage.waitForFunction(()=>window.wireNexusAccountPortal?.view()==='dashboard');await restored.close();
   assert.equal(otpRequests,0,'A new browser context restores the persisted SDK session without an OTP');
@@ -84,6 +85,7 @@ try{
   await frame();await page.screenshot({path:join(dir,'dashboard-desktop.png')});await page.setViewportSize({width:390,height:844});await frame();await page.screenshot({path:join(dir,'dashboard-mobile.png')});
   assert.ok(await page.evaluate(()=>document.getElementById('accountPortal').scrollWidth<=innerWidth));await page.setViewportSize({width:1440,height:1000});
   await page.locator('#portalSignOut').click();await page.waitForFunction(()=>portal.view()==='login');
+  assert.equal(await page.evaluate(()=>portalAccount.projectAuthor()),'','Signed-out accounts cannot supply a revision author');
   await page.getByRole('button',{name:'Email code',exact:true}).click();await page.getByLabel('Email',{exact:true}).fill(user.email);await page.locator('#ownerSendCode').click();await page.getByLabel('Email code',{exact:true}).fill('12345678');await page.locator('#ownerVerifyCode').click();
   await page.waitForFunction(()=>portal.view()==='dashboard');assert.equal(method,'email');
   await mount();assert.equal(await page.evaluate(()=>portal.view()),'dashboard'); // Same SDK storage restores the session.

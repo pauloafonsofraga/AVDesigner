@@ -5557,6 +5557,7 @@
         <button class="tool-button" id="saveProjectAs" type="button" title="Save project as a new .avd file">
           <span>Save As</span>
         </button>
+        <button class="tool-button has-icon" id="projectRevisionsButton" type="button" title="Project revisions" aria-label="Project revisions"><span>Revisions</span></button>
         <button class="tool-button has-icon" id="saveCloudProject" type="button" title="Save to Cloud" aria-label="Save to Cloud"><span class="toolbar-caption">Cloud Save</span></button>
         <button class="tool-button has-icon" id="openCloudProject" type="button" title="Open from Cloud" aria-label="Open from Cloud"><span class="toolbar-caption">Cloud Open</span></button>
         <button class="tool-button has-icon" id="exportHtml" type="button" title="Export a self-contained HTML wirechart" aria-label="Export HTML wirechart">
@@ -7185,6 +7186,8 @@
     let projectFileHandle = null;
     let projectFileName = "";
     let projectUnsavedChanges = null;
+    let projectRevisionGeneration = 0;
+    let projectRevisionsUi = null;
     let idCounter = 1;
     let svgDomIdCounter = 1;
 
@@ -33444,6 +33447,7 @@
         version: state.version,
         ...(state.layers ? {layers:state.layers,...(!readOnly ? {activeLayerId:state.activeLayerId} : {})} : {}),
         projectName: state.projectName,
+        ...(state.projectRevisions ? {projectRevisions:state.projectRevisions} : {}),
         darkMode: state.darkMode,
         gridVisible: state.gridVisible,
         objectSnapping: state.objectSnapping,
@@ -33486,6 +33490,7 @@
 
     function compactProjectDataForViewer(data) {
       const compact = structuredClone(data);
+      delete compact.projectRevisions;
       const usedTemplateIds = new Set();
       (compact.devices || []).forEach(instance => addTemplateIdsFromInstance(instance, usedTemplateIds));
       (compact.racks || []).forEach(rack => {
@@ -34475,10 +34480,41 @@ document.addEventListener("click", function(event) {
       });
     }
 
-    async function projectJsonPayload({ onSnapshot } = {}) {
+    async function openProjectRevisions() {
+      await loadLocalUserSettings();
+      if (!projectRevisionsUi) {
+        const {mountProjectRevisions} = await import(engineImportUrl("./src/projectRevisionsUi.js"));
+        if (projectRevisionsUi) return projectRevisionsUi.open();
+        projectRevisionsUi = mountProjectRevisions({
+          button:document.getElementById("projectRevisionsButton"),
+          read:()=>({
+            token:`${projectRevisionGeneration}:${accountLibraryUi?.cloudIdentity()?.accountId || "local"}`,
+            archive:state.projectRevisions,
+            blocked:cloudProjectsUi?.collaboration?.active()
+              ? "Live collaboration is active. Use Checkpoint, or leave collaboration to manage revisions."
+              : !activeEngineBridge()?.ready ? "Wait for the project to finish loading." : ""
+          }),
+          write:archive=>{state.projectRevisions=archive;setStatus("Project revisions changed. Save the project to retain them.");},
+          serialize:()=>projectJsonPayload({includeRevisions:false}),
+          author:()=>accountLibraryUi?.projectAuthor?.() || "",
+          canShow:()=>!window.wireNexusAccountPortal?.visible() && deviceEditorModal.classList.contains("hidden"),
+          subscribe:listener=>accountLibraryUi?.subscribe(listener) || (()=>{}),
+          load:data=>new Promise((resolve,reject)=>loadProjectFile(
+            new File([JSON.stringify(data)], projectFileName || `${data.projectName || "WireNexus"}.avd`, {type:"application/json"}),
+            {fileHandle:projectFileHandle,restoreRevision:true,onLoaded:()=>{setStatus("Revision restored as a local working copy. Save to keep the restored project.");resolve();},onError:reject})),
+          download:(data,name)=>downloadBlob(JSON.stringify(data,null,2),`${name.replace(/[<>:"/\\|?*\u0000-\u001f]/g,"_")}.avd`,"application/json"),
+          onStatus:setStatus
+        });
+      }
+      return projectRevisionsUi.open();
+    }
+
+    async function projectJsonPayload({ onSnapshot, includeRevisions = true } = {}) {
       const module = await loadCableScheduleModule();
       assignProjectCableNumbers(module);
-      const data = window.WireNexusImageAssets.portableProjectData(projectSnapshotData(), window.WireNexusFactoryCatalogue);
+      const snapshot = projectSnapshotData();
+      if (!includeRevisions) delete snapshot.projectRevisions;
+      const data = window.WireNexusImageAssets.portableProjectData(snapshot, window.WireNexusFactoryCatalogue);
       onSnapshot?.();
       await inlineProjectImageAssets(data);
       return JSON.stringify(data, null, 2);
@@ -34638,6 +34674,7 @@ document.addEventListener("click", function(event) {
     }
 
     function loadProjectFile(file, options = {}) {
+      projectRevisionGeneration++;
       if(typeof cloudProjectsUi !== 'undefined')cloudProjectsUi?.detach();
       cancelLedImagePreparation();
       const controller = ledImagePreparationController = new AbortController();
@@ -34653,6 +34690,10 @@ document.addEventListener("click", function(event) {
           bridge?.setLoadingPhase?.("Parsing project file...");
           const parseStart = performance.now();
           const data = JSON.parse(reader.result);
+          if (data.projectRevisions != null) {
+            const {revisionArchive} = await import(engineImportUrl("./src/projectRevisions.js"));
+            revisionArchive(data.projectRevisions);
+          }
           metrics.parseMs = performance.now() - parseStart;
           const { restoreProjectNodeCompatibilityTypes } = await import(engineImportUrl("./src/engine/nodeCompatibilityIdentity.js"));
           const restoredCompatibility = restoreProjectNodeCompatibilityTypes(data, window.WireNexusFactoryCatalogue.nodeTypes);
@@ -34664,6 +34705,7 @@ document.addEventListener("click", function(event) {
           const shellStart = performance.now();
           bridge?.setLoadingPhase?.("Applying project settings...");
           state.version = data.version || 1;
+          if (data.projectRevisions) state.projectRevisions = data.projectRevisions; else delete state.projectRevisions;
           state.projectName = data.projectName || "Untitled WireNexus Project";
       setDarkMode(data.darkMode !== false);
       setGridVisible(data.gridVisible !== false);
@@ -34730,7 +34772,7 @@ document.addEventListener("click", function(event) {
             return;
           }
           if (projectFileHandle) setStatus(`Loaded ${projectFileName || "project"}. Save will overwrite this file.`);
-          projectUnsavedChanges?.reset();
+          if (!options.restoreRevision) projectUnsavedChanges?.reset();
           if (typeof cloudProjectsUi !== "undefined") cloudProjectsUi?.detach();
           options.onLoaded?.();
         } catch (error) {
@@ -34975,13 +35017,15 @@ document.addEventListener("click", function(event) {
     function newProject() {
       cancelLedImagePreparation();
 
-      if (state.devices.length || state.ledSurfaces.length || state.areas.length || state.jumpNodes.length || state.comments.length || state.titleBlocks.length || state.connections.length || Object.hasOwn(state, "multiCores") || Object.hasOwn(state, "multiCoreDefinitions")) {
+      if (state.devices.length || state.ledSurfaces.length || state.areas.length || state.jumpNodes.length || state.comments.length || state.titleBlocks.length || state.connections.length || state.projectRevisions?.entries?.length || Object.hasOwn(state, "multiCores") || Object.hasOwn(state, "multiCoreDefinitions")) {
         const confirmed = confirm("Start a new project? Unsaved changes will be lost.");
         if (!confirmed) return false;
         pushUndo();
       }
       if(typeof cloudProjectsUi !== 'undefined')cloudProjectsUi?.detach();
       setDarkMode(true);
+      projectRevisionGeneration++;
+      delete state.projectRevisions;
       setGridVisible(true);
       setObjectSnapping(true);
       setWireMode("bezier");
@@ -36740,6 +36784,7 @@ document.addEventListener("click", function(event) {
     document.getElementById("saveProject").addEventListener("click", editorActions.saveProject);
     window.addEventListener("keydown", handleProjectSaveShortcut, true);
     document.getElementById("saveProjectAs").addEventListener("click", editorActions.saveProjectAs);
+    document.getElementById("projectRevisionsButton").addEventListener("click",()=>openProjectRevisions().catch(error=>setStatus(error.message)));
     for (const [id, mode] of [["saveCloudProject", "save"], ["openCloudProject", "open"]]) {
       const button = document.getElementById(id);
       button.addEventListener("click", () => showCloudProjects(mode));

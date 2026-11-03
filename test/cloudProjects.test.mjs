@@ -3,10 +3,23 @@ import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {cloudDatabase,OWNER,STRANGER} from './fixtures/cloudDatabase.mjs';
 import {createCloudProjects,CLOUD_MAX_BYTES} from '../src/cloudProjects.js';
+import {createProjectRevision,projectFromRevision} from '../src/projectRevisions.js';
 
 const document=(extra={})=>JSON.stringify({version:1,projectName:'\u5b8c\u6574 wirechart',devices:[{instanceId:'dev-1',templateId:'custom'}],connections:[{id:'wire-1',from:{deviceId:'dev-1'},to:{jumpId:'jump-1'}}],jumpNodes:[{id:'jump-1'}],deviceLibrary:[{id:'custom',faceImage:'data:image/png;base64,'+'A'.repeat(300000)}],nodeLibrary:[{id:'local-node'}],layers:[{id:'venue'}],imageObjects:[{id:'venue-plan',image:'data:image/png;base64,AAAA'}],...extra});
 const setup=async t=>{const db=await cloudDatabase();t.after(()=>db.db.close());const api=createCloudProjects({rpc:db.rpc(),accountId:OWNER});return {...db,api,wid:await db.workspace()};};
 const save=(ctx,text=document(),project)=>ctx.api.save({workspaceId:ctx.wid,name:'Project',text,projectId:project?.id,expectedRevision:project?.revision || 0});
+
+test('manual revisions survive cloud saves and immutable version recovery without a second storage path',async t=>{
+  const c=await setup(t),original=JSON.parse(document());
+  const archive=await createProjectRevision(undefined,original,{author:'Owner'});
+  const text=document({projectRevisions:archive}),first=await save(c,text),version=(await c.api.versions(first.id))[0];
+  const second=await save(c,document({projectName:'Changed'}),first);
+  await c.api.call('recover',{projectId:first.id,versionId:version.id,expectedRevision:second.revision});
+  const reopened=JSON.parse((await c.api.open(first.id)).text);
+  assert.deepEqual(reopened.projectRevisions,archive);
+  assert.deepEqual(await projectFromRevision(reopened.projectRevisions,archive.entries[0].id),original);
+  assert.equal((await c.api.versions(first.id)).length,3);
+});
 
 test('cloud .avd round trip preserves embedded artwork, custom dependencies, topology, layers and Unicode exactly',async t=>{
   const c=await setup(t),text=document(),project=await save(c,text);
