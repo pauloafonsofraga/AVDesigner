@@ -121,7 +121,8 @@ export function mountAccountPortal({account,designerRoot,designerHeader,launchPr
     listing.replaceChildren();if(!who || portalView(account.entryState())!=='dashboard')return;
     rows=[];status.setAttribute('role','status');status.textContent='Loading projects...';plan.textContent='Plan';
     try{
-      const api=createCloudProjects({accountId:who.accountId,rpc:(...args)=>account.cloudRpc(...args)});
+      const api=createCloudProjects({accountId:who.accountId,rpc:(...args)=>account.cloudRpc(...args),
+        ...(account.projectArtwork?{artwork:(wid,progress)=>account.projectArtwork(wid,progress)}:{})});
       const [projects,plans]=await Promise.allSettled([api.list(who.workspaceId,archived.checked),account.planStatus?.() || Promise.resolve([])]);
       const current=account.cloudIdentity();
       if(disposed || ticket!==generation || current?.accountId!==who.accountId || current.workspaceId!==who.workspaceId)return;

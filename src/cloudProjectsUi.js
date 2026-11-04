@@ -38,7 +38,8 @@ export function mountCloudProjects({account,serialize,load,capture,markSaved,isD
     try{await fn();}catch(error){message(error.message || 'Cloud operation failed.');}
     finally{busy=false;paint();}
   };
-  const client=()=>{const i=current();return createCloudProjects({accountId:i.accountId,rpc:(...args)=>account().cloudRpc(...args),onProgress:message});};
+  const client=()=>{const i=current();return createCloudProjects({accountId:i.accountId,rpc:(...args)=>account().cloudRpc(...args),onProgress:message,
+    ...(account().projectArtwork?{artwork:(wid,progress)=>account().projectArtwork(wid,progress)}:{})});};
   async function refresh() {
     const i=current(),ticket=epoch,api=client(),wid=workspace.value;
     const rows=await api.list(wid,archived.checked);check(i.accountId,ticket);listing.replaceChildren();history.replaceChildren();

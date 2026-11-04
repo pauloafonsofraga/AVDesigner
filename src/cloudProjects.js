@@ -4,7 +4,7 @@ const encode=bytes=>{let text='';for(let i=0;i<bytes.length;i+=8192)text+=String
 const decode=value=>Uint8Array.from(atob(value.replace(/\s/g,'')),c=>c.charCodeAt(0));
 
 // A client is bound to one authenticated account; it cannot follow a later sign-in.
-export function createCloudProjects({rpc,accountId,onProgress=()=>{}}) {
+export function createCloudProjects({rpc,accountId,onProgress=()=>{},artwork}) {
   const call=async(operation,payload={})=>{
     const {data,error}=await rpc('wirenexus_cloud',{operation,payload:{...payload,expectedAccountId:accountId}});
     if(error){const e=new Error(error.code==='40001'?'Cloud project changed. Open the latest version or save a separate copy.':error.message || 'Cloud operation failed.');e.code=error.code;throw e;}
@@ -15,6 +15,12 @@ export function createCloudProjects({rpc,accountId,onProgress=()=>{}}) {
     list:(workspaceId,archived=false)=>call('list',{workspaceId,archived}),
     versions:projectId=>call('versions',{projectId}),
     async save({workspaceId,projectId,name,expectedRevision=0,text}) {
+      if(artwork){
+        onProgress('Preparing project artwork...');
+        const store=artwork(workspaceId,onProgress),result=await store.encode(JSON.parse(text),{manifest:true});
+        text=JSON.stringify(result.document);
+        onProgress(`Artwork: ${result.uploadedBytes.toLocaleString()} new bytes; ${result.reusedAssets} reused assets.`);
+      }
       const bytes=new TextEncoder().encode(text);
       if(bytes.length>CLOUD_MAX_BYTES)throw new Error('Cloud projects are limited to 64 MiB. Use local Save As for this project.');
       const chunkCount=Math.ceil(bytes.length/CLOUD_CHUNK_BYTES);
@@ -44,7 +50,11 @@ export function createCloudProjects({rpc,accountId,onProgress=()=>{}}) {
         bytes.set(part,offset);offset+=part.length;
       }
       if(offset!==bytes.length || await digest(bytes)!==info.digest)throw new Error('Cloud project failed integrity verification.');
-      const text=new TextDecoder('utf-8',{fatal:true}).decode(bytes);JSON.parse(text);
+      let text=new TextDecoder('utf-8',{fatal:true}).decode(bytes);const document=JSON.parse(text);
+      if(document.cloudArtwork){
+        if(!artwork || document.cloudArtwork.version!==1)throw new Error('This cloud project requires artwork support. Update WireNexus before opening it.');
+        text=JSON.stringify(await artwork(info.project.workspace_id,onProgress).hydrate(document));
+      }
       return {...info,text};
     }
   };

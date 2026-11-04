@@ -3,6 +3,7 @@ import {mountPlansPanel} from './plansUi.js';
 import {mountOrganizationsPanel} from './organizationsUi.js';
 import {publicDisplayName} from './deviceAttributionIdentity.js';
 import {mountCommunityAccount} from './communityAccountUi.js';
+import {createProjectArtworkStore} from './cloudProjectArtwork.js';
 
 // The UI capability is display-only. Every storage operation reauthorizes at the
 // RPC boundary using auth.uid(), including promotion receipt writes/removals.
@@ -28,6 +29,12 @@ export async function mountAccountLibrary({ container, recoveryStore, createOwne
   qr.alt='Authenticator setup QR code';qr.style.cssText='width:180px;height:180px;background:white';qr.hidden=true;
   mfaCode.inputMode='numeric';mfaCode.autocomplete='one-time-code';mfaCode.placeholder='Authenticator code';mfaCode.setAttribute('aria-label','Authenticator code');
   mfa.append(qr,secret,mfaCode);mfa.hidden=true;
+  const projectArtworkStores=new Map();
+  let projectArtworkEpoch=0,projectArtworkScope='';
+  const setProjectArtworkScope=(userId,workspaceId)=>{
+    const scope=JSON.stringify([userId || null,workspaceId || null]);if(scope===projectArtworkScope)return;
+    projectArtworkScope=scope;projectArtworkEpoch++;for(const entry of projectArtworkStores.values())entry.store.clear();projectArtworkStores.clear();
+  };
   let client, store, owner, identity=null, configured = false, registrationEnabled=false,
     recoveryRequested=false,passwordRecovery=false,registrationPending=false,factorId='',pendingFactor='',
     state = 'Browser recovery only - account service not configured', detail = '', epoch = 0, activeId = null, busy = false, selectedWorkspaceId=null,
@@ -212,6 +219,7 @@ export async function mountAccountLibrary({ container, recoveryStore, createOwne
   button.addEventListener('click',showAccount);
   async function activate(session) {
     const ticket = ++epoch;
+    setProjectArtworkScope(session?.user?.id,!session || activeId && activeId!==session.user.id?null:selectedWorkspaceId);
     projectAuthor=session?.user?.user_metadata?.full_name || session?.user?.email || '';
     publicCreator=session?.user?.id ? {id:session.user.id,displayName:publicDisplayName(session.user.user_metadata)} : null;
     plansPanel.clear();
@@ -241,6 +249,7 @@ export async function mountAccountLibrary({ container, recoveryStore, createOwne
       const next = await createOwner(candidate);
       if (ticket !== epoch) return;
       identity=candidate.identity();
+      setProjectArtworkScope(session.user.id,selectedWorkspaceId);
       requiresMfa ||= identity.mfaRequired===true;
       if(identity.accountId!==session.user.id)throw new Error('Account changed while loading. Refresh Account.');
       store = candidate; owner = next; activeId = identity.accountId;
@@ -308,8 +317,26 @@ export async function mountAccountLibrary({ container, recoveryStore, createOwne
       return ()=>client.removeChannel(channel);
     },
     async cloudRpc(name,args) {
-      if(!owner || !client || name!=='wirenexus_cloud')throw new Error('Sign in through Account before opening cloud projects.');
-      return client.rpc(name,args);
+      if(!owner || !client || !['wirenexus_cloud','wirenexus_project_artwork'].includes(name))throw new Error('Sign in through Account before opening cloud projects.');
+      const ticket=projectArtworkEpoch,result=await client.rpc(name,args);if(ticket!==projectArtworkEpoch)throw new Error('Account changed during cloud operation.');return result;
+    },
+    projectArtwork(workspaceId,onProgress=()=>{}) {
+      if(!owner || !client || !identity?.workspaces.some(w=>w.id===workspaceId))throw new Error('Workspace artwork access is unavailable.');
+      if(!projectArtworkStores.has(workspaceId)){
+        const ticket=projectArtworkEpoch,accountId=identity.accountId,entry={progress:onProgress};
+        const isCurrent=()=>ticket===projectArtworkEpoch && identity?.accountId===accountId && identity.workspaces.some(w=>w.id===workspaceId);
+        entry.store=createProjectArtworkStore({accountId,workspaceId,isCurrent,rpc:(...args)=>client.rpc(...args),storage:client.storage,onProgress:text=>entry.progress(text),
+          verify:async payload=>{
+            if(!isCurrent())throw new Error('Account changed during artwork transfer.');
+            const bearer=await communityToken(),abort=new AbortController(),timer=setTimeout(()=>abort.abort(),120000);
+            try{const response=await fetch('/api/project-artwork',{method:'POST',headers:{Authorization:`Bearer ${bearer}`,'Content-Type':'application/json'},body:JSON.stringify(payload),signal:abort.signal,cache:'no-store'});
+              if(!response.ok)throw new Error('Artwork verification failed or is unavailable. Retry cloud saving after checking access.');
+              if(!isCurrent())throw new Error('Account changed during artwork transfer.');return await response.json();
+            }finally{clearTimeout(timer);}
+          }});
+        projectArtworkStores.set(workspaceId,entry);
+      }
+      const entry=projectArtworkStores.get(workspaceId);entry.progress=onProgress;return entry.store;
     },
     async publishingToken() {
       if (!client) throw new Error('Publishing requires the account service to be configured.');

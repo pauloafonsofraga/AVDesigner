@@ -62,8 +62,8 @@ export function createCollaborationApi({token,fetch:request=globalThis.fetch}) {
 }
 
 export class LiveCollaborationSession {
-  constructor({projectId,api,apply,isBusy=()=>false,isOnline=()=>globalThis.navigator?.onLine!==false,readLocal,onState=()=>{},onRecovery=()=>{},clientId=crypto.randomUUID()}) {
-    Object.assign(this,{projectId,api,apply,isBusy,isOnline,readLocal,onState,onRecovery,clientId});
+  constructor({projectId,api,apply,prepareIntent,isBusy=()=>false,isOnline=()=>globalThis.navigator?.onLine!==false,readLocal,onState=()=>{},onRecovery=()=>{},clientId=crypto.randomUUID()}) {
+    Object.assign(this,{projectId,api,apply,prepareIntent,isBusy,isOnline,readLocal,onState,onRecovery,clientId});
     this.pending=[];this.head=null;this.closed=false;this.running=null;this.generation=0;this.writable=false;this.undo=[];this.redo=[];
   }
   async request(action,payload={},live=false) {
@@ -98,6 +98,7 @@ export class LiveCollaborationSession {
     if(this.closed || !this.head)return;
     this.running=this.run().catch(error=>{
       if(this.closed)return;
+      if(error.code==='DEFERRED_ARTWORK'){this.onState({status:'Waiting for editor'});return;}
       this.lastError=error.message;
       this.lastErrorStack=error.stack;
       if([401,403].includes(error.status)) {
@@ -122,6 +123,8 @@ export class LiveCollaborationSession {
       const item=this.pending[0];
       try {
         if(item.action==='submit' && !item.command) {
+          if(this.prepareIntent && !item.prepared){const prepared=await this.prepareIntent(item.before,item.after);if(this.closed)return;item.before=prepared.before;item.after=prepared.after;item.prepared=true;}
+          if(this.isBusy())return;
           const candidate=applyTopologyIntent(this.head.document,item.before,item.after);
           item.command=await createTopologyCommand(this.head.document,candidate,{state:this.head.replayState,intent:item.intent,origin:item.origin});
           item.sequence=this.head.sequence;

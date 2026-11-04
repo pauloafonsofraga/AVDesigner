@@ -82,13 +82,25 @@ export function mountLiveCollaboration({account,bridge,load,apply,readLocal,isDr
     const execute=api(),s=await execute('status',{projectId:row.id},true);
     if(!s.active && !activate)return false;
     detach();actorId=current.accountId;activeRow=row;retry.disabled=false;paintRecovery();conflict.hidden=!recoveries.size;
+    const artwork=account().projectArtwork?.(row.workspace_id,onStatus);
+    const materialize=value=>{
+      if(!value?.cloudArtwork)return Promise.resolve(value);
+      if(!artwork || value.cloudArtwork.version!==1)throw Error('This collaboration project requires supported cloud artwork access.');
+      return artwork.hydrate(value);
+    };
     const next=new LiveCollaborationSession({projectId:row.id,api:execute,readLocal,isBusy:busy,
-      apply:(next,previous,options)=>apply(next,previous,options),onState:state,onRecovery:setRecovery});
+      prepareIntent:async(before,after)=>next.head.document?.cloudArtwork?.version===1 && artwork?
+        {before:(await artwork.encode(before,{referenced:true})).document,after:(await artwork.encode(after,{referenced:true})).document}:{before,after},
+      apply:async(document,previous,options)=>{
+        const pending=next.pending.length,resolved=await materialize(document),old=await materialize(previous);
+        if(busy() || pending!==next.pending.length)throw Object.assign(Error('Artwork is ready; waiting for the current editor gesture.'),{code:'DEFERRED_ARTWORK'});
+        if(session!==next || next.closed)throw Error('Collaboration session ended.');return apply(resolved,old,options);
+      },onState:state,onRecovery:setRecovery});
     session=next;
     try {
       await next.start({activate,expectedRevision:row.revision});
       opening=true;
-      try{await load(JSON.stringify(next.head.document),row.name);}finally{opening=false;}
+      try{await load(JSON.stringify(await materialize(next.head.document)),row.name);}finally{opening=false;}
       if(session!==next || account()?.cloudIdentity()?.accountId!==actorId){next.stop();throw Error('Account or project changed.');}
       panel.hidden=false;
       bridge().collaborationHistory=direction=>{if(isDraftOpen())return false;history(direction);return true;};

@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import {build} from 'esbuild';
+const sql=await readFile(new URL('../supabase/migrations/20261104091750_cloud_project_artwork.sql',import.meta.url),'utf8');
+for(const name of ['cloud_project_artwork','cloud_project_artwork_upload_pins','cloud_project_artwork_collaboration_pins'])assert.ok(sql.includes(`alter table wirenexus_private.${name} enable row level security`));
+assert.match(sql,/revoke all on function public.wirenexus_project_artwork_admin\(text,jsonb\) from public,anon,authenticated/);
+assert.match(sql,/grant execute on function public.wirenexus_project_artwork_admin\(text,jsonb\) to service_role/);
+assert.match(sql,/cloud_artwork_update_guard/);assert.match(sql,/cloud_artwork_delete_guard/);assert.match(sql,/contentLength/);assert.match(sql,/storage_id uuid not null default gen_random_uuid/);
+for(const trigger of ['cloud_version_artwork_pins','collaboration_head_artwork_pins','collaboration_operation_artwork_pins'])assert.ok(sql.includes(`create trigger ${trigger}`));
+const client=await build({entryPoints:[new URL('../src/cloudProjectArtwork.js',import.meta.url).pathname],bundle:true,write:false,format:'esm',platform:'browser',target:'es2022'});
+assert.doesNotMatch(client.outputFiles[0].text,/service_role|SERVICE_ROLE_KEY|node:crypto/);
+await build({entryPoints:[new URL('../api/project-artwork.js',import.meta.url).pathname],bundle:true,packages:'external',write:false,format:'esm',platform:'node'});
+console.log('Cloud artwork validation PASS: private RLS/immutable Storage, generation-safe cleanup, version/collaboration pins and separate client/server bundles');
