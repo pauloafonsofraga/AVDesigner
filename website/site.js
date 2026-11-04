@@ -1,6 +1,10 @@
 import {applicationUrl,products} from './config.js';
+for(const link of document.querySelectorAll('a.brand'))link.href=new URL('./',import.meta.url).href;
 
-for(const link of document.querySelectorAll('[data-app-link]'))link.href=applicationUrl(location.href);
+for(const link of document.querySelectorAll('[data-app-link]'))link.href=applicationUrl(new URL('./index.html',import.meta.url).href);
+const footer=document.querySelector('.footer-links');
+if(footer){const library=document.createElement('a');library.href=new URL('./wirenexus/library/',import.meta.url).href;library.textContent='Community Library';footer.append(library);}
+if(location.pathname.endsWith('/wirenexus.html')){const library=document.createElement('a');library.href=new URL('./wirenexus/library/',import.meta.url).href;library.textContent='Browse Community Device Library';document.querySelector('.features article:nth-child(2)')?.append(library);}
 for(const list of document.querySelectorAll('[data-products]')){
   for(const product of products){
     const link=document.createElement('a');link.href=product.href;link.className='product-link';link.dataset.product=product.name;

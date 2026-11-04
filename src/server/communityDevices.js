@@ -16,22 +16,23 @@ export function createCommunityDevices({rpc,env,actorId=null,actorAal='aal1'}) {
   };
   return async input=>{
     if(!input || typeof input!=='object')invalid();
-    const actions={list:['limit','after','search'],preview:['deviceId'],artwork:['deviceId','hash'],mine:['limit','after'],queue:['limit','after'],
+    const actions={list:['limit','after','search','manufacturer','model','category'],facets:[],history:['deviceId'],preview:['deviceId'],artwork:['deviceId','hash'],mine:['limit','after'],queue:['limit','after'],
       begin:['byteCount','sha256','deviceId','expectedRevision'],chunk:['uploadId','index','data'],submit:['uploadId'],cancel:['uploadId'],
       approve:['versionId','expectedRevision','reason'],reject:['versionId','expectedRevision','reason'],unpublish:['versionId','expectedRevision','reason'],
       download:['versionId'],'download-chunk':['versionId','index'],'review-artwork':['versionId','hash']};
     const allowed=actions[input.action];if(!allowed || Object.keys(input).some(k=>k!=='action' && !allowed.includes(k)))invalid();
     const {action,...payload}=input;
-    if(!['list','preview','artwork'].includes(action) && !uuid(actorId))throw new PublishingError(401,'Sign in to use the Community Library.');
+    if(!['list','facets','history','preview','artwork'].includes(action) && !uuid(actorId))throw new PublishingError(401,'Sign in to use the Community Library.');
     for(const key of ['deviceId','versionId','uploadId','after'])if(payload[key]!==undefined && !uuid(payload[key]))invalid();
     for(const key of ['expectedRevision','index','byteCount'])if(payload[key]!==undefined && !integer(payload[key]))invalid();
-    if(['preview','artwork'].includes(action) && !uuid(payload.deviceId))invalid();
+    if(['preview','artwork','history'].includes(action) && !uuid(payload.deviceId))invalid();
     if(['download','download-chunk','review-artwork','approve','reject','unpublish'].includes(action) && !uuid(payload.versionId))invalid();
     if(['submit','cancel','chunk'].includes(action) && !uuid(payload.uploadId))invalid();
     if(['chunk','download-chunk'].includes(action) && !integer(payload.index))invalid();
     if(['approve','reject','unpublish'].includes(action) && (!integer(payload.expectedRevision,1) || (payload.reason!==undefined && (typeof payload.reason!=='string' || payload.reason.length>1000 || /[\x00-\x1f\x7f]/.test(payload.reason)))))invalid();
     if(payload.limit!==undefined && (!integer(payload.limit,1) || payload.limit>50))invalid();
     if(payload.search!==undefined && (typeof payload.search!=='string' || payload.search.length>100))invalid();
+    for(const key of ['manufacturer','model','category'])if(payload[key]!==undefined && (typeof payload[key]!=='string' || payload[key].length>120))invalid();
     if(['artwork','review-artwork'].includes(action) && !/^[a-f0-9]{64}$/.test(payload.hash || ''))invalid();
     if(action==='begin'){
       if(!integer(payload.byteCount,47) || payload.byteCount>COMMUNITY_LIMITS.packageBytes || !/^[a-f0-9]{64}$/.test(payload.sha256 || '') || (payload.deviceId && !integer(payload.expectedRevision,1)))invalid();

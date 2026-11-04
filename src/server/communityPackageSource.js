@@ -46,7 +46,6 @@ export async function prepareCommunityPackage(bytes,creator,signing) {
       if(totalPixels>COMMUNITY_LIMITS.totalPixels)throw Error('Community artwork pixel limit exceeded.');
       const png=await processor.rotate().png().timeout({seconds:5}).toBuffer();
       total+=png.length;if(total>COMMUNITY_LIMITS.artworkBytes)throw Error('Community artwork exceeds its size limit.');
-      const checksum=hash(png);assets.set(checksum,{hash:checksum,data:png.toString('base64')});
       image=imageDataUrl(png);cache.set(source,image);
     }
     object[key]=image;
@@ -57,18 +56,23 @@ export async function prepareCommunityPackage(bytes,creator,signing) {
     inputCount:connectors.filter(c=>c.direction==='input' || c.direction==='io').length,outputCount:connectors.filter(c=>c.direction==='output' || c.direction==='io').length,
     cardCount:device.cardTypes?.length || 0,dependencyCount:payload.devices.length-1};
   if(!metadata.title)throw Error('A public device name is required.');
-  let previewHash=null;
-  const preview=device.faceImage || device.thumbnailImage;
-  if(preview){
+  const previewFor=async preview=>{
+    if(!preview)return null;
     const png=await sharp(Buffer.from(preview.slice(preview.indexOf(',')+1),'base64'),{limitInputPixels:COMMUNITY_LIMITS.pixels,failOn:'warning'})
       .resize({width:640,height:480,fit:'inside',withoutEnlargement:true}).png().timeout({seconds:5}).toBuffer();
-    previewHash=hash(png);assets.set(previewHash,{hash:previewHash,data:png.toString('base64')});
-  }
+    const checksum=hash(png);assets.set(checksum,{hash:checksum,data:png.toString('base64')});return checksum;
+  };
+  const previewHash=await previewFor(device.faceImage || device.thumbnailImage),rearHash=await previewFor(device.backplate?.faceImage);
+  const nodeLabels=new Map(payload.nodes.map(n=>[n.id,n.label]));
+  const describe=(connector,card='')=>({name:publicCommunityText(connector.nameText || connector.label),type:publicCommunityText(nodeLabels.get(connector.type) || connector.label),
+    direction:['input','output'].includes(connector.signalDirection || connector.direction)?connector.signalDirection || connector.direction:'bidirectional',card:publicCommunityText(card)});
+  const ports=[...(device.connectors || []).filter(c=>!c.empty).map(c=>describe(c)),...(device.cardTypes || []).flatMap(card=>(card.connectors || []).filter(c=>!c.empty).map(c=>describe(c,card.name)))];
+  const presentation={model:publicCommunityText(device.model || ''),frontHash:previewHash,rearHash,connectors:ports.slice(0,512),truncated:ports.length>512};
   const attribution={version:1,creatorId:creator.creatorId,displayName:creator.displayName,createdAt:new Date(creator.createdAt).toISOString()};
   for(const definition of payload.devices)definition.attribution={...attribution};
   const contentSha=await devicePackageDigest(payload);
   device.attribution=signDeviceAttribution(signing,{digest:contentSha,creatorId:attribution.creatorId,displayName:attribution.displayName,createdAt:attribution.createdAt});
   const encoded=await encodeDevicePackage(payload);
   if(encoded.length>COMMUNITY_LIMITS.packageBytes || new DataView(encoded.buffer,encoded.byteOffset,encoded.byteLength).getUint32(10)>COMMUNITY_LIMITS.expandedBytes)throw Error('Sanitized community package exceeds its size limit.');
-  return {data:Buffer.from(encoded).toString('base64'),sha256:hash(encoded),contentSha,attribution:device.attribution,metadata,artwork:[...assets.values()],previewHash};
+  return {data:Buffer.from(encoded).toString('base64'),sha256:hash(encoded),contentSha,attribution:device.attribution,metadata,artwork:[...assets.values()],previewHash,presentation};
 }

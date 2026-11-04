@@ -46,8 +46,10 @@ test('standalone marketing build excludes the designer, credentials and backend 
   const dir=await mkdtemp(join(tmpdir(),'videocore-build-'));t.after(()=>rm(dir,{recursive:true,force:true}));
   const output=join(dir,'site');
   execFileSync(process.execPath,['scripts/build-videocore-website.mjs',output,'https://app.example.test/']);
-  assert.deepEqual((await readdir(output)).sort(),['assets','index.html','ledforge.html','pricing.html','site.css','site.js','wirenexus.html']);
+  assert.deepEqual((await readdir(output)).sort(),['assets','index.html','ledforge.html','library.css','library.js','pricing.html','site.css','site.js','vercel.json','wirenexus','wirenexus.html']);
   const bundle=await readFile(join(output,'site.js'),'utf8');assert.ok(bundle.includes('https://app.example.test/'));assert.doesNotMatch(bundle,/supabase|access_token|service_role/);
+  const library=await readFile(join(output,'library.js'),'utf8');assert.ok(library.includes('https://app.example.test/'));assert.doesNotMatch(library,/supabase|access_token|service_role/);
+  for(const page of ['index','device'])assert.ok((await readFile(join(output,'wirenexus/library',page+'.html'),'utf8')).includes('library.js'));
   for(const page of ['index','wirenexus','ledforge','pricing'])assert.ok((await readFile(join(output,page+'.html'),'utf8')).includes('href="https://app.example.test/" data-app-link'));
   assert.throws(()=>execFileSync(process.execPath,['scripts/build-videocore-website.mjs',output],{stdio:'pipe'}));
 });

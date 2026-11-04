@@ -12,3 +12,8 @@ export function applicationUrl(base, destination=appUrl){
     throw new Error('Application links require an HTTP(S) URL without credentials.');
   return url.href;
 }
+
+export function communityEndpoint(){
+  const url=new URL(typeof VIDEOCORE_COMMUNITY_API_URL==='string'?VIDEOCORE_COMMUNITY_API_URL:'/api/community-devices',globalThis.location?.href || 'http://localhost/');
+  if(!['http:','https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash)throw Error('Invalid Community API URL.');return url.href;
+}

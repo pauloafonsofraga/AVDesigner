@@ -6731,6 +6731,7 @@
           const recoveryOwner = localUserSettingsOwner;
           const account = await import(engineImportUrl("./src/accountLibraryApp.js"));
           accountLibraryUi = await account.mountAccountLibrary({
+            importCommunityPackage: file => importDevicePackageFile(file),
             container: document.querySelector('[data-editor-panel="defaults"]'),
             recoveryOwner, recoveryStore: module.createPersonalIndexedDbStore(),
             recoveryPreferences: () => ({ favorites: JSON.parse(localStorage.getItem(DEVICE_FAVORITES_STORAGE_KEY) || '[]'),
@@ -6778,6 +6779,8 @@
                 requestAnimationFrame(fitReadyCanvas);
               }});
           }
+          const {mountCommunityIntent} = await import(engineImportUrl("./src/communityIntent.js"));
+          mountCommunityIntent({account:accountLibraryUi,importPackage:importDevicePackageFile});
           const refreshAccountLibrary = () => (accountLibraryUi?.refreshLibrary?.() || localUserSettingsOwner.refresh()).catch(error => setStatus(`Library refresh failed: ${error.message}`));
           if (personalLibraryChannel) personalLibraryChannel.onmessage = refreshAccountLibrary;
           window.addEventListener("focus", refreshAccountLibrary);
@@ -14130,11 +14133,12 @@
         const context = personalLibraryNodeContext();
         const prepared = module.prepareDevicePackageImport(payload, { library: context.devices, nodes: context.nodes, factoryNodeTypes: window.WireNexusFactoryCatalogue.nodeTypes });
         prepared.devices.forEach(device => validateEditorTemplateForApply(structuredClone(device), prepared.nodes));
-        if (!confirm(`Import ${payload.devices[0].name}?\nCreated by: ${module.attributionLabel(payload.devices[0].attribution, status).name}\n${prepared.copied ? "Existing IDs will be imported as separate copies. " : ""}Existing devices and projects will not be changed.`)) return;
+        if (!confirm(`Import ${payload.devices[0].name}?\nCreated by: ${module.attributionLabel(payload.devices[0].attribution, status).name}\n${prepared.copied ? "Existing IDs will be imported as separate copies. " : ""}Existing devices and projects will not be changed.`)) return false;
         if (owner !== localUserSettingsOwner) throw new Error("The account changed. Reopen the package and try again.");
         await owner.save(prepared.definition, { library: prepared.devices, nodes: prepared.nodes, expectedRevision: null });
         setStatus(`${prepared.definition.name} imported into My Library. Authorship: ${status}.`);
-      } catch (error) { alert(`Device could not be imported: ${error.message}`); }
+        return true;
+      } catch (error) { alert(`Device could not be imported: ${error.message}`); return false; }
     }
 
     let deviceAttributionRender = 0;

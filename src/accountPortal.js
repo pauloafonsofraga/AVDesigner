@@ -59,6 +59,7 @@ export function mountAccountPortal({account,designerRoot,designerHeader,launchPr
     const firstLaunch=!canvasAccountId;
     canvasAccountId=uid;designer=true;render();window.dispatchEvent(new Event('resize'));onNavigate('designer',{fit:fit || firstLaunch});}
   const accountButton=button(controls,'Account',()=>account.showAccount(),'portalAccount');
+  button(controls,'Community',()=>account.showCommunity?.(),'portalCommunity');
   const plan=button(controls,'Plan',()=>{account.showAccount();document.getElementById('accountPlans')?.scrollIntoView({block:'start'});},'portalPlan');
   const signOut=button(controls,'Sign Out',()=>account.signOut(),'portalSignOut');
   const retry=button(entry,'Retry',()=>window.location.reload(),'portalRetry');retry.hidden=true;

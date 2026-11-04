@@ -9,11 +9,13 @@ export function createCommunityDevicesHandler({env=process.env,security=()=>crea
       if(env.WIRENEXUS_COMMUNITY_ENABLED!=='true')throw new PublishingError(503,'Community Library is not enabled.');
       const guard=security();let input,actorId=null;
       if(req.method==='GET'){
+        const origin=req.headers?.origin,allowed=env.WIRENEXUS_COMMUNITY_WEBSITE_ORIGIN;
+        if(allowed && origin===allowed && /^https:\/\/[^/]+$/.test(allowed)){res.setHeader('Access-Control-Allow-Origin',allowed);res.setHeader('Vary','Origin');}
         await guard.throttle(req,'branding');
         const query=req.query || Object.fromEntries(new URL(req.url,'http://community.invalid').searchParams);
-        if(Object.values(query).some(value=>typeof value!=='string') || Object.keys(query).some(key=>!['action','deviceId','hash','limit','after','search'].includes(key)))throw new PublishingError(400,'Invalid public browse request.');
+        if(Object.values(query).some(value=>typeof value!=='string') || Object.keys(query).some(key=>!['action','deviceId','hash','limit','after','search','manufacturer','model','category'].includes(key)))throw new PublishingError(400,'Invalid public browse request.');
         input={action:query.action || 'list',...query};
-        if(!['list','preview','artwork'].includes(input.action))throw new PublishingError(401,'Use authenticated Community actions.');
+        if(!['list','facets','history','preview','artwork'].includes(input.action))throw new PublishingError(401,'Use authenticated Community actions.');
         if(query.limit!==undefined)input.limit=Number(query.limit);
       }else{
         actorId=await guard.authenticate(req);input=readBody(req);

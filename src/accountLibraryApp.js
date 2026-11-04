@@ -2,11 +2,12 @@ import { createAccountLibraryStore, reviewBrowserImport, importBrowserLibrary } 
 import {mountPlansPanel} from './plansUi.js';
 import {mountOrganizationsPanel} from './organizationsUi.js';
 import {publicDisplayName} from './deviceAttributionIdentity.js';
+import {mountCommunityAccount} from './communityAccountUi.js';
 
 // The UI capability is display-only. Every storage operation reauthorizes at the
 // RPC boundary using auth.uid(), including promotion receipt writes/removals.
 export async function mountAccountLibrary({ container, recoveryStore, createOwner, onOwner, recoveryOwner,
-  recoveryPreferences, onStatus = () => {}, configUrl = './account-config.json', createClient }) {
+  recoveryPreferences, onStatus = () => {}, configUrl = './account-config.json', createClient, importCommunityPackage }) {
   const button = document.createElement('button'); button.type = 'button'; button.className = 'tool-button'; button.id = 'ownerAccount'; button.textContent = 'Account';
   const dialog = document.createElement('dialog'); dialog.id = 'ownerAccountDialog';
   const style=document.createElement('style');style.textContent='#ownerAccountDialog [hidden]{display:none!important} #ownerAccountDialog input{width:100%;min-width:0} #ownerAccountDialog ul{padding-left:20px;overflow-wrap:anywhere}';dialog.append(style);
@@ -205,7 +206,9 @@ export async function mountAccountLibrary({ container, recoveryStore, createOwne
       const result=await response.json();if(!response.ok)throw new Error(result.error || 'Invitation could not be sent.');return result;
     }});
   dialog.addEventListener('close',()=>{const pending=pendingFactor;pendingFactor='';clearSecrets();if(pending)client.auth.mfa.unenroll({factorId:pending}).catch(()=>{});});
-  const showAccount=()=>{if(entryHost){if(dialog.open)dialog.close();entryHost=null;document.body.append(dialog);dialog.classList.remove('account-entry');close.hidden=false;paint();}if(!dialog.open)dialog.showModal();plansPanel.refresh();teamsPanel.refresh();};
+  const communityToken=async()=>{const session=await currentSession();if(!owner || !identity || session?.user.id!==activeId)throw new Error('Sign in before opening Community devices.');return session.access_token;};
+  const communityPanel=mountCommunityAccount({container:dialog,identity:()=>owner && identity,token:communityToken,importPackage:importCommunityPackage});
+  const showAccount=()=>{if(entryHost){if(dialog.open)dialog.close();entryHost=null;document.body.append(dialog);dialog.classList.remove('account-entry');close.hidden=false;paint();}if(!dialog.open)dialog.showModal();plansPanel.refresh();teamsPanel.refresh();communityPanel.refresh();};
   button.addEventListener('click',showAccount);
   async function activate(session) {
     const ticket = ++epoch;
@@ -213,6 +216,7 @@ export async function mountAccountLibrary({ container, recoveryStore, createOwne
     publicCreator=session?.user?.id ? {id:session.user.id,displayName:publicDisplayName(session.user.user_metadata)} : null;
     plansPanel.clear();
     teamsPanel.clear();
+    communityPanel.clear();
     if (!session) {
       requiresMfa=false;registrationPending=false;authMode='password';
       activeId = null; owner = null; store = null; identity=null;selectedWorkspaceId=null;pendingFactor='';passwordRecovery=recoveryRequested=false;review.replaceChildren();clearSecrets();teamsPanel.refresh();
@@ -294,6 +298,8 @@ export async function mountAccountLibrary({ container, recoveryStore, createOwne
       }catch(error){if(selectedWorkspaceId && ticket===epoch){selectedWorkspaceId=null;await activate(await currentSession());}else throw error;}
     },
     cloudIdentity: () => owner && identity ? structuredClone(identity) : null,
+    communityToken,
+    showCommunity(){showAccount();communityPanel.open();},
     collaborationNotifications(notify) {
       if(!client || !owner || !identity)throw new Error('Sign in before joining collaboration.');
       const channel=client.channel(`wirenexus:user:${identity.accountId}`,{config:{private:true}})
