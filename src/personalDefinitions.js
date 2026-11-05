@@ -4,6 +4,7 @@ import { resolveNodeDefinitionCollisions, visitConnectorTypes } from "./engine/c
 import { isSemanticNodeType, restoreSemanticConnectorTypes } from "./engine/semanticNodeIdentity.js";
 import { canonicalFactoryNodeIds, generatedPersonalAliasBase, restoreNodeCompatibilityTypes } from "./engine/nodeCompatibilityIdentity.js";
 import { normalizeMultiCoreDefinition } from "./engine/multiCoreModel.js";
+import { normalizeStageboxSnake } from "./engine/stageboxSnake.js";
 
 export const PERSONAL_DEFINITIONS_VERSION = 2;
 export const PERSONAL_DATABASE = "wirenexus-personal-library";
@@ -14,6 +15,7 @@ const incidental = new Set(["favorite", "projectCustomDevice", "isProjectCustomD
 export function authoredDefinition(value) {
   const copy = structuredClone(value);
   for (const key of incidental) delete copy[key];
+  Object.assign(copy, normalizeStageboxSnake(copy));
   return copy;
 }
 

@@ -5766,6 +5766,9 @@
                     <label for="editorDeviceCategory">Category</label>
                     <select id="editorDeviceCategory"></select>
                   </div>
+                  <div class="field hidden" id="editorStageboxSnakeField">
+                    <label class="feature-toggle"><input id="editorStageboxSnake" type="checkbox"><span>Is a Stagebox / Snake</span></label>
+                  </div>
                   <div class="field editor-device-power-field">
                     <label for="editorPowerConsumption">Power Consumption</label>
                     <div class="power-input-row">
@@ -6222,6 +6225,7 @@
 
   <script src="./src/companyLogoCore.js?v=iteration54-38-12-company-logo-branding"></script>
   <script src="./src/engine/projectorModelCore.js?v=iteration54-38-11-engine-status-labels"></script>
+  <script src="./src/engine/stageboxSnakeCore.js"></script>
   <script src="./src/engine/historyCloneCore.js?v=iteration54-38-29-memory-safe-undo"></script>
   <script src="./src/toolbarIcons.js?v=iteration54-38-154-project-layers"></script>
   <script type="module" src="./src/factoryCatalogueBootstrap.js?v=iteration54-38-154-project-layers"></script>
@@ -6470,7 +6474,7 @@
         ]
       },
       { group: "Displays", children: ["Monitors", "TVs", { label: "Adapters / Breakouts", value: "Display Adapters / Breakouts" }] },
-      { group: "Audio", children: ["PAs", "Desks", "Amplifiers", "Processors", "Stageboxes", "Interfaces", "DIs", "DJ", { label: "Adapters / Breakouts", value: "Audio Adapters / Breakouts" }] },
+      { group: "Audio", children: ["PAs", "Desks", "Amplifiers", "Processors", "Stageboxes", "Stageboxes & Snakes", "Interfaces", "DIs", "DJ", { label: "Adapters / Breakouts", value: "Audio Adapters / Breakouts" }] },
       { group: "Lighting", children: ["Fixtures", "Desks", "Splitters", { label: "Adapters / Breakouts", value: "Lighting Adapters / Breakouts" }] },
       { group: "Computers", children: ["Laptops", "Desktops", "Mini-PC and NUCs", { label: "Adapters / Breakouts", value: "Computer Adapters / Breakouts" }] },
       { group: "Power Distros", children: ["PowerLock", "125A", "63A", "32A", { label: "Adapters / Breakouts", value: "Power Adapters / Breakouts" }, { label: "Misc.", value: "Power Distro Misc" }] },
@@ -7306,6 +7310,7 @@
     const editorDeviceTechSpecs = document.getElementById("editorDeviceTechSpecs");
     const editorDeviceTechSpecsPanel = document.getElementById("editorDeviceTechSpecsPanel");
     const editorPowerConsumption = document.getElementById("editorPowerConsumption");
+    const editorStageboxSnake = document.getElementById("editorStageboxSnake");
     const editorPowerUnitToggle = document.getElementById("editorPowerUnitToggle");
     const editorFaceUpload = document.getElementById("editorFaceUpload");
     const removeEditorFaceImage = document.getElementById("removeEditorFaceImage");
@@ -11956,7 +11961,10 @@
       if (!template) return false;
       const apply = side => entry.before ? replaceEditorTemplateContents(template, structuredClone(entry[side])) : applyEditorMetadataWrites(template, entry.writes, side);
       apply(redo ? "after" : "before");
-      try { renderSelectedConnectorSettings(); renderCardEditor(); renderDeviceEditorPreview(); }
+      try {
+        renderSelectedConnectorSettings(); renderCardEditor(); renderDeviceEditorPreview();
+        if (entry.before && (entry.before.isStageboxSnake === true) !== (entry.after.isStageboxSnake === true)) syncEditorStageboxSnakeControls(template);
+      }
       catch (error) { apply(redo ? "before" : "after"); throw error; }
       source.pop();
       entry.closed = true;
@@ -16822,6 +16830,7 @@
       const powerUnit = powerUnitFor(template);
       editorPowerConsumption.value = formatPowerNumber(powerValueForUnit(template.powerWatts, powerUnit), 2);
       setPowerUnitToggle(editorPowerUnitToggle, powerUnit);
+      syncEditorStageboxSnakeControls(template);
       syncEditorNodeSelection(template);
       const selectedCard = template.cardTypes?.[editorCardIndex];
       syncEditorCardNodeSelection(selectedCard);
@@ -19092,6 +19101,9 @@
         connectors: template.connectors || [],
         hasSwappableCards: template.hasSwappableCards === true,
         enableInternalRouting: template.enableInternalRouting === true,
+        ...(template.isStageboxSnake === true || template.stageboxSnake ? {
+          isStageboxSnake: template.isStageboxSnake === true, stageboxSnake: template.stageboxSnake
+        } : {}),
         cardTypes: template.cardTypes || [],
         cardSlots: template.cardSlots || [],
         schemaVersion: EDITOR_DEVICE_DEFINITION_SCHEMA_VERSION,
@@ -19375,6 +19387,10 @@
       template.pairPlaceFirst = template.isPartOfPair && defaults.pairPlaceFirst === true;
       template.powerWatts = normalizedPowerWatts(defaults.powerWatts);
       template.powerUnit = normalizePowerUnit(defaults.powerUnit);
+      template.isStageboxSnake = defaults.isStageboxSnake === true;
+      if (defaults.stageboxSnake) template.stageboxSnake = structuredClone(defaults.stageboxSnake);
+      else delete template.stageboxSnake;
+      Object.assign(template, WireNexusStageboxSnake.normalizeStageboxSnake(template));
       template.faceplateDeleted = defaults.faceplateDeleted === true && !template.faceImage;
       template.powerDistroFaceY = Number.isFinite(Number(defaults.powerDistroFaceY)) ? Math.max(FACE_TOP_Y, Number(defaults.powerDistroFaceY)) : FACE_TOP_Y;
       template.powerDistroFaceHeight = defaults.powerDistroFaceHeight || 0;
@@ -19423,6 +19439,7 @@
       template.faceImageOffsetX = Number.isFinite(Number(template.faceImageOffsetX)) ? Number(template.faceImageOffsetX) : 0;
       template.faceImageOffsetY = Number.isFinite(Number(template.faceImageOffsetY)) ? Number(template.faceImageOffsetY) : 0;
       template.powerWatts = normalizedPowerWatts(template.powerWatts);
+      Object.assign(template, WireNexusStageboxSnake.normalizeStageboxSnake(template));
       template.powerUnit = normalizePowerUnit(template.powerUnit);
       template.isLedProcessor = template.isLedProcessor === true;
       template.ledOutputCount = clamp(Number(template.ledOutputCount) || 16, 2, 20);
@@ -21888,6 +21905,15 @@
       dialog.append(title, pre, adopt, close); dialog.addEventListener('close', () => dialog.remove()); document.body.append(dialog); dialog.showModal();
     }
 
+    function syncEditorStageboxSnakeControls(template) {
+      document.getElementById("editorStageboxSnakeField").classList.toggle("hidden", !engineRendererRequested());
+      editorStageboxSnake.checked = template.isStageboxSnake === true;
+      editorPowerConsumption.disabled = editorStageboxSnake.checked;
+      editorPowerUnitToggle.querySelectorAll("button").forEach(button => { button.disabled = editorStageboxSnake.checked; });
+      editorPowerConsumption.value = editorStageboxSnake.checked ? "0" : formatPowerNumber(powerValueForUnit(template.powerWatts, powerUnitFor(template)), 2);
+      setPowerUnitToggle(editorPowerUnitToggle, powerUnitFor(template));
+    }
+
     function syncEditorFieldsToDraft() {
       const template = currentEditorTemplate();
       if (!template) return;
@@ -21907,6 +21933,7 @@
       template.techSpecs = editorDeviceTechSpecs?.value || "";
       template.powerUnit = normalizePowerUnit(editorPowerUnitToggle?.dataset?.unit);
       template.powerWatts = powerWattsFromInput(editorPowerConsumption?.value, template.powerUnit);
+      Object.assign(template, WireNexusStageboxSnake.normalizeStageboxSnake(template));
       renderDeviceEditorPreview();
     }
 
@@ -26091,6 +26118,7 @@
     function deviceMatchesType(device, type) {
       if (!type) return true;
       if (type === FAVORITES_DEVICE_TYPE) return device?.favorite === true;
+      if (type === WireNexusStageboxSnake.STAGEBOX_SNAKE_CATEGORY) return device?.isStageboxSnake === true;
       const category = normalizeDeviceTypeText(device?.category || "");
       if (!category) return false;
       return labelsForDeviceType(type).some(label => {
@@ -27458,6 +27486,7 @@
     }
 
     function devicePowerWatts(instance, template = templateForInstance(instance)) {
+      if (template?.isStageboxSnake === true) return 0;
       if (Number.isFinite(Number(instance?.powerWatts))) return normalizedPowerWatts(instance.powerWatts);
       return normalizedPowerWatts(template?.powerWatts);
     }
@@ -31869,11 +31898,14 @@
       const toggle = document.getElementById("devicePowerUnitToggle");
       const equivalent = document.getElementById("devicePowerEquivalent");
       if (!instance || !input || !toggle) return;
+      input.disabled = template?.isStageboxSnake === true;
+      toggle.querySelectorAll("button").forEach(button => { button.disabled = input.disabled; });
       const currentUnit = powerUnitFor(instance, powerUnitFor(template));
       setPowerUnitToggle(toggle, currentUnit);
       input.value = formatPowerNumber(powerValueForUnit(devicePowerWatts(instance, template), currentUnit), 2);
       if (equivalent) equivalent.textContent = formatPowerPair(devicePowerWatts(instance, template));
       const commit = () => {
+        if (template?.isStageboxSnake === true) return;
         const unit = normalizePowerUnit(toggle.dataset.unit);
         instance.powerUnit = unit;
         instance.powerWatts = powerWattsFromInput(input.value, unit);
@@ -33654,6 +33686,7 @@
 
     function reportDevicePowerWatts(data, instance) {
       const template = reportTemplateForInstance(data, instance);
+      if (template?.isStageboxSnake === true) return 0;
       if (Number.isFinite(Number(instance?.powerWatts))) return normalizedPowerWatts(instance.powerWatts);
       return normalizedPowerWatts(template?.powerWatts);
     }
@@ -35829,9 +35862,19 @@ document.addEventListener("click", function(event) {
       renderEditorDeviceList();
       renderDeviceLibrary();
     });
-    bindPowerUnitToggle(editorPowerUnitToggle, unit => {
+    editorStageboxSnake.addEventListener("change", () => {
+      if (!engineRendererRequested()) return;
       const template = currentEditorTemplate();
       if (!template) return;
+      const before = structuredClone(template);
+      Object.assign(template, WireNexusStageboxSnake.stageboxSnakeTogglePatch(template, editorStageboxSnake.checked));
+      recordEditorPlacementHistory(template, before);
+      renderDeviceEditor();
+      renderEditorDeviceList();
+    });
+    bindPowerUnitToggle(editorPowerUnitToggle, unit => {
+      const template = currentEditorTemplate();
+      if (!template || template.isStageboxSnake === true) return;
       const currentWatts = normalizedPowerWatts(template.powerWatts);
       template.powerUnit = unit;
       editorPowerConsumption.value = formatPowerNumber(powerValueForUnit(currentWatts, unit), 2);

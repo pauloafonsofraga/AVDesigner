@@ -1076,6 +1076,8 @@ function rawDeviceFromSceneDevice(device) {
     width: roundNumber(device.width),
     height: roundNumber(device.height),
     templateOverride: {
+      ...(device.visual?.isStageboxSnake ? { isStageboxSnake: true, powerWatts: 0,
+        stageboxSnake: deepClone(device.visual.stageboxSnake) } : {}),
       ...(device.visual?.enableInternalRouting ? { enableInternalRouting: true } : {}),
       id: device.templateId || `engine-template-${device.id}`,
       name: device.label || String(device.id),

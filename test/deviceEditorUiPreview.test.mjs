@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import vm from "node:vm";
 import * as AVDesignerProjectors from "../src/engine/projectorModel.js";
+import * as WireNexusStageboxSnake from "../src/engine/stageboxSnake.js";
 import * as persistentPlacement from "../src/engine/modularDeviceLayout.js";
 import { persistentChassisFixture } from "../fixtures/persistent-chassis-lanes.mjs";
 
@@ -454,6 +455,7 @@ function structuralEditorHarness(inputTemplate = {}) {
     structuredClone,
     EDITOR_DEVICE_DEFINITION_SCHEMA_VERSION: 2,
     AVDesignerProjectors,
+    WireNexusStageboxSnake,
     FACE_TOP_Y: 20,
     FACE_HEIGHT: 44,
     FACE_MARGIN: 12,

@@ -1,4 +1,5 @@
 import { normalizeConnectorTopology, validateConnectorTopology } from "./deviceDefinitionV2.js";
+import { normalizeStageboxSnake } from "./stageboxSnake.js";
 
 // Version 1 is retained for reading/recovering existing browser settings. New
 // complete definitions and artwork are owned by ../personalDefinitions.js.
@@ -18,6 +19,7 @@ export function factoryVisibilityPreferences(preferences, factory, id, hidden) {
   return { ...preferences, hiddenFactoryDeviceIds: [...ids] };
 }
 export const CONFIGURATION_KEYS = Object.freeze([
+  "isStageboxSnake", "stageboxSnake",
   "brand", "connectors", "hasSwappableCards", "cardTypes", "cardSlots", "schemaVersion", "deviceDefinitionVersion",
   "connectorRelationships", "connectorTopology", "isLedProcessor", "ledOutputCount", "isEthernetSwitch",
   "switchPortCount", "switchPortType", "isPowerDistro", "isMatrixRouter", "isProjector", "projectorLenses",
@@ -45,6 +47,7 @@ function compact(value) {
 export function compactDeviceConfiguration(configuration) {
   if (!record(configuration) || !Array.isArray(configuration.connectors)) throw new Error("Invalid device configuration.");
   const result = compact(Object.fromEntries(CONFIGURATION_KEYS.filter(key => own(configuration, key)).map(key => [key, configuration[key]])));
+  Object.assign(result, normalizeStageboxSnake(result));
   for (const key of CONFIGURATION_KEYS.filter(key => key.startsWith("is") || ["hasSwappableCards", "pairPlaceFirst", "faceplateDeleted"].includes(key))) {
     if (own(result, key) && typeof result[key] !== "boolean") throw new Error(`Invalid ${key}.`);
   }

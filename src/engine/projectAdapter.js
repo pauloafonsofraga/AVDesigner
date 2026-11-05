@@ -1,4 +1,5 @@
 import { resolveProjectorLens } from "./projectorModel.js";
+import { normalizeStageboxSnake } from "./stageboxSnake.js";
 import { projectWireRouting } from "./wireRoutingPolicy.js";
 import { reflowFaceImageLayout } from "./faceplateGeometry.js";
 import { deviceBrandForDisplay } from "./deviceDisplayName.js";
@@ -605,7 +606,7 @@ function normalizeProjectDevice(instance, index, templates, nodeColorByType, nod
     autoAttachJumpNodes: Boolean(instance.autoAttachJumpNodes),
     notes: String(instance.notes || ""),
     locked: Boolean(instance.locked),
-    powerWatts: instance.powerWatts ?? template.powerWatts ?? "",
+    powerWatts: template.isStageboxSnake === true ? 0 : instance.powerWatts ?? template.powerWatts ?? "",
     powerUnit: instance.powerUnit || template.powerUnit || "",
     showInternalWiring: Boolean(instance.showInternalWiring),
     showInternalMatrixRouting: instance.showInternalMatrixRouting !== false,
@@ -660,6 +661,7 @@ function normalizeDeviceVisualMetadata(
   height = DEFAULT_DEVICE_HEIGHT,
   nodeColorByType = NODE_TYPE_FALLBACKS
 ) {
+  const stagebox = normalizeStageboxSnake(template);
   const brand = deviceBrandForDisplay(instance) || deviceBrandForDisplay(template);
   const model = String(instance.model || template.model || "").trim();
   const category = String(instance.category || template.category || template.type || template.section || "").trim();
@@ -700,6 +702,7 @@ function normalizeDeviceVisualMetadata(
     faceImageScaleY,
     faceImageOffsetX: finiteNumber(instance.faceImageOffsetX ?? instance.faceplateOffsetX ?? template.faceImageOffsetX ?? template.faceplateOffsetX, 0),
     faceImageOffsetY: finiteNumber(instance.faceImageOffsetY ?? instance.faceplateOffsetY ?? template.faceImageOffsetY ?? template.faceplateOffsetY, 0),
+    ...stagebox,
     hasSwappableCards: Boolean(template.hasSwappableCards),
     suppressCardAreasInTexture: Boolean(template.suppressCardAreasInTexture || instance.suppressCardAreasInTexture),
     isLedProcessor: Boolean(template.isLedProcessor),
