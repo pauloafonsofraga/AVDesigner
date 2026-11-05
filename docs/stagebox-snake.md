@@ -49,10 +49,62 @@ portable `.wnx` packages and project save/reopen retain the flag and ends. Custo
 node dependencies, artwork, card slots, device IDs and cable endpoints are not
 rewritten. The community package validator is regenerated from the shared model.
 
-This phase does not create a second canvas object, add end-specific editor tabs,
-provide end-assignment UI, create internal passive routes, alter cable scheduling
-or change signal traversal. Canvas geometry and rendering remain unchanged. The
-new authoring control is hidden outside Engine mode.
+Canvas geometry and rendering remain unchanged; the two ends do not create
+additional canvas devices or physical cables. Channel mappings are configuration
+metadata, not new Signal Chain traversal or Cable Schedule entries. The new
+authoring controls are hidden outside Engine mode.
+
+## Phase 2: Two-ended editor
+
+The Connectors and Faceplate workflows expose an **End A / End B** selector.
+Each end has its own label, width, height, connector positions/anchors, optional
+artwork and artwork transforms. Existing connector editing, placement, resizing,
+shared-bus controls and image uploads are reused through detached end drafts.
+The parent's normal canvas dimensions, artwork and existing connector geometry
+are not replaced by the selected end's preview.
+
+End representations are `rectangle`, `circular` and `fanout`. Without uploaded
+artwork, the editor generates a schematic bitmap preview; it is not saved as
+manufacturer artwork. Representation changes do not change connector IDs, types,
+module compatibility or mappings.
+
+**Connector assignments & internal channels** exposes existing connector ownership
+and channel rows. Phase 1/unassigned connectors remain unassigned until explicitly
+assigned; no input/output direction is used to infer an end. Newly added slots
+belong to the active end, using IDs reserved across the whole shared device.
+
+Each end extends the existing version-1 record with `width`, `height`,
+`representation`, `connectorLayout` (geometry keyed by canonical connector ID),
+and `artwork` (the existing ordinary image/transform fields). Connector types
+remain canonical and cannot be overridden by a layout record. Dimensions and
+layout do not have to match between ends.
+
+`stageboxSnake.channels` is an ordered array, for example:
+
+```json
+[
+  { "id": "channel-1", "name": "Audio 1",
+    "a": { "connectorId": "multipin", "contact": "1" },
+    "b": { "connectorId": "xlr-1", "contact": "" } },
+  { "id": "channel-2", "name": "Audio 2",
+    "a": { "connectorId": "multipin", "contact": "2" },
+    "b": { "connectorId": "xlr-2", "contact": "" } }
+]
+```
+
+Contacts are authored pin/channel labels; no manufacturer pinout is invented.
+Mappings are undirected across the two ends and can express asymmetric multipin
+breakouts without requiring matching physical connector types. IDs are local to
+the shared assembly. Missing/cross-end references are rejected atomically.
+Reassigning/deleting a connector removes only its affected mappings, recoverable
+through the existing editor Undo/Redo history. No-op assignments preserve mappings.
+
+End-switching, camera movement and schematic previews do not dirty definitions.
+Committed end edits are recorded as complete shared-device snapshots, so Undo can
+return to the originating end while preserving the other end. Stale image-upload
+targets are invalidated on end switches. Apply, personal saves, JSON export,
+community submissions and `.wnx` export always use the shared definition, never
+an end-only preview. Existing artwork asset handling deduplicates matching bytes.
 
 ## Validation
 
@@ -69,3 +121,16 @@ settings, portable packages, projector compatibility and Device Editor previews)
 the Chrome workflow, and factory catalogue, viewer bundle, community validator
 and Cloud Artwork validation. Existing factory data/artwork and unrelated local
 Device JSON Import/infrastructure edits were excluded from the scoped change.
+
+Phase 2 adds model tests for independent end geometry, artwork, contacts,
+asymmetric mappings, identity collisions, representation/type separation,
+no-op assignments, personal persistence and portable packages. The dedicated
+`scripts/stagebox-ends-browser-smoke.mjs` covers real end controls, independent
+uploads, stale upload guards, cross-end and channel Undo/Redo, whole-device
+package export, Apply/reopen, unchanged canvas/cables and ordinary devices.
+
+Phase 2's isolated staged tree passed 352 focused tests, the dedicated Chrome
+workflow and factory catalogue, viewer-bundle, community and Cloud Artwork
+validators. Only scoped end-editor/model/tests/documentation and the regenerated
+community validator were committed; unrelated local work and protected assets
+were preserved. No hosted migration, deployment or infrastructure change was made.
