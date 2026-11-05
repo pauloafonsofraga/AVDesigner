@@ -69,11 +69,49 @@ True PostgreSQL serialization failures are not rewritten.
 - Encrypted database and roles backup checksums still match the verified
   20261104T130739Z recovery point outside the repository.
 
-Hosted post-fix acceptance requires explicit staging migration approval and a
-restart of the localhost API to load the new error mapping. Persistent browser
-profiles must stay open. Do not replay the old uncertain requests. Use fresh
-commands on the isolated project only, then verify conflict response latency,
-selective undo/redo, artwork changes, catch-up, checkpoints and baseline identity.
+## Approved staging verification
+
+After explicit approval, the exact migration (SHA-256
+`551a602fb77e6c0895c3dd3a281c924fc1a85b3de79af6a44a735d7f66b8425c`)
+was applied only to staging, recorded as hosted version `20261105121022`, name
+`collaboration_conflict_http_code`. The existing function OID remained `18170`;
+normalizing the five new error literals back to their old values reproduced the
+original definition MD5 `d0acfeaf26fd5ac404ea78eef512a175`. Security-definer and
+grants remained unchanged (`postgres`, `service_role` only). No other migration
+was applied.
+
+The localhost API was restarted with the new mapping. Both persistent browser
+sessions remained authenticated; no new login or replay of the original uncertain
+commands was needed. The 90 focused tests were rerun successfully before applying.
+
+Real hosted acceptance began at 2026-11-05 12:10:59 UTC:
+
+| Check | Result |
+| --- | --- |
+| Original operation reconciliation | Only the Editor command was present at sequence 4 |
+| Fresh competing movements | One HTTP 200 in 1,434 ms; one HTTP 409 in 1,664 ms; exactly one new operation |
+| Selective undo/redo | Editor undid/redid its own sink movement; independent source edits preserved; sequence 7 |
+| Artwork while Editor offline | Owner exchanged two existing artwork references; one new operation |
+| Reconnect/catch-up | Editor received the missed operation; both head documents and SHA-256 of fully hydrated artwork/project JSON matched |
+| Checkpoint/reopen | Checkpoint sequence 8, project revision/version 2; both accounts reopened the matching hydrated project |
+| Recovery version | Synthetic project's version 1 still present; no recovery overwrote the baseline |
+| Protected baseline | Original project remained revision/version 1, collaboration sequence 31, with its original single version |
+
+Hosted Postgres logs for 12:10:59--12:11:20 UTC contained **one `PT409`** and
+**zero `40001`** errors, confirming the conflicting request was rejected once,
+without the previous retry amplification. The browser deadline remains 15 seconds.
+All other measured collaboration API requests returned HTTP 200.
+
+Safe timing/result evidence is retained outside Git in the protected persistent
+profile directory as `collaboration-investigation.json`. It contains action names,
+statuses, timings and synthetic project identifiers, never authentication material.
+Both browser profiles and the localhost server remain open for inspection.
+
+These checks exercise actual authenticated browser/API/RPC/Storage flows and
+explicit ordered catch-up. They are not a new manual multi-cursor UI acceptance
+or a deployed Cloud Run verification. The localhost server rechecked closed
+registration on startup and retained its publishing freeze; new publication POSTs
+remain denied. No Cloud Run revision, IAM, secrets or hosting configuration changed.
 
 ## Recovery and limits
 
