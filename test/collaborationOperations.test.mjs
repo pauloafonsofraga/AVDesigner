@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
+import {readFile} from 'node:fs/promises';
 import {collaborationDatabase,OWNER,STRANGER} from './fixtures/collaborationDatabase.mjs';
 import {createCloudProjects} from '../src/cloudProjects.js';
 import {createCollaborationOperations} from '../src/server/collaborationOperations.js';
@@ -76,6 +77,50 @@ test('concurrent identical submissions return one durable receipt and do not all
   assert.deepEqual(results.map(r=>r.sequence),[1,1]);assert.equal(results.filter(r=>r.duplicate).length,1);
   const h=await c.call('read'),next=await edit(c,p=>p.devices[0].y+=1,h);
   assert.equal((await submit(c,next,1)).sequence,2);
+});
+
+test('a losing SQL CAS returns a non-retryable HTTP conflict without committing or retrying',async t=>{
+  const c=await setup(t),winner=await edit(c,p=>p.devices[0].x+=10),loser=await edit(c,p=>p.devices[0].x+=20);
+  let commits=0,sqlCode;
+  const rpc=async(name,args)=>{
+    if(args.operation==='commit'){
+      commits++;
+      await submit(c,winner);
+    }
+    const result=await c.serviceRpc(name,args);
+    if(args.operation==='commit')sqlCode=result.error?.code;
+    return result;
+  };
+  await assert.rejects(c.api(OWNER,rpc)({action:'submit',projectId:c.project.id,command:loser,expectedSequence:0}),conflict);
+  assert.equal(sqlCode,'PT409');assert.equal(commits,1);
+  const head=await c.call('read'),history=await c.call('history');
+  assert.equal(head.sequence,1);assert.equal(history.operations.length,1);
+  assert.equal(history.operations[0].command.commandId,winner.commandId);
+  assert.deepEqual(head.document,(await replayTopologyCommand(c.head.document,winner,c.head.replayState)).project);
+  const receipt=await c.serviceRpc('wirenexus_collaboration',{operation:'receipt',payload:{projectId:c.project.id,
+    actorId:OWNER,actorAal:'aal1',commandId:loser.commandId,requestHash:'not-committed'}});
+  assert.equal(receipt.data,null);assert.equal(receipt.error,null);
+});
+
+test('conflict migration retains function identity, security, guards and permissions',async t=>{
+  const c=await setup(t);
+  const inspect=async()=> (await c.db.query(`select oid,prosecdef,proconfig,proacl::text,prosrc,
+    pg_get_functiondef(oid) as definition from pg_proc
+    where oid='public.wirenexus_collaboration(text,jsonb)'::regprocedure`)).rows[0];
+  const current=await inspect();
+  await c.db.exec(current.definition.replaceAll("'PT409'","'40001'"));
+  const before=await inspect();
+  await c.db.exec(await readFile(new URL('../supabase/migrations/20261105120111_collaboration_conflict_http_code.sql',import.meta.url),'utf8'));
+  const row=await inspect();
+  assert.deepEqual({...row,prosrc:row.prosrc.replaceAll("'PT409'","'40001'"),
+    definition:row.definition.replaceAll("'PT409'","'40001'")},before);
+  assert.equal(row.prosecdef,true);
+  assert.match(row.proacl,/service_role=X/);
+  assert.doesNotMatch(row.proacl,/(?:authenticated|anon)=X/);
+  assert.equal((row.prosrc.match(/'PT409'/g)||[]).length,5);
+  assert.doesNotMatch(row.prosrc,/'40001'/);
+  assert.match(row.prosrc,/for update/);
+  await assert.rejects(c.call('activate',{expectedRevision:2,projectId:crypto.randomUUID()}),denied);
 });
 
 test('duplicate committed between initial receipt lookup and head read still returns its original sequence',async t=>{

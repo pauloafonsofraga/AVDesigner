@@ -4,6 +4,7 @@ export {OWNER,STRANGER};
 export async function collaborationDatabase() {
   const base=await organizationsDatabase();
   await base.db.exec(await readFile(new URL('../../supabase/migrations/202610290001_collaboration_operations.sql',import.meta.url),'utf8'));
+  await base.db.exec(await readFile(new URL('../../supabase/migrations/20261105120111_collaboration_conflict_http_code.sql',import.meta.url),'utf8'));
   const serviceRpc=async(name,args)=>{
     if(name!=='wirenexus_collaboration')throw Error('Unexpected RPC');
     try{return {data:await base.db.transaction(async tx=>{

@@ -14,7 +14,7 @@ export function createCollaborationOperations({rpc,actorId,actorAal='aal1'}) {
   const call=async(operation,payload)=>{
     const {data,error}=await rpc('wirenexus_collaboration',{operation,payload:{...payload,actorId,actorAal}});
     if(error) {
-      const status=({'42501':403,P0403:403,P0402:403,P0429:429,'40001':409,'22023':400})[error.code] || 503;
+      const status=({'42501':403,P0403:403,P0402:403,P0429:429,PT409:409,'40001':409,'22023':400})[error.code] || 503;
       const message=({403:'Project access or Enterprise entitlement is unavailable.',429:'Too many collaboration requests.',
         409:'Project changed. Catch up before retrying.',400:'Invalid collaboration operation.',503:'Collaboration storage is temporarily unavailable.'})[status];
       throw new PublishingError(status,message);
