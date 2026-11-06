@@ -1,6 +1,9 @@
 // Shared metadata model; it does not project ends onto the canvas or route signals.
 (() => {
   const STAGEBOX_SNAKE_CATEGORY = "Stageboxes & Snakes";
+  const STAGEBOX_FACEPLATE_TOP = 34;
+  const stageboxFaceplateHeight = (representation, connectorCount) =>
+    Math.max(150, Math.min(100, connectorCount) * (representation === "fanout" ? 6 : 2));
   const endIds = ["end-a", "end-b"];
   const representations = ["rectangle", "circular", "fanout"];
   const geometryKeys = ["x", "y", "anchors", "rowIndex", "faceplateSide"];
@@ -142,5 +145,6 @@
   }
 
   globalThis.WireNexusStageboxSnake = Object.freeze({ STAGEBOX_SNAKE_CATEGORY, normalizeStageboxSnake, stageboxSnakeTogglePatch,
+    STAGEBOX_FACEPLATE_TOP, stageboxFaceplateHeight,
     stageboxEndDraft, commitStageboxEndDraft, assignStageboxConnector, setStageboxChannel });
 })();

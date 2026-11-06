@@ -56,12 +56,18 @@ authoring controls are hidden outside Engine mode.
 
 ## Phase 2: Two-ended editor
 
-The Connectors and Faceplate workflows expose an **End A / End B** selector.
+The Device, Connectors and Faceplate tabs show both ends in separate panes.
+The panes sit side by side on wide screens and stack on narrow screens.
+Click an end's heading or inactive preview to give it the shared editor tools
+and Connector Inspector. The Stagebox / Snake toggle lives in Device Options.
 Each end has its own label, width, height, connector positions/anchors, optional
 artwork and artwork transforms. Existing connector editing, placement, resizing,
 shared-bus controls and image uploads are reused through detached end drafts.
 The parent's normal canvas dimensions, artwork and existing connector geometry
-are not replaced by the selected end's preview.
+are not replaced by the selected end's preview. Generated faceplates reserve
+their full schematic height plus connector clearance before the first editable
+row. Connector rows and the end preview grow as needed; opening the editor
+alone does not rewrite stored connector geometry.
 
 End representations are `rectangle`, `circular` and `fanout`. Without uploaded
 artwork, the editor, canvas and exports render a shared schematic: a balanced

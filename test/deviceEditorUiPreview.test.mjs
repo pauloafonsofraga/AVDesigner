@@ -1781,6 +1781,7 @@ test("Device tab uses compact feature groups with dependent controls beside togg
   const devicePanel = editorPanel("device");
   const featurePane = deviceFeaturePane();
   const expectedLabels = [
+    "Is a Stagebox / Snake",
     "Adapter / Breakout",
     "HAS SWAPPABLE CARDS",
     "Is an LED Processor",
@@ -1805,6 +1806,7 @@ test("Device tab uses compact feature groups with dependent controls beside togg
     "editorPowerConsumption"
   ], "Device actions and basic fields should share the command row");
   assert.doesNotMatch(devicePanel, /editor-feature-strip/, "feature toggles should live in the left feature pane");
+  assert.doesNotMatch(devicePanel, /id="editorStageboxSnake"/);
 
   assert.match(featurePane, /Device Options/);
   expectedLabels.forEach(label => assert.match(featurePane, new RegExp(`>${label}<`), `${label} label`));

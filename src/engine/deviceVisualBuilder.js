@@ -1,5 +1,6 @@
 import { engineConnectorInfoFields, engineConnectorCanvasLabelLines, isEngineCageConnector } from "./connectorCompatibility.js";
 import { deviceHeaderLabel, hasOrdinaryDeviceHeader } from "./deviceDisplayName.js";
+import "./stageboxSnakeCore.js";
 import {
   adapterColorStops,
   adapterInternalWirePairs,
@@ -402,11 +403,12 @@ function drawCompactRackDeviceVisual(ctx, device, width, height) {
 }
 
 export function stageboxFaceplateLayout(connectors, representation, endId, width, height) {
+  const { STAGEBOX_FACEPLATE_TOP, stageboxFaceplateHeight } = globalThis.WireNexusStageboxSnake;
   const ports = connectors.filter(c => !c.empty && !c.hiddenOnCanvas).slice(0, 100);
   const count = ports.length;
   const panelWidth = Math.max(0, Math.min(width - 24, 380 * 1.5));
-  const panelHeight = Math.max(0, Math.min(height - 48, Math.max(100 * 1.5, count * (representation === "fanout" ? 6 : 2))));
-  const x = (width - panelWidth) / 2, y = 34;
+  const panelHeight = Math.max(0, Math.min(height - 48, stageboxFaceplateHeight(representation, connectors.length)));
+  const x = (width - panelWidth) / 2, y = STAGEBOX_FACEPLATE_TOP;
   const cx = width / 2, cy = y + panelHeight / 2;
   const panel = { x, y, width: panelWidth, height: panelHeight };
   if (!panelWidth || !panelHeight) return { panel, nodes: [] };

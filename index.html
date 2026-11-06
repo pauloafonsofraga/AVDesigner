@@ -5479,6 +5479,22 @@
     #stageboxEndEditor input, #stageboxEndEditor select { background:#151c23; color:#edf2f7; border:1px solid #42515f; border-radius:4px; padding:5px 7px; font:inherit; box-sizing:border-box; min-width:0; }
     #stageboxEndEditor label.field > span { font-size:11px; font-weight:700; color:#bcc8d3; }
     #stageboxEndError { color:#ffa89e; }
+    #stageboxEndEditor { min-height:0; overflow:auto; }
+    .stagebox-end-panes { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; min-height:100%; }
+    .stagebox-end-pane { min-width:0; min-height:310px; display:grid; grid-template-rows:auto minmax(240px,1fr);
+      border:1px solid #394652; border-radius:6px; overflow:hidden; }
+    .stagebox-end-pane.active { border-color:#32b6ff; }
+    .stagebox-end-controls { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; padding:8px; background:#202b36; }
+    .stagebox-end-controls > button { grid-column:1/-1; justify-self:start; }
+    .stagebox-end-controls input, .stagebox-end-controls select { width:100%; }
+    .stagebox-preview-slot { position:relative; min-height:240px; min-width:0; background:#10161c; }
+    .stagebox-preview-slot > .editor-preview, .stagebox-preview-slot > .engine-preview-surface { position:absolute; inset:0; width:100%; height:100%; }
+    .stagebox-preview-slot > .editor-preview { min-height:0; }
+    .stagebox-end-pane:not(.active) .stagebox-preview-slot { cursor:pointer; }
+    .stagebox-end-pane:not(.active) .engine-preview-surface { pointer-events:none; }
+    @media (max-width: 1050px) {
+      .stagebox-end-panes { grid-template-columns:minmax(0,1fr); }
+    }
   </style>
 </head>
 <body>
@@ -5743,16 +5759,6 @@
           </div>
 
           <div class="editor-panels">
-            <div id="stageboxEndEditor" class="hidden" style="padding:8px 0;border-bottom:1px solid #394652">
-              <div class="slot-actions" style="display:flex;flex-wrap:wrap;gap:8px;align-items:end">
-                <div role="group" aria-label="Stagebox end"><button class="tool-button" data-stagebox-end="end-a" type="button">End A</button><button class="tool-button" data-stagebox-end="end-b" type="button">End B</button></div>
-                <label class="field"><span>End label</span><input id="stageboxEndName"></label>
-                <label class="field"><span>Width</span><input id="stageboxEndWidth" type="number" min="120" step="1" style="width:90px"></label>
-                <label class="field"><span>Height</span><input id="stageboxEndHeight" type="number" min="80" step="1" style="width:90px"></label>
-                <label class="field"><span>Representation</span><select id="stageboxEndRepresentation"><option value="rectangle">Rectangular box</option><option value="circular">Circular breakout</option><option value="fanout">Cable tails / fanout</option></select></label>
-              </div>
-              <div id="stageboxEndError" role="status"></div>
-            </div>
             <section class="editor-panel active" data-editor-panel="device">
               <div class="editor-device-command-row">
                 <div class="editor-primary-action">
@@ -5779,9 +5785,6 @@
                   <div class="field">
                     <label for="editorDeviceCategory">Category</label>
                     <select id="editorDeviceCategory"></select>
-                  </div>
-                  <div class="field hidden" id="editorStageboxSnakeField">
-                    <label class="feature-toggle"><input id="editorStageboxSnake" type="checkbox"><span>Is a Stagebox / Snake</span></label>
                   </div>
                   <div class="field editor-device-power-field">
                     <label for="editorPowerConsumption">Power Consumption</label>
@@ -5867,6 +5870,9 @@
             <aside class="device-feature-pane hidden" id="deviceFeaturePane" aria-hidden="true">
               <div class="panel-title">Device Options</div>
               <div class="editor-feature-strip" aria-label="Device feature toggles">
+                <div class="editor-feature-group hidden" id="editorStageboxSnakeField">
+                  <label class="feature-toggle"><input id="editorStageboxSnake" type="checkbox"><span>Is a Stagebox / Snake</span></label>
+                </div>
                 <div class="editor-feature-group">
                   <label class="feature-toggle"><input id="editorAdapterBreakout" type="checkbox"><span>Adapter / Breakout</span></label>
                 </div>
@@ -5934,6 +5940,10 @@
                 <button class="tool-button" id="editorZoomReset" type="button">Fit</button>
               </div>
               <div class="editor-preview-grid" id="editorPreviewGrid">
+                <div id="stageboxEndEditor" class="hidden">
+                  <div class="stagebox-end-panes"></div>
+                  <div id="stageboxEndError" role="status"></div>
+                </div>
                 <div class="editor-preview" id="deviceEditorPreviewHost">
                   <svg id="deviceEditorPreview" xmlns="http://www.w3.org/2000/svg"></svg>
                   <input class="hidden" id="miscColorPicker" type="color" aria-label="Misc connector color">
@@ -8268,6 +8278,10 @@
         const face = faceImagePlacement(template, template?.width || DEVICE_WIDTH, Number(template?.height) || 0);
         return Math.ceil(face.y + face.height + 36);
       }
+      if (template?.stageboxEndDraftId) {
+        const { STAGEBOX_FACEPLATE_TOP, stageboxFaceplateHeight } = WireNexusStageboxSnake;
+        return STAGEBOX_FACEPLATE_TOP + stageboxFaceplateHeight(template.stageboxRepresentation, template.connectors.length) + 36;
+      }
       return FACE_TOP_Y + faceplateHeightForTemplate(template, template?.width || DEVICE_WIDTH) + 36;
     }
 
@@ -9119,6 +9133,10 @@
         slotHeight: SLOT_HEIGHT
       });
       const draft = structuredClone(template);
+      if (template.stageboxEndDraftId) {
+        const endContext = editorStageboxRoots.get(template);
+        if (endContext) editorStageboxRoots.set(draft, endContext);
+      }
       const mutation = options.mutate(draft, {
         baselineLayout,
         session,
@@ -9143,7 +9161,7 @@
       }
       const committedStartY = connectorStartYForTemplate(draft);
       const startYChanged = Math.abs(committedStartY - baselineStartY) >= 0.1;
-      const rebaseStartY = mutation.rebaseStartY === true;
+      const rebaseStartY = mutation.rebaseStartY === true || Boolean(draft.stageboxEndDraftId && startYChanged);
       if (startYChanged && !rebaseStartY) {
         throw new Error(`Device Editor structural edit changed the modular origin from ${baselineStartY} to ${committedStartY} without authorising an origin rebase.`);
       }
@@ -16896,9 +16914,9 @@
       renderSelectedConnectorSettings();
       renderConnectorRelationshipsPanel();
       renderRackBuilder();
+      renderStageboxEndControls();
       renderDeviceEditorPreview();
       renderDeviceAuthoringDebugPanel();
-      renderStageboxEndControls();
     }
 
     function renderProjectorLensEditor() {
@@ -19593,7 +19611,7 @@
     }
 
     function canUseFaceplateSideConnector(template) {
-      return Boolean(faceplateSideConnectorBounds(template));
+      return !template?.stageboxEndDraftId && Boolean(faceplateSideConnectorBounds(template));
     }
 
     function faceplateSideConnectorY(template) {
@@ -20180,6 +20198,13 @@
         const context = { root, endId, baseline: "" };
         editorStageboxRoots.set(draft, context);
         validateDraftDefaults(draft, { normalizePlacement: false });
+        const startY = connectorStartYForTemplate(draft);
+        const firstY = Math.min(startY, ...draft.connectors.flatMap(c => [c.y, ...(c.anchors || []).map(a => a.y)]).filter(Number.isFinite));
+        for (const connector of draft.connectors) {
+          connector.y += startY - firstY;
+          for (const anchor of connector.anchors || []) anchor.y += startY - firstY;
+        }
+        draft.height = deviceHeightForSlotCounts(draft);
         context.baseline = JSON.stringify(draft);
       }
       return views.get(endId);
@@ -20197,31 +20222,94 @@
     function recordStageboxEndHistory(view, before) {
       const context = editorStageboxRoots.get(view);
       if (!context || JSON.stringify(view) === JSON.stringify(before)) return;
-      const previous = WireNexusStageboxSnake.commitStageboxEndDraft(context.root, context.endId, before);
-      replaceEditorTemplateContents(context.root, WireNexusStageboxSnake.commitStageboxEndDraft(context.root, context.endId, view));
+      let previous, next;
+      try {
+        previous = WireNexusStageboxSnake.commitStageboxEndDraft(context.root, context.endId, before);
+        next = WireNexusStageboxSnake.commitStageboxEndDraft(context.root, context.endId, view);
+      } catch (error) {
+        replaceEditorTemplateContents(view, before);
+        throw error;
+      }
+      replaceEditorTemplateContents(context.root, next);
       context.baseline = JSON.stringify(view);
       recordEditorPlacementHistory(context.root, previous);
       const entry = editorMetadataHistory.undo.at(-1);
       if (entry?.template === context.root) entry.stageboxEndId = context.endId;
     }
 
+    let editorStageboxPeerSurface = null;
+    let editorStageboxPeerKey = "";
+
     function renderStageboxEndControls() {
       const panel = document.getElementById("stageboxEndEditor"), root = editorDraft[editorIndex];
-      const active = root?.isStageboxSnake === true && ["faceplate", "connectors"].includes(editorActiveTab) && engineRendererRequested();
+      const grid = document.getElementById("editorPreviewGrid");
+      const active = root?.isStageboxSnake === true && ["device", "faceplate", "connectors"].includes(editorActiveTab) && engineRendererRequested();
       panel.classList.toggle("hidden", !active);
       document.getElementById("stageboxEndError").textContent = "";
-      if (!active) return;
-      const view = stageboxEditorEndDraft(root);
-      for (const button of panel.querySelectorAll("[data-stagebox-end]")) {
-        const selected = button.dataset.stageboxEnd === editorStageboxEndId;
-        button.setAttribute("aria-pressed", String(selected));button.classList.toggle("active", selected);
+      if (!active) {
+        if (deviceEditorPreviewHost.parentElement !== grid) grid.appendChild(deviceEditorPreviewHost);
+        disposeStageboxPeerPreview();
+        return;
       }
-      document.getElementById("stageboxEndName").value = view.name;
-      document.getElementById("stageboxEndWidth").value = view.width;
-      document.getElementById("stageboxEndHeight").value = view.manualHeight || view.height;
-      document.getElementById("stageboxEndRepresentation").value = view.stageboxRepresentation;
+      const panes = panel.querySelector(".stagebox-end-panes");
+      if (!panes.children.length) {
+        panes.innerHTML = ["end-a", "end-b"].map((id, index) => `
+          <section class="stagebox-end-pane" data-stagebox-pane="${id}" aria-label="End ${index ? "B" : "A"}">
+            <div class="stagebox-end-controls">
+              <button class="tool-button" type="button" data-stagebox-end="${id}">End ${index ? "B" : "A"}</button>
+              <label class="field"><span>End label</span><input data-stagebox-field="name"></label>
+              <label class="field"><span>Representation</span><select data-stagebox-field="stageboxRepresentation"><option value="rectangle">Rectangular box</option><option value="circular">Circular breakout</option><option value="fanout">Cable tails / fanout</option></select></label>
+              <label class="field"><span>Width</span><input data-stagebox-field="width" type="number" min="120" step="1"></label>
+              <label class="field"><span>Height</span><input data-stagebox-field="manualHeight" type="number" min="80" step="1"></label>
+              <button class="tool-button" type="button" data-stagebox-upload>Upload Faceplate</button>
+            </div>
+            <div class="stagebox-preview-slot"></div>
+          </section>`).join("");
+      }
+      for (const pane of panes.children) {
+        const id = pane.dataset.stageboxPane;
+        const view = stageboxEditorEndDraft(root, id), selected = id === editorStageboxEndId;
+        pane.classList.toggle("active", selected);
+        const button = pane.querySelector("[data-stagebox-end]");
+        button.setAttribute("aria-pressed", String(selected));
+        button.classList.toggle("active", selected);
+        pane.querySelector("[data-stagebox-upload]").classList.toggle("hidden", editorActiveTab !== "faceplate");
+        for (const field of pane.querySelectorAll("[data-stagebox-field]")) {
+          const key = field.dataset.stageboxField;
+          field.value = key === "manualHeight" ? view.height : view[key];
+        }
+        const slot = pane.querySelector(".stagebox-preview-slot");
+        if (selected && deviceEditorPreviewHost.parentElement !== slot) {
+          slot.appendChild(deviceEditorPreviewHost);
+          editorEnginePreviewFitPending = true;
+        }
+      }
     }
 
+    function disposeStageboxPeerPreview() {
+      editorStageboxPeerSurface?.dispose();
+      editorStageboxPeerSurface = null;
+      editorStageboxPeerKey = "";
+    }
+
+    function renderStageboxPeerPreview() {
+      const panel = document.getElementById("stageboxEndEditor");
+      if (panel.classList.contains("hidden") || !editorEnginePreviewModule?.EnginePreviewSurface) return;
+      const pane = panel.querySelector(".stagebox-end-pane:not(.active)");
+      const slot = pane?.querySelector(".stagebox-preview-slot");
+      if (!slot) return;
+      const view = stageboxEditorEndDraft(editorDraft[editorIndex], pane.dataset.stageboxPane);
+      const payload = editorEnginePreviewPayload(view);
+      const key = JSON.stringify([pane.dataset.stageboxPane, payload.template, slot.clientWidth, slot.clientHeight]);
+      if (key === editorStageboxPeerKey) return;
+      editorStageboxPeerKey = key;
+      if (!editorStageboxPeerSurface) {
+        editorStageboxPeerSurface = new editorEnginePreviewModule.EnginePreviewSurface(slot, {
+          owner: "stagebox-peer", fit: false, renderOptions: { gridVisible: false, connectorColors: true }
+        });
+      } else editorStageboxPeerSurface.mount(slot);
+      editorStageboxPeerSurface.setDraftDevice(payload, { fit: true });
+    }
     function currentEditorTemplate() {
       const root = editorDraft[editorIndex];
       return root?.isStageboxSnake === true && ["faceplate", "connectors"].includes(editorActiveTab) && engineRendererRequested()
@@ -20735,6 +20823,7 @@
     }
 
     function disposeDeviceEditorEnginePreviewSurface() {
+      disposeStageboxPeerPreview();
       restoreDeviceEditorPreviewSvgHome();
       deviceEditorPreview?.classList.remove("engine-preview-authoring-svg");
       editorEnginePreviewHost?.classList.remove("engine-preview-mode");
@@ -23287,8 +23376,11 @@
 
     function renderDeviceEditorPreview(options = {}) {
       if (options.motionFrame !== true) editorPlacementMotionSampleCache = null;
-      const template = currentEditorTemplate();
+      let template = currentEditorTemplate();
       if (!template) return;
+      if (editorActiveTab === "device" && template.isStageboxSnake && engineRendererRequested()) {
+        template = stageboxEditorEndDraft(template);
+      }
       if (editorActiveTab === "racks") {
         renderRackBuilderPreview();
         return;
@@ -23302,6 +23394,7 @@
       setDeviceEditorCardAuthoringMode(false);
 	      if (deviceEditorActivePreviewUsesEngine()) {
         renderDeviceEditorEnginePreview(template, options);
+        if (template.stageboxEndDraftId && options.motionFrame !== true) renderStageboxPeerPreview();
         return;
       }
     }
@@ -35694,9 +35787,9 @@ document.addEventListener("click", function(event) {
       renderNodePalette();
       renderSelectedConnectorSettings();
       renderConnectorRelationshipsPanel();
+      renderStageboxEndControls();
       renderDeviceEditorPreview();
       renderEditorDefaultControls();
-      renderStageboxEndControls();
       if (previousTab !== editorActiveTab) scheduleDeviceEditorPreviewFit(editorActiveTab);
       renderDeviceAuthoringDebugPanel();
     });
@@ -35970,29 +36063,51 @@ document.addEventListener("click", function(event) {
       renderDeviceEditor();
       renderEditorDeviceList();
     });
+    function activateStageboxPane(endId) {
+      if (!endId || endId === editorStageboxEndId) return;
+      cancelDeviceEditorActiveInteraction();
+      cancelEditorResizeSession(null, { render: false });
+      invalidateEditorFaceplateUploadTarget();
+      flushEditorStageboxEnds();
+      editorStageboxEndId = endId;
+      editorArtworkSide = "faceplate";
+      clearEditorNodeSelection();
+      clearEditorPlacementMotion();
+      editorSelectedFaceplate = false;
+    }
+
     document.getElementById("stageboxEndEditor").addEventListener("click", event => {
-      const end = event.target.closest("[data-stagebox-end]");
-      if (end) {
-        cancelDeviceEditorActiveInteraction();cancelEditorResizeSession(null, { render: false });
-        invalidateEditorFaceplateUploadTarget();flushEditorStageboxEnds();
-        editorStageboxEndId = end.dataset.stageboxEnd;editorArtworkSide = "faceplate";
-        clearEditorNodeSelection();clearEditorPlacementMotion();
-        editorSelectedFaceplate = false;renderDeviceEditor();scheduleDeviceEditorPreviewFit(editorActiveTab);
-        return;
-      }
+      const target = event.target.closest("[data-stagebox-end], [data-stagebox-upload], .stagebox-end-pane:not(.active) .stagebox-preview-slot");
+      if (!target) return;
+      activateStageboxPane(target.closest("[data-stagebox-pane]").dataset.stageboxPane);
+      renderDeviceEditor();
+      scheduleDeviceEditorPreviewFit(editorActiveTab);
+      if (target.hasAttribute("data-stagebox-upload")) document.getElementById("editorFaceUpload").click();
     });
-    for (const id of ["stageboxEndName", "stageboxEndWidth", "stageboxEndHeight", "stageboxEndRepresentation"]) document.getElementById(id).addEventListener("change", () => {
-      const view = currentEditorTemplate();if (!view?.stageboxEndDraftId) return;
+    document.getElementById("stageboxEndEditor").addEventListener("change", event => {
+      const key = event.target.dataset.stageboxField;
+      if (!key) return;
+      const value = event.target.value;
+      const endId = event.target.closest("[data-stagebox-pane]").dataset.stageboxPane;
+      activateStageboxPane(endId);
+      const view = stageboxEditorEndDraft(editorDraft[editorIndex], endId);
       const before = structuredClone(view);
-      view.name = document.getElementById("stageboxEndName").value;
-      view.width = Math.max(120, Number(document.getElementById("stageboxEndWidth").value) || before.width);
-      view.manualHeight = Math.max(80, ...view.connectors.map(c => Number(c.y) + 60), Number(document.getElementById("stageboxEndHeight").value) || before.height);
-      view.height = view.manualHeight;view.stageboxRepresentation = document.getElementById("stageboxEndRepresentation").value;
+      if (key === "width") view.width = Math.max(120, Number(value) || before.width);
+      else if (key === "manualHeight") view.manualHeight = Math.max(80, Number(value) || before.height);
+      else view[key] = value;
+      const delta = connectorStartYForTemplate(view) - connectorStartYForTemplate(before);
       for (const connector of view.connectors) {
         if (connector.x === before.width) connector.x = view.width;
-        for (const anchor of connector.anchors || []) if (anchor.side === "right") anchor.x = view.width;
+        connector.y += delta;
+        for (const anchor of connector.anchors || []) {
+          if (anchor.side === "right") anchor.x = view.width;
+          anchor.y += delta;
+        }
       }
-      recordEditorPlacementHistory(view, before);renderDeviceEditor();scheduleDeviceEditorPreviewFit(editorActiveTab);
+      view.height = deviceHeightForSlotCounts(view);
+      recordEditorPlacementHistory(view, before);
+      renderDeviceEditor();
+      scheduleDeviceEditorPreviewFit(editorActiveTab);
     });
     bindPowerUnitToggle(editorPowerUnitToggle, unit => {
       const template = currentEditorTemplate();
@@ -38051,6 +38166,10 @@ document.addEventListener("click", function(event) {
     updateShellDebug({ lastPanelAction: "startup" });
     window.addEventListener("resize", updateCanvasView);
     window.addEventListener("resize", () => {
+      if (!deviceEditorModal.classList.contains("hidden") && editorStageboxPeerSurface) {
+        editorEnginePreviewFitPending = true;
+        renderDeviceEditorPreview();
+      }
       if (rackBuilderUsesEnginePreview() && rackBuilderEnginePreviewSurface && rackBuilderModalOpen()) {
         rackBuilderEnginePreviewSurface.resize({ fit: false });
         renderRackBuilderPreview({ cameraOnly: true });
