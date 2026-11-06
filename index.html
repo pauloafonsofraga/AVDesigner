@@ -5478,13 +5478,6 @@
     #stageboxEndEditor { font-size:12px; }
     #stageboxEndEditor input, #stageboxEndEditor select { background:#151c23; color:#edf2f7; border:1px solid #42515f; border-radius:4px; padding:5px 7px; font:inherit; box-sizing:border-box; min-width:0; }
     #stageboxEndEditor label.field > span { font-size:11px; font-weight:700; color:#bcc8d3; }
-    #stageboxEndEditor summary { cursor:pointer; padding:7px 0; }
-    .stagebox-routing-grid { display:grid; grid-template-columns:minmax(150px,1fr) minmax(490px,3fr); gap:16px; overflow:auto; }
-    #stageboxEndAssignments label { justify-content:space-between; }
-    #stageboxEndAssignments span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    #stageboxEndAssignments select { max-width:130px; }
-    .stagebox-channel-row { display:grid; grid-template-columns:100px minmax(90px,1fr) 64px 16px minmax(90px,1fr) 64px 32px; gap:6px; align-items:center; margin:5px 0; }
-    #stageboxChannels input, #stageboxChannels select { width:100%; }
     #stageboxEndError { color:#ffa89e; }
   </style>
 </head>
@@ -5758,7 +5751,6 @@
                 <label class="field"><span>Height</span><input id="stageboxEndHeight" type="number" min="80" step="1" style="width:90px"></label>
                 <label class="field"><span>Representation</span><select id="stageboxEndRepresentation"><option value="rectangle">Rectangular box</option><option value="circular">Circular breakout</option><option value="fanout">Cable tails / fanout</option></select></label>
               </div>
-              <details id="stageboxRoutingDetails"><summary>Connector assignments &amp; internal channels</summary><div class="stagebox-routing-grid"><div id="stageboxEndAssignments" style="max-height:140px;overflow:auto"></div><div><div id="stageboxChannels" style="max-height:180px;overflow:auto"></div><button id="stageboxAddChannel" class="tool-button" type="button">Add Channel</button></div></div></details>
               <div id="stageboxEndError" role="status"></div>
             </div>
             <section class="editor-panel active" data-editor-panel="device">
@@ -20213,26 +20205,13 @@
       if (entry?.template === context.root) entry.stageboxEndId = context.endId;
     }
 
-    function mutateStageboxEndDefinition(mutate) {
-      try {
-        flushEditorStageboxEnds();
-        const root = editorDraft[editorIndex], before = structuredClone(root), next = mutate(root);
-        replaceEditorTemplateContents(root, next);
-        editorStageboxDrafts.delete(root);
-        recordEditorPlacementHistory(root, before);
-        const entry = editorMetadataHistory.undo.at(-1);
-        if (entry?.template === root) entry.stageboxEndId = editorStageboxEndId;
-        document.getElementById("stageboxEndError").textContent = "";
-        renderDeviceEditor();
-      } catch (error) { document.getElementById("stageboxEndError").textContent = error.message; }
-    }
-
     function renderStageboxEndControls() {
       const panel = document.getElementById("stageboxEndEditor"), root = editorDraft[editorIndex];
       const active = root?.isStageboxSnake === true && ["faceplate", "connectors"].includes(editorActiveTab) && engineRendererRequested();
       panel.classList.toggle("hidden", !active);
+      document.getElementById("stageboxEndError").textContent = "";
       if (!active) return;
-      const view = stageboxEditorEndDraft(root), data = WireNexusStageboxSnake.normalizeStageboxSnake(root).stageboxSnake;
+      const view = stageboxEditorEndDraft(root);
       for (const button of panel.querySelectorAll("[data-stagebox-end]")) {
         const selected = button.dataset.stageboxEnd === editorStageboxEndId;
         button.setAttribute("aria-pressed", String(selected));button.classList.toggle("active", selected);
@@ -20241,40 +20220,6 @@
       document.getElementById("stageboxEndWidth").value = view.width;
       document.getElementById("stageboxEndHeight").value = view.manualHeight || view.height;
       document.getElementById("stageboxEndRepresentation").value = view.stageboxRepresentation;
-      document.getElementById("stageboxEndAssignments").innerHTML = (root.connectors || []).map(c => {
-        const owner = data.ends.find(e => e.connectorIds.includes(c.id))?.id || "";
-        return `<label style="display:flex;gap:8px;align-items:center;margin:4px 0"><span>${escapeHtml(c.nameText || c.label || c.id)}</span><select data-stagebox-owner="${escapeAttr(c.id)}" aria-label="End for ${escapeAttr(c.nameText || c.label || c.id)}"><option value="">Unassigned</option>${data.ends.map(e => `<option value="${e.id}" ${e.id === owner ? "selected" : ""}>${escapeHtml(e.name)}</option>`).join("")}</select></label>`;
-      }).join("");
-      const options = (index, current) => data.ends[index].connectorIds.filter(id => !root.connectors.find(c => c.id === id)?.empty).map(id => {
-        const c = root.connectors.find(c => c.id === id);
-        return `<option value="${escapeAttr(id)}" ${id === current ? "selected" : ""}>${escapeHtml(c.nameText || c.label || id)}</option>`;
-      }).join("");
-      document.getElementById("stageboxChannels").innerHTML = data.channels.map(c => `<div class="stagebox-channel-row" data-stagebox-channel="${escapeAttr(c.id)}">
-        <input data-channel-field="name" aria-label="Channel label" title="Channel label" value="${escapeAttr(c.name)}">
-        <select data-channel-field="a" aria-label="End A connector" title="End A connector">${options(0, c.a.connectorId)}</select><input data-channel-field="a-contact" aria-label="End A contact" title="End A contact / pin" value="${escapeAttr(c.a.contact)}">
-        <span aria-hidden="true">↔</span><select data-channel-field="b" aria-label="End B connector" title="End B connector">${options(1, c.b.connectorId)}</select><input data-channel-field="b-contact" aria-label="End B contact" title="End B contact / pin" value="${escapeAttr(c.b.contact)}">
-        <button class="tool-button" data-channel-delete type="button" title="Delete channel" aria-label="Delete channel">×</button></div>`).join("");
-      document.getElementById("stageboxAddChannel").disabled = !data.ends.every(e => e.connectorIds.some(id => !root.connectors.find(c => c.id === id)?.empty));
-      for (const button of panel.querySelectorAll("[data-channel-delete]")) {
-        const icon = window.WireNexusToolbarIcons.create(document, "layer-trash");icon.style.width = "16px";icon.style.height = "16px";button.replaceChildren(icon);
-      }
-    }
-
-    function stageboxEndSchematic(view) {
-      const canvas = document.createElement("canvas");canvas.width = 380;canvas.height = 100;
-      const ctx = canvas.getContext("2d");ctx.strokeStyle = "#32b6ff";ctx.lineWidth = 3;
-      const connectors = view.connectors.filter(c => !c.empty), count = Math.max(1, Math.min(8, connectors.length));
-      const dot = (i, x, y) => { ctx.fillStyle = editorNodeType(connectors[i]?.type)?.color || "#d4dce5";ctx.beginPath();ctx.arc(x, y, 6, 0, Math.PI * 2);ctx.fill(); };
-      if (view.stageboxRepresentation === "circular") { ctx.beginPath();ctx.arc(190, 50, 42, 0, Math.PI * 2);ctx.stroke(); }
-      else if (view.stageboxRepresentation === "fanout") {
-        ctx.beginPath();ctx.moveTo(25, 50);ctx.lineTo(150, 50);ctx.stroke();
-        for (let i = 0; i < count; i++) { const y = count === 1 ? 50 : 14 + i * 72 / (count - 1);ctx.beginPath();ctx.moveTo(150, 50);ctx.lineTo(310, y);ctx.stroke();dot(i, 310, y); }
-      } else ctx.strokeRect(36, 12, 308, 76);
-      if (view.stageboxRepresentation !== "fanout") for (let i = 0; i < count; i++) {
-        const circular = view.stageboxRepresentation === "circular", angle = i * Math.PI * 2 / count;
-        dot(i, circular ? 190 + Math.cos(angle) * 25 : 70 + i * 240 / Math.max(1, count - 1), circular ? 50 + Math.sin(angle) * 25 : 50);
-      }
-      return canvas.toDataURL("image/png");
     }
 
     function currentEditorTemplate() {
@@ -20885,9 +20830,6 @@
             connector.hiddenOnCanvas = true;
           });
         });
-      }
-      if (template.stageboxEndDraftId && !draft.faceImage && !draft.faceplateDeleted) {
-        draft.faceImage = stageboxEndSchematic(template);draft.faceImageNaturalWidth = 380;draft.faceImageNaturalHeight = 100;
       }
       return applyEditorPlacementVisualsToPreviewTemplate(draft, sourceTemplate);
     }
@@ -25492,6 +25434,11 @@
       template.connectors.forEach(item => {
         if (idsToRemove.has(item.id) && isPairedNetworkConnector(item) && item.pairedConnectorId) idsToRemove.add(item.pairedConnectorId);
       });
+      const stagebox = template.stageboxEndDraftId ? editorStageboxRoots.get(template)?.root.stageboxSnake : null;
+      if (stagebox?.channels.some(channel => idsToRemove.has(channel.a.connectorId) || idsToRemove.has(channel.b.connectorId))) {
+        document.getElementById("stageboxEndError").textContent = "This connector belongs to an internal channel and cannot be removed.";
+        return;
+      }
       const affectedBusIds = requireDeviceEditorPlacementModule().rigidSharedBusGroups(template)
         .filter(group => group.memberIds.some(id => idsToRemove.has(id))).map(group => group.id);
       commitEditorStructuralEdit(template, {
@@ -36033,8 +35980,6 @@ document.addEventListener("click", function(event) {
         editorSelectedFaceplate = false;renderDeviceEditor();scheduleDeviceEditorPreviewFit(editorActiveTab);
         return;
       }
-      const row = event.target.closest("[data-stagebox-channel]");
-      if (row && event.target.closest("[data-channel-delete]")) mutateStageboxEndDefinition(root => WireNexusStageboxSnake.setStageboxChannel(root, { id: row.dataset.stageboxChannel }, true));
     });
     for (const id of ["stageboxEndName", "stageboxEndWidth", "stageboxEndHeight", "stageboxEndRepresentation"]) document.getElementById(id).addEventListener("change", () => {
       const view = currentEditorTemplate();if (!view?.stageboxEndDraftId) return;
@@ -36049,24 +35994,6 @@ document.addEventListener("click", function(event) {
       }
       recordEditorPlacementHistory(view, before);renderDeviceEditor();scheduleDeviceEditorPreviewFit(editorActiveTab);
     });
-    document.getElementById("stageboxEndEditor").addEventListener("change", event => {
-      const assignment = event.target.closest("[data-stagebox-owner]");
-      if (assignment) mutateStageboxEndDefinition(root => WireNexusStageboxSnake.assignStageboxConnector(root, assignment.dataset.stageboxOwner, assignment.value));
-      const row = event.target.closest("[data-stagebox-channel]");
-      if (row && event.target.matches("[data-channel-field]")) mutateStageboxEndDefinition(root => {
-        const channel = structuredClone(root.stageboxSnake.channels.find(c => c.id === row.dataset.stageboxChannel));
-        const field = event.target.dataset.channelField;
-        if (field === "name") channel.name = event.target.value;
-        else if (field.endsWith("-contact")) channel[field[0]].contact = event.target.value;
-        else channel[field].connectorId = event.target.value;
-        return WireNexusStageboxSnake.setStageboxChannel(root, channel);
-      });
-    });
-    document.getElementById("stageboxAddChannel").addEventListener("click", () => mutateStageboxEndDefinition(root => {
-      const ends = root.stageboxSnake.ends, port = end => end.connectorIds.find(id => !root.connectors.find(c => c.id === id)?.empty);
-      return WireNexusStageboxSnake.setStageboxChannel(root, { id: crypto.randomUUID(), name: `Channel ${root.stageboxSnake.channels.length + 1}`,
-        a: { connectorId: port(ends[0]), contact: "" }, b: { connectorId: port(ends[1]), contact: "" } });
-    }));
     bindPowerUnitToggle(editorPowerUnitToggle, unit => {
       const template = currentEditorTemplate();
       if (!template || template.isStageboxSnake === true) return;

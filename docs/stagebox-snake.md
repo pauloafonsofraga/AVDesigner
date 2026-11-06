@@ -64,14 +64,17 @@ The parent's normal canvas dimensions, artwork and existing connector geometry
 are not replaced by the selected end's preview.
 
 End representations are `rectangle`, `circular` and `fanout`. Without uploaded
-artwork, the editor generates a schematic bitmap preview; it is not saved as
-manufacturer artwork. Representation changes do not change connector IDs, types,
-module compatibility or mappings.
+artwork, the editor, canvas and exports render a shared schematic: a balanced
+grid, concentric rings or outward-facing colored cable tails. The nominal
+schematic size is 570 x 150 before fitting the available space. At most 100
+schematic dots are drawn per end; this never limits live connectors or cables.
 
-**Connector assignments & internal channels** exposes existing connector ownership
-and channel rows. Phase 1/unassigned connectors remain unassigned until explicitly
-assigned; no input/output direction is used to infer an end. Newly added slots
-belong to the active end, using IDs reserved across the whole shared device.
+New connectors belong to the selected end, with IDs reserved across the device.
+Existing assignments are honored, with previously unassigned ports editable on
+End A to match their canvas location. Ownership does not create channel mappings.
+Stored mappings remain intact, and the editor protects mapped connectors from
+removal. Representation changes do not affect connector IDs, types, anchor
+geometry or compatibility.
 
 Each end extends the existing version-1 record with `width`, `height`,
 `representation`, `connectorLayout` (geometry keyed by canonical connector ID),

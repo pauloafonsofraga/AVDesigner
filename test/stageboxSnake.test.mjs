@@ -32,7 +32,8 @@ test("two independent stable ends share one device identity, preserving all exis
     assert.equal(next.powerWatts, 0);assert.equal(next.category, before.category);
     assert.deepEqual(next.connectors, before.connectors);
     assert.deepEqual(next.stageboxSnake.ends.map(e => e.id), ["end-a", "end-b"]);
-    assert.deepEqual(next.stageboxSnake.ends.map(e => e.connectorIds), [[], []], "No input/output or channel mapping is guessed");
+    assert.deepEqual(next.stageboxSnake.ends.map(e => e.connectorIds), [["one", "two"], []]);
+    assert.deepEqual(next.stageboxSnake.channels, [], "Ownership does not imply a channel mapping");
     next.stageboxSnake.ends[0].name = "Stage";next.stageboxSnake.ends[0].connectorIds = ["two"];
     next.stageboxSnake.ends[1].name = "FOH";next.stageboxSnake.ends[1].connectorIds = ["one"];
     next.stageboxSnake.ends.reverse();
@@ -58,7 +59,7 @@ test("malformed end identities and ambiguous or missing connector references rej
 });
 
 test("configuration and authored snapshots enforce zero power and preserve independently authored end data", () => {
-  const value = enable(template());value.stageboxSnake.ends[1].connectorIds = ["two"];value.powerWatts = 900;
+  const value = enable(template());value.stageboxSnake.ends[0].connectorIds = ["one"];value.stageboxSnake.ends[1].connectorIds = ["two"];value.powerWatts = 900;
   const compact = compactDeviceConfiguration(value), definition = authoredDefinition(value);
   assert.equal(compact.powerWatts, 0);assert.equal(definition.powerWatts, 0);assert.equal(value.powerWatts, 900);
   assert.deepEqual(compact.stageboxSnake, value.stageboxSnake);

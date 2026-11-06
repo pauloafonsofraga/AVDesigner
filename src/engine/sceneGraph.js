@@ -2428,6 +2428,7 @@ function normalizeVisualMetadata(visual = {}) {
   const faceImageScale = Number(visual.faceImageScale) || Number(visual.faceplateScale) || 1;
   return {
     ...(visual.stageboxRepresentation ? { stageboxRepresentation: visual.stageboxRepresentation } : {}),
+    ...(visual.stageboxEndId ? { stageboxEndId: visual.stageboxEndId } : {}),
     brand: visual.brand || "",
     model: visual.model || "",
     category: visual.category || "",

@@ -6,6 +6,11 @@
   const geometryKeys = ["x", "y", "anchors", "rowIndex", "faceplateSide"];
   const artworkKeys = ["faceImage", "thumbnailImage", "faceImageNaturalWidth", "faceImageNaturalHeight", "faceImageScale", "faceImageScaleX", "faceImageScaleY", "faceImageOffsetX", "faceImageOffsetY", "faceImageLayout", "faceplateDeleted", "backplate"];
   const members = r => r.members || r.connectorIds || [r.fromConnectorId, r.toConnectorId].filter(Boolean);
+  const editableEndIds = (template, data, end) => {
+    if (end.id !== "end-a") return end.connectorIds;
+    const owned = new Set(data.ends.flatMap(item => item.connectorIds));
+    return [...end.connectorIds, ...(template.connectors || []).filter(c => !owned.has(c.id)).map(c => c.id)];
+  };
 
   function normalizeStageboxSnake(template = {}) {
     if (template.isStageboxSnake !== true) return {};
@@ -17,7 +22,7 @@
     const assigned = new Set();
     const ends = endIds.map((id, index) => {
       const end = source?.ends.find(item => item.id === id);
-      const connectorIds = end?.connectorIds ?? [];
+      const connectorIds = end?.connectorIds ?? (!source && index === 0 ? [...connectors] : []);
       if (!Array.isArray(connectorIds)) throw new Error("Invalid Stagebox / Snake connector references.");
       for (const connectorId of connectorIds) {
         if (typeof connectorId !== "string" || !connectors.has(connectorId) || assigned.has(connectorId)) {
@@ -61,16 +66,17 @@
     const normalized = normalizeStageboxSnake(template), end = normalized.stageboxSnake?.ends.find(e => e.id === endId);
     if (!end) throw new Error("Stagebox / Snake end is unavailable.");
     const draft = structuredClone(template);
+    const connectorIds = editableEndIds(template, normalized.stageboxSnake, end);
     for (const key of artworkKeys) delete draft[key];
     if (end.artwork) Object.assign(draft, structuredClone(end.artwork));
     else if (endId === "end-a") for (const key of artworkKeys) if (template[key] !== undefined) draft[key] = structuredClone(template[key]);
     delete draft.stageboxSnake;delete draft.defaultConfiguration;
     Object.assign(draft, { isStageboxSnake: false, isPartOfPair: false, pairedTemplateId: "", pairPlaceFirst: false, name: end.name, width: end.width, height: end.height, manualHeight: end.height,
-      stageboxRepresentation: end.representation, hasSwappableCards: false, cardTypes: [], cardSlots: [],
+      stageboxRepresentation: end.representation, stageboxEndId: end.id, hasSwappableCards: false, cardTypes: [], cardSlots: [],
       isAdapterBreakout: false, objectType: "device", isPowerDistro: false, isProjector: false, isMatrixRouter: false, isLedProcessor: false, isEthernetSwitch: false,
-      connectors: end.connectorIds.map(id => ({ ...structuredClone(template.connectors.find(c => c.id === id)), ...structuredClone(end.connectorLayout[id] || {}) })) });
+      connectors: connectorIds.map(id => ({ ...structuredClone(template.connectors.find(c => c.id === id)), ...structuredClone(end.connectorLayout[id] || {}) })) });
     const relationships = template.connectorRelationships || template.connectorTopology?.relationships || [];
-    draft.connectorRelationships = structuredClone(relationships.filter(r => members(r).every(id => end.connectorIds.includes(id))));
+    draft.connectorRelationships = structuredClone(relationships.filter(r => members(r).every(id => connectorIds.includes(id))));
     draft.connectorTopology = { schemaVersion: 2, relationships: draft.connectorRelationships };
     return draft;
   }
@@ -79,10 +85,10 @@
     const result = structuredClone(template), data = normalizeStageboxSnake(template).stageboxSnake;
     const end = data.ends.find(e => e.id === endId);
     if (!end) throw new Error("Stagebox / Snake end is unavailable.");
-    const previousIds = new Set(end.connectorIds);
+    const previousIds = new Set(editableEndIds(template, data, end));
     const incoming = new Map(draft.connectors.map(c => [c.id, c]));
     if (incoming.size !== draft.connectors.length || data.ends.some(e => e.id !== endId && e.connectorIds.some(id => incoming.has(id)))) throw new Error("Stagebox / Snake connector identity belongs to another end.");
-    const removed = new Set(end.connectorIds.filter(id => !incoming.has(id)));
+    const removed = new Set([...previousIds].filter(id => !incoming.has(id)));
     result.connectors = result.connectors.filter(c => !removed.has(c.id)).map(c => {
       if (!incoming.has(c.id)) return c;
       const edited = structuredClone(incoming.get(c.id));

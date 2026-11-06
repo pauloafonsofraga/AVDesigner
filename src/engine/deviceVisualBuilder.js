@@ -131,7 +131,8 @@ export function deviceVisualCacheKey(device, options = {}) {
       connector.powerDistroRole || "",
       connector.powerPlugSize ? `${Math.round(connector.powerPlugSize.width || 0)}x${Math.round(connector.powerPlugSize.height || 0)}` : "",
       Array.isArray(connector.colorSegments) ? connector.colorSegments.join(",") : "",
-      options.connectorColors ? connector.color || "" : ""
+      options.connectorColors || visual.stageboxRepresentation ? connector.color || "" : "",
+      visual.stageboxRepresentation && connector.empty ? "empty" : ""
     ].join(":"))
     .join("|");
   const powerDistroShape = visual.powerDistro
@@ -233,6 +234,7 @@ export function deviceVisualCacheKey(device, options = {}) {
     "device-card-v9-comment-arrow-title-logo",
     visualKind,
     visual.stageboxRepresentation || "",
+    visual.stageboxEndId || "",
     width,
     height,
     color,
@@ -399,42 +401,110 @@ function drawCompactRackDeviceVisual(ctx, device, width, height) {
   ctx.restore();
 }
 
+export function stageboxFaceplateLayout(connectors, representation, endId, width, height) {
+  const ports = connectors.filter(c => !c.empty && !c.hiddenOnCanvas).slice(0, 100);
+  const count = ports.length;
+  const panelWidth = Math.max(0, Math.min(width - 24, 380 * 1.5));
+  const panelHeight = Math.max(0, Math.min(height - 48, Math.max(100 * 1.5, count * (representation === "fanout" ? 6 : 2))));
+  const x = (width - panelWidth) / 2, y = 34;
+  const cx = width / 2, cy = y + panelHeight / 2;
+  const panel = { x, y, width: panelWidth, height: panelHeight };
+  if (!panelWidth || !panelHeight) return { panel, nodes: [] };
+  if (representation === "fanout") {
+    const sign = endId === "end-a" ? -1 : 1;
+    const rootX = cx - sign * panelWidth * .18;
+    const tipX = cx + sign * panelWidth * .38;
+    const step = panelHeight * .82 / Math.max(1, count - 1);
+    return { panel, stem: { x: cx - sign * panelWidth * .4, y: cy, rootX }, nodes: ports.map((port, i) => ({
+      port, x: tipX, y: cy + (i - (count - 1) / 2) * step, radius: Math.min(9, step * .34, panelWidth * .04)
+    })) };
+  }
+  if (representation === "circular") {
+    const radius = Math.min(panelWidth, panelHeight) / 2;
+    let rings = 0;
+    while (1 + 3 * rings * (rings + 1) < count) rings++;
+    const step = radius / (rings + 1), dot = Math.min(9, step * .31);
+    let i = 0;
+    const nodes = count ? [{ port: ports[i++], x: cx, y: cy, radius: dot }] : [];
+    for (let ring = 1; ring <= rings; ring++) {
+      const size = Math.min(6 * ring, count - i);
+      for (let j = 0; j < size; j++) {
+        const angle = -Math.PI / 2 + j * 2 * Math.PI / size;
+        nodes.push({ port: ports[i++], x: cx + Math.cos(angle) * step * ring,
+          y: cy + Math.sin(angle) * step * ring, radius: dot });
+      }
+    }
+    return { panel, circle: { x: cx, y: cy, radius }, nodes };
+  }
+  const columns = Math.max(1, Math.ceil(Math.sqrt(count))), rows = Math.max(1, Math.ceil(count / columns));
+  const dx = panelWidth / (columns + 1), dy = panelHeight / (rows + 1);
+  return { panel, nodes: ports.map((port, i) => {
+    const row = Math.floor(i / columns), size = Math.min(columns, count - row * columns);
+    return { port, x: cx + (i % columns - (size - 1) / 2) * dx, y: y + (row + 1) * dy,
+      radius: Math.min(9, dx * .31, dy * .31) };
+  }) };
+}
+
+function drawStageboxFaceplate(ctx, device, width, height) {
+  const { stageboxRepresentation, stageboxEndId } = device.visual;
+  const { panel, circle, stem, nodes } = stageboxFaceplateLayout(device.connectors || [],
+    stageboxRepresentation, stageboxEndId, width, height);
+  if (!panel.width || !panel.height) return;
+  ctx.save();
+  if (circle) {
+    ctx.beginPath();
+    ctx.arc(circle.x, circle.y, circle.radius, 0, Math.PI * 2);
+  } else roundRect(ctx, panel.x, panel.y, panel.width, panel.height, 8);
+  ctx.fillStyle = "#22435a";
+  ctx.fill();
+  ctx.strokeStyle = "#80d4ff";
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  if (stem && nodes.length) {
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(stem.x, stem.y);
+    ctx.lineTo(stem.rootX, stem.y);
+    ctx.stroke();
+    for (const node of nodes) {
+      const gradient = ctx.createLinearGradient(stem.rootX, stem.y, node.x, stem.y);
+      gradient.addColorStop(0, "#80d4ff");
+      gradient.addColorStop(1, node.port.color || "#d4dce5");
+      ctx.strokeStyle = gradient;
+      ctx.beginPath();
+      ctx.moveTo(stem.rootX, stem.y);
+      const spread = node.x - stem.rootX;
+      ctx.bezierCurveTo(stem.rootX + spread * .55, stem.y, node.x - spread * .3, node.y, node.x, node.y);
+      ctx.stroke();
+    }
+  }
+  for (const node of nodes) {
+    ctx.fillStyle = node.port.color || "#d4dce5";
+    ctx.beginPath();
+    ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
 function drawRackDeviceVisual(ctx, device, width, height, options) {
   const visual = device.visual || {};
   const detailed = options.detailedDeviceTextures !== false;
   const radius = 8;
   const pad = FACE_MARGIN;
 
-  const representation = visual.stageboxRepresentation;
   ctx.fillStyle = LEGACY_DEVICE_BODY;
   ctx.lineWidth = 2;
   ctx.strokeStyle = LEGACY_DEVICE_BORDER;
-  if (representation === "circular") {
-    ctx.beginPath();
-    ctx.arc(width / 2, height / 2, Math.min(width, height) / 2, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-  } else if (representation === "fanout") {
-    const hub = { x: width / 2, y: height / 2 };
-    ctx.beginPath();
-    for (const connector of device.connectors || []) {
-      for (const anchor of connector.anchors?.length ? connector.anchors : [connector]) {
-        ctx.moveTo(hub.x, hub.y);
-        ctx.lineTo(anchor.x, anchor.y);
-      }
-    }
-    ctx.stroke();
-    roundRect(ctx, hub.x - 10, hub.y - 6, 20, 12, 3);
-    ctx.fill();
-    ctx.stroke();
-  } else {
-    roundRect(ctx, 0, 0, width, height, radius);
-    ctx.fill();
-    ctx.stroke();
-  }
+  roundRect(ctx, 0, 0, width, height, radius);
+  ctx.fill();
+  ctx.stroke();
 
   drawDeviceHeader(ctx, device, width, pad, detailed);
-  if (representation && !visual.hasFaceImage) return;
+  if (visual.stageboxRepresentation && !visual.hasFaceImage) {
+    if (!visual.faceplateDeleted) drawStageboxFaceplate(ctx, device, width, height);
+    return;
+  }
   const face = drawPowerDistroFaceplate(ctx, device, visual, width, height, detailed)
     || drawFaceplate(ctx, device, visual, width, height, pad, detailed);
 
