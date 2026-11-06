@@ -402,6 +402,59 @@ function drawCompactRackDeviceVisual(ctx, device, width, height) {
   ctx.restore();
 }
 
+function circularStageboxNodes(ports, cx, cy, radius) {
+  if (!ports.length) return [];
+  const gap = Math.min(3, radius * .04);
+  const maxDot = Math.min(9, radius - gap);
+  if (ports.length === 1) return [{ port: ports[0], x: cx, y: cy, radius: maxDot }];
+
+  function ringsFor(dot) {
+    const pitch = 2 * dot + gap;
+    const rings = [];
+    let capacity = 0;
+    // A full pitch between rings guarantees clearance regardless of phase.
+    for (let r = radius - dot - gap; r >= pitch / 2; r -= pitch) {
+      // The adjacent chord, not arc length, sets the limit on each ring.
+      const slots = Math.floor(Math.PI / Math.asin(pitch / (2 * r)));
+      rings.push({ r, slots });
+      capacity += slots;
+      if (capacity >= ports.length) return rings;
+    }
+    return null;
+  }
+
+  let dot = maxDot;
+  let rings = ringsFor(dot);
+  if (!rings) {
+    let low = 0, high = maxDot;
+    for (let i = 0; i < 20; i++) {
+      const middle = (low + high) / 2;
+      if (ringsFor(middle)) low = middle;
+      else high = middle;
+    }
+    dot = low;
+    rings = ringsFor(dot);
+  }
+
+  let remaining = ports.length, capacity = rings.reduce((sum, ring) => sum + ring.slots, 0);
+  let phase = -Math.PI / 2;
+  const nodes = [];
+  for (const [index, { r, slots }] of rings.entries()) {
+    const innerRings = rings.length - index - 1;
+    const size = Math.max(2, remaining - (capacity - slots),
+      Math.min(slots, remaining - 2 * innerRings, Math.round(remaining * slots / capacity)));
+    const step = 2 * Math.PI / size;
+    for (let j = 0; j < size; j++) {
+      const angle = phase + j * step;
+      nodes.push({ port: ports[nodes.length], x: cx + Math.cos(angle) * r, y: cy + Math.sin(angle) * r, radius: dot });
+    }
+    phase += step / 2;
+    remaining -= size;
+    capacity -= slots;
+  }
+  return nodes;
+}
+
 export function stageboxFaceplateLayout(connectors, representation, endId, width, height) {
   const { STAGEBOX_FACEPLATE_TOP, stageboxFaceplateHeight } = globalThis.WireNexusStageboxSnake;
   const ports = connectors.filter(c => !c.empty && !c.hiddenOnCanvas).slice(0, 100);
@@ -423,20 +476,7 @@ export function stageboxFaceplateLayout(connectors, representation, endId, width
   }
   if (representation === "circular") {
     const radius = Math.min(panelWidth, panelHeight) / 2;
-    let rings = 0;
-    while (1 + 3 * rings * (rings + 1) < count) rings++;
-    const step = radius / (rings + 1), dot = Math.min(9, step * .31);
-    let i = 0;
-    const nodes = count ? [{ port: ports[i++], x: cx, y: cy, radius: dot }] : [];
-    for (let ring = 1; ring <= rings; ring++) {
-      const size = Math.min(6 * ring, count - i);
-      for (let j = 0; j < size; j++) {
-        const angle = -Math.PI / 2 + j * 2 * Math.PI / size;
-        nodes.push({ port: ports[i++], x: cx + Math.cos(angle) * step * ring,
-          y: cy + Math.sin(angle) * step * ring, radius: dot });
-      }
-    }
-    return { panel, circle: { x: cx, y: cy, radius }, nodes };
+    return { panel, circle: { x: cx, y: cy, radius }, nodes: circularStageboxNodes(ports, cx, cy, radius) };
   }
   const columns = Math.max(1, Math.ceil(Math.sqrt(count))), rows = Math.max(1, Math.ceil(count / columns));
   const dx = panelWidth / (columns + 1), dy = panelHeight / (rows + 1);

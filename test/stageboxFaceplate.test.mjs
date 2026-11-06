@@ -22,9 +22,50 @@ test("all shapes cap visual dots at 100 without changing electrical ports", () =
     assert.equal(new Set(nodes.map(n => `${n.x},${n.y}`)).size, 100);
   }
   assert.deepEqual(connectors, before);
-  const { nodes } = stageboxFaceplateLayout(ports(19), "circular", "end-b", 400, 300);
-  const radii = nodes.map(n => Math.round(Math.hypot(n.x - nodes[0].x, n.y - nodes[0].y)));
-  assert.deepEqual([...new Set(radii)].map(r => radii.filter(v => v === r).length), [1, 6, 12]);
+});
+
+test("circular packing keeps every count from 1 to 100 clear of its neighbors and border", () => {
+  for (const [width, height] of [[400, 300], [120, 160], [220, 80], [48, 60]]) {
+    for (let count = 1; count <= 100; count++) {
+      const connectors = ports(count);
+      const { circle, nodes } = stageboxFaceplateLayout(connectors, "circular", "end-a", width, height);
+      const gap = Math.min(3, circle.radius * .04), epsilon = 1e-8;
+      assert.deepEqual(nodes.map(n => n.port), connectors);
+      for (const [index, node] of nodes.entries()) {
+        assert.equal(node.port, connectors[index]);
+        assert.ok(node.radius > 0);
+        const r = Math.hypot(node.x - circle.x, node.y - circle.y);
+        assert.ok(r + node.radius + gap <= circle.radius + epsilon, `border: ${width}x${height}, ${count}`);
+        assert.equal(r === 0, count === 1);
+        for (const peer of nodes.slice(0, index)) {
+          const distance = Math.hypot(node.x - peer.x, node.y - peer.y);
+          assert.ok(distance + epsilon >= node.radius + peer.radius + gap, `spacing: ${width}x${height}, ${count}`);
+        }
+      }
+    }
+  }
+});
+
+test("circular rings use the outer area, stay symmetric, and stagger adjacent starts", () => {
+  for (const count of [4, 8, 12, 16, 24, 32, 100]) {
+    const connectors = ports(count);
+    const layout = () => stageboxFaceplateLayout(connectors, "circular", "end-a", 400, 300);
+    const { nodes, circle, panel } = layout();
+    const rings = Map.groupBy(nodes, node => Math.round(Math.hypot(node.x - circle.x, node.y - circle.y) * 1e6));
+    assert.equal(rings.size > 1, count >= 24);
+    assert.equal(nodes[0].radius === 9, count < 100);
+    assert.ok(Math.abs(Math.hypot(nodes[0].x - circle.x, nodes[0].y - circle.y) + nodes[0].radius + 3 - circle.radius) < 1e-8);
+    assert.equal(panel.height, Math.max(150, count * 2));
+    let previous = null;
+    for (const ring of rings.values()) {
+      const angle = Math.atan2(ring[0].y - circle.y, ring[0].x - circle.x);
+      if (previous) assert.ok(Math.abs(Math.cos(angle - previous.angle) - Math.cos(Math.PI / previous.count)) < 1e-8);
+      assert.ok(Math.abs(ring.reduce((sum, n) => sum + n.x - circle.x, 0)) < 1e-8);
+      assert.ok(Math.abs(ring.reduce((sum, n) => sum + n.y - circle.y, 0)) < 1e-8);
+      previous = { angle, count: ring.length };
+    }
+    assert.deepEqual(layout().nodes, nodes);
+  }
 });
 
 test("fanouts point outward and export Bezier branches colored per connector", () => {
