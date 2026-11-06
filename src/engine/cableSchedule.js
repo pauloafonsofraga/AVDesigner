@@ -5,7 +5,7 @@ import { effectiveTransceiverDirection, isTransceiverCage } from "./transceiverM
 import { rawWireJumpIds, resolvePlayableSignalPath } from "./jumpNodeModel.js";
 import { cableLengthDisplayLabel } from "./loomMetadata.js";
 import { resolveRackPatchPresentation } from "./rackPatchTopology.js";
-import { createMultiCoreConnectivity, isMultiCoreEndpointReference, traceMultiCoreSignalPath, traceInternalSignalPaths } from "./multiCoreConnectivity.js";
+import { createMultiCoreConnectivity, isMultiCoreEndpointReference, projectHasStageboxChannels, traceMultiCoreSignalPath, traceInternalSignalPaths } from "./multiCoreConnectivity.js";
 import { multiCoreReportEndpoint, presentMultiCorePath } from "./multiCoreReportPresentation.js";
 import {groupedCoaxMetadata, groupedCoaxLabel, multibandColors} from "./multibandSignals.js";
 import {CABLE_NUMBER_PREFIXES, parseCableNumber, formatCableNumber} from "./cableNumbering.js";
@@ -110,11 +110,19 @@ function projectRoot(project) {
   return project?.state || project?.project || project || {};
 }
 
+function reportDevice(project, id) {
+  if (!id) return {};
+  const instance = (project.devices || []).find(item => (item.instanceId || item.id) === id);
+  if (!instance) return {};
+  const template = instance.templateOverride || (typeof instance.template === "object" && instance.template)
+    || (project.deviceLibrary || []).find(item => item.id === (instance.templateId || instance.template)) || instance;
+  return { instance, template };
+}
+
 function connectorFor(project, endpoint, getConnector) {
   if (!endpoint?.deviceId) return null;
   if (getConnector) return getConnector(endpoint.deviceId, endpoint.connectorId) || null;
-  const instance = (project.devices || []).find(item => item.instanceId === endpoint.deviceId);
-  const template = instance?.templateOverride || (project.deviceLibrary || []).find(item => item.id === instance?.templateId);
+  const { template } = reportDevice(project, endpoint.deviceId);
   return (template?.connectors || []).find(item => item.id === endpoint.connectorId) || null;
 }
 
@@ -205,19 +213,19 @@ export function ensureCableNumbers(input, options = {}) {
 }
 
 function endpointDisplay(project, endpoint, getConnector, nodeColors, nodeDefinitions) {
-  const instance = (project.devices || []).find(item => item.instanceId === endpoint?.deviceId);
+  const { instance, template } = reportDevice(project, endpoint?.deviceId);
   const surface = (project.ledSurfaces || []).find(item => item.id === endpoint?.surfaceId);
   const connector = connectorFor(project, endpoint, getConnector);
   const node = nodeDefinition(nodeDefinitions, connector?.type);
   const groupedConnector=connector && {...connector,compatibilityType:connector.compatibilityType || node?.compatibilityType};
-  const template = instance?.templateOverride || (project.deviceLibrary || []).find(item => item.id === instance?.templateId);
   const deviceName = String(instance?.name || template?.name || surface?.name || "Unconnected");
   const ends = template?.isStageboxSnake && template.stageboxSnake?.ends;
   const end = Array.isArray(ends) && (ends.find(item => item.connectorIds?.includes(endpoint?.connectorId)) || ends[0]);
   const semanticDevice = end?.name ? `${deviceName} / ${end.name}` : deviceName;
   const side = end?.id === "end-b" ? "b" : "a";
-  const stageboxChannels = (end && template.stageboxSnake?.channels || [])
-    .filter(channel => channel[side]?.connectorId === endpoint?.connectorId)
+  const channels = end && template.stageboxSnake.channels;
+  const stageboxChannels = (Array.isArray(channels) ? channels : [])
+    .filter(channel => channel?.[side]?.connectorId === endpoint?.connectorId)
     .map(channel => {
       const contact = channel[side].contact;
       return [channel.name || channel.id, contact && `contact ${contact}`].filter(Boolean).join(" / ");
@@ -228,7 +236,7 @@ function endpointDisplay(project, endpoint, getConnector, nodeColors, nodeDefini
     || (surface ? "LED Screen" : ""));
   const patch = resolveRackPatchPresentation(project, endpoint);
   return {
-    deviceId: String(instance?.instanceId || ""), surfaceId: String(surface?.id || ""),
+    deviceId: String(instance?.instanceId || instance?.id || ""), surfaceId: String(surface?.id || ""),
     connectorId: String(connector?.id || endpoint?.connectorId || ""),
     direction: connector ? (isTransceiverCage(connector) ? effectiveTransceiverDirection(connector)
       : normalizeSignalDirection(connector.signalDirection, connector.direction)) : "",
@@ -261,8 +269,9 @@ function derivePatchReportNotes(notes, source, destination) {
 export function buildCableSchedule(input, options = {}) {
   const project = projectRoot(input);
   const connectivity = options.connectivity || (project.multiCores?.length
-    || project.deviceLibrary?.some(t => t.enableInternalRouting || t.isStageboxSnake)
-    || project.devices?.some(d => [d, d.template, d.templateOverride].some(t => t?.enableInternalRouting || t?.isStageboxSnake))
+    || project.deviceLibrary?.some(t => t.enableInternalRouting)
+    || project.devices?.some(d => [d, d.template, d.templateOverride].some(t => t?.enableInternalRouting))
+    || projectHasStageboxChannels(project)
     || project.connections?.some(c => isMultiCoreEndpointReference(c.from) || isMultiCoreEndpointReference(c.to))
     ? createMultiCoreConnectivity(project, { getConnector: options.getConnector }) : null);
   const groups = options.assignNumbers === false ? groupedCables(project, options.getConnector)

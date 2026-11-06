@@ -105,17 +105,32 @@ function projectOwners(project) {
   return { owners, conflicts, diagnostics };
 }
 
+function equipmentTemplate(instance, templates) {
+  const id = instance.templateId || (typeof instance.template === "string" && instance.template);
+  const candidates = templates.get(id) || [];
+  return instance.templateOverride || (record(instance.template) && instance.template)
+    || (candidates.length === 1 ? candidates[0] : !id ? instance : null);
+}
+
+export function projectHasStageboxChannels(project) {
+  const root = rootOf(project);
+  const templates = index(list(root.deviceLibrary), device => device?.id);
+  return list(root.devices).some(instance => {
+    const template = instance && equipmentTemplate(instance, templates);
+    return template?.isStageboxSnake === true && list(template.stageboxSnake?.channels).length > 0;
+  });
+}
+
 function ordinaryConnectorIndex(project, getConnector) {
   const devices = index(list(project.devices), d => d?.instanceId || d?.id);
   const templates = index(list(project.deviceLibrary), d => d?.id);
   const nodes = index(list(project.nodeLibrary), n => n?.id);
-  const connectors = new Map();
+  const connectors = new Map(), definitions = new Map();
   for (const [deviceId, values] of devices) {
     if (values.length !== 1) continue;
-    const instance = values[0], candidates = templates.get(instance.templateId) || [];
-    const template = instance.templateOverride || (record(instance.template) && instance.template)
-      || (candidates.length === 1 ? candidates[0] : !instance.templateId ? instance : null);
+    const instance = values[0], template = equipmentTemplate(instance, templates);
     if (!template) continue;
+    definitions.set(deviceId, template);
     const cardTypes = index(list(template.cardTypes), c => c?.id);
     const installed = template.hasSwappableCards ? resolveInstalledCardConnectors({ ...template,
       cardTypes: list(template.cardTypes).filter(c => cardTypes.get(c?.id)?.length === 1), deviceWidth: template.width,
@@ -130,7 +145,7 @@ function ordinaryConnectorIndex(project, getConnector) {
         compatibilityType: resolved.compatibilityType || port.compatibilityType || node.compatibilityType || "" }));
     }
   }
-  return { devices, connectors };
+  return { devices, connectors, definitions };
 }
 
 export { ordinaryConnectorIndex as multiCoreEquipmentConnectorIndex };
@@ -311,8 +326,8 @@ export function createMultiCoreConnectivity(projectInput, { getConnector, onStag
   }
   for (const [deviceId, instances] of ordinary.devices) {
     if (instances.length !== 1) continue;
-    const instance = instances[0], template = instance.templateOverride || instance.template
-      || list(project.deviceLibrary).find(t => t.id === instance.templateId) || instance;
+    const instance = instances[0], template = ordinary.definitions.get(deviceId);
+    if (!template) continue;
     if (template.isStageboxSnake === true) {
       for (const channel of list(template.stageboxSnake?.channels)) {
         const from = resolve({ deviceId, connectorId: channel.a?.connectorId });
@@ -517,8 +532,6 @@ export function traceInternalSignalPaths(snapshot, wireId) {
 export function multiCoreConnectivityModelSnapshot(project) {
   const model = multiCoreModelSnapshot(project), root = rootOf(project);
   const references = list(root.connections).some(c => isMultiCoreEndpointReference(c?.from) || isMultiCoreEndpointReference(c?.to));
-  const stageboxes = [...list(root.devices), ...list(root.deviceLibrary)].some(d =>
-    [d, d?.templateOverride, d?.template].some(template => template?.isStageboxSnake && template.stageboxSnake?.channels?.length));
-  if (!model && !references && !stageboxes) return undefined;
+  if (!model && !references && !projectHasStageboxChannels(root)) return undefined;
   return freeze({ ...(model || { version: 1, diagnostics: [] }), connectivity: createMultiCoreConnectivity(project) });
 }

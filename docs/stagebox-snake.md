@@ -134,3 +134,25 @@ workflow and factory catalogue, viewer-bundle, community and Cloud Artwork
 validators. Only scoped end-editor/model/tests/documentation and the regenerated
 community validator were committed; unrelated local work and protected assets
 were preserved. No hosted migration, deployment or infrastructure change was made.
+
+## Phase 4: Library insertion and legacy compatibility
+
+Insert passive assemblies from **Device Library > Audio > Stageboxes & Snakes**.
+The factory library includes a generic 4-Channel XLR Snake with a stagebox,
+fanout, and four one-to-one channels. Library authors can configure other passive
+devices in the Device Editor. Powered equipment such as Yamaha Rio still uses
+the ordinary Stageboxes category.
+
+A passive assembly is one saved device, even though its two ends can move
+independently. The canvas trunk represents the internal assembly; it is not a
+patch cable. Signal chains follow the authored channel mappings, and cable
+reports show those channels on the connected physical cable rows without adding
+an extra row or counting the drawing distance as cable length.
+
+The toolbar has no dedicated Insert Snake action. Cable Loom and Multi-Core
+remain separate tools. Historical Loom membership and Multi-Core circuit,
+routing, and length data retain their existing formats and editors. Older
+ordinary definitions named Snake remain ordinary devices unless explicitly
+authored as a passive assembly. The loader does not infer a conversion from a
+name or cable group: neither supplies enough information to infer the two
+connector layouts and channel assignments without losing information.

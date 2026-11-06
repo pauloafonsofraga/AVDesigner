@@ -216357,6 +216357,40 @@
       "techSpecs": "",
       "thumbnailImage": "assets/factory/579a398749c502e8c69738ee9cc357b3f5b0d5c4d4e3325b693ccbdf8d76f58c.png",
       "width": 380
+    },
+    {
+      "id": "passive-xlr-snake-4ch",
+      "name": "4-Channel XLR Snake",
+      "model": "4-Channel XLR Snake",
+      "category": "Stageboxes & Snakes",
+      "description": "Generic passive stage box with four XLR channels wired one-to-one to a fanout.",
+      "width": 220,
+      "height": 272,
+      "powerWatts": 0,
+      "isStageboxSnake": true,
+      "connectors": [
+        { "id": "a-1", "type": "xlr-3pin", "label": "XLR", "nameText": "CH 1", "direction": "input", "x": 0, "y": 70 },
+        { "id": "a-2", "type": "xlr-3pin", "label": "XLR", "nameText": "CH 2", "direction": "input", "x": 0, "y": 124 },
+        { "id": "a-3", "type": "xlr-3pin", "label": "XLR", "nameText": "CH 3", "direction": "input", "x": 0, "y": 178 },
+        { "id": "a-4", "type": "xlr-3pin", "label": "XLR", "nameText": "CH 4", "direction": "input", "x": 0, "y": 232 },
+        { "id": "b-1", "type": "xlr-3pin", "label": "XLR", "nameText": "CH 1", "direction": "output", "x": 220, "y": 70 },
+        { "id": "b-2", "type": "xlr-3pin", "label": "XLR", "nameText": "CH 2", "direction": "output", "x": 220, "y": 124 },
+        { "id": "b-3", "type": "xlr-3pin", "label": "XLR", "nameText": "CH 3", "direction": "output", "x": 220, "y": 178 },
+        { "id": "b-4", "type": "xlr-3pin", "label": "XLR", "nameText": "CH 4", "direction": "output", "x": 220, "y": 232 }
+      ],
+      "stageboxSnake": {
+        "version": 1,
+        "ends": [
+          { "id": "end-a", "name": "Stagebox", "width": 220, "height": 272, "representation": "rectangle", "connectorIds": ["a-1", "a-2", "a-3", "a-4"], "connectorLayout": {} },
+          { "id": "end-b", "name": "Fanout", "width": 220, "height": 272, "representation": "fanout", "connectorIds": ["b-1", "b-2", "b-3", "b-4"], "connectorLayout": {} }
+        ],
+        "channels": [
+          { "id": "ch-1", "name": "CH 1", "a": { "connectorId": "a-1", "contact": "" }, "b": { "connectorId": "b-1", "contact": "" } },
+          { "id": "ch-2", "name": "CH 2", "a": { "connectorId": "a-2", "contact": "" }, "b": { "connectorId": "b-2", "contact": "" } },
+          { "id": "ch-3", "name": "CH 3", "a": { "connectorId": "a-3", "contact": "" }, "b": { "connectorId": "b-3", "contact": "" } },
+          { "id": "ch-4", "name": "CH 4", "a": { "connectorId": "a-4", "contact": "" }, "b": { "connectorId": "b-4", "contact": "" } }
+        ]
+      }
     }
   ],
   "nodeTypes": {
@@ -219335,6 +219369,17 @@
   },
   "libraryThumbnails": {},
   "promotions": [
+    {
+      "packageId": "e6d112ae5ce81dd173e5424fe11fcd1677500b50e6bc9a62a01f81246c996187",
+      "records": [
+        {
+          "kind": "device",
+          "id": "passive-xlr-snake-4ch",
+          "baseFingerprint": null,
+          "candidateFingerprint": "c85851eee6d6d8ad1c8c71591c4487fb5dbad2adb8b197610b0ff868491d2841"
+        }
+      ]
+    },
     {
       "packageId": "fd706f3fe0b4c70cef31498f200967573d6086ab720938679d1daca9ce7e38a2",
       "records": [

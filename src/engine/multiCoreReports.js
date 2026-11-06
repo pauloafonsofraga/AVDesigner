@@ -1,5 +1,5 @@
 import { buildCableSchedule, signalChainForWire, reportCsv } from "./cableSchedule.js";
-import { createMultiCoreConnectivity, isMultiCoreEndpointReference } from "./multiCoreConnectivity.js";
+import { createMultiCoreConnectivity, isMultiCoreEndpointReference, projectHasStageboxChannels } from "./multiCoreConnectivity.js";
 import { multiCoreJumpDiagnostics } from "./multiCoreJumpRouting.js";
 import { reportText } from "./multiCoreReportPresentation.js";
 
@@ -30,7 +30,8 @@ export function buildMultiCoreReports(input, options = {}) {
   const active = list(project.multiCores).length > 0 || list(project.connections).some(c => isMultiCoreEndpointReference(c?.from) || isMultiCoreEndpointReference(c?.to));
   const internalRouting = list(project.deviceLibrary).some(t => t.enableInternalRouting)
     || list(project.devices).some(d => d.templateOverride?.enableInternalRouting || d.template?.enableInternalRouting || d.enableInternalRouting);
-  const connectivity = active || internalRouting ? options.connectivity || createMultiCoreConnectivity(project, options) : null;
+  const connectivity = options.connectivity || (active || internalRouting || projectHasStageboxChannels(project)
+    ? createMultiCoreConnectivity(project, options) : null);
   const cableRows = buildCableSchedule(project, { ...options, connectivity, assignNumbers: "readOnly" });
   const byWire = new Map(cableRows.flatMap(row => row.wireIds.map(id => [id, row])));
   const channels = [], assemblies = [], diagnostics = connectivity ? [...connectivity.diagnostics, ...multiCoreJumpDiagnostics(project)] : [];

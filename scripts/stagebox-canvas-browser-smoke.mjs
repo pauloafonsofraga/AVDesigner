@@ -17,6 +17,28 @@ try {
   page.on("dialog", d => d.accept());
   await page.goto(base);
   await page.waitForFunction(() => typeof activeEngineBridge === "function" && activeEngineBridge()?.ready && localUserSettingsLoaded);
+  assert.equal(await page.getByRole("button", { name: "Insert Snake", exact: true }).count(), 0);
+  const audio = page.locator('[data-device-type-group="Audio"]');
+  if (await audio.getAttribute("open") === null) await audio.locator("summary").click();
+  await page.locator('[data-device-type="Stageboxes & Snakes"]').click();
+  const snake = page.locator('#deviceList [data-template-id="passive-xlr-snake-4ch"]');
+  assert.equal(await snake.count(), 1);
+  assert.equal(await page.locator('#deviceList [data-template-id="custom-device-dm7-copy"]').count(), 0);
+  const row = await snake.boundingBox(), canvas = await page.locator(".engine-bridge-canvas").boundingBox();
+  await page.mouse.move(row.x + row.width / 2, row.y + row.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(canvas.x + canvas.width / 2, canvas.y + canvas.height / 2, { steps: 15 });
+  await page.mouse.up();
+  await page.waitForFunction(() => activeEngineBridge().scene.devices.filter(d => d.stageboxIdentity).length === 2);
+  const placed = await page.evaluate(() => {
+    const bridge = activeEngineBridge();
+    const ids = bridge.scene.devices.filter(d => d.stageboxIdentity).map(d => d.sourceId);
+    return { ids, instances: bridge.mutations.root.devices.filter(d => ids.includes(d.instanceId))
+      .map(d => ({ name: d.name, channels: d.templateOverride?.stageboxSnake?.channels.length })) };
+  });
+  assert.equal(new Set(placed.ids).size, 1);
+  assert.equal(placed.instances.length, 1);
+  assert.match(placed.instances[0].name, /4-Channel XLR Snake/);
   const project = cableTypeSelectionFixture();
   project.devices[1].x = 1300;
   const source = project.devices[0];
