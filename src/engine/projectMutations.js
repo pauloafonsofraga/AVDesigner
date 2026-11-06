@@ -432,6 +432,15 @@ export class ProjectMutationAdapter {
   }
 
   writeDevicePosition(device) {
+    if (device.stageboxIdentity) {
+      const { assemblyId, endId } = device.stageboxIdentity;
+      const entry = this.deviceById.get(assemblyId);
+      if (!entry) return { ok: false };
+      const item = entry.item;
+      item.stageboxEndOffsets = { ...item.stageboxEndOffsets,
+        [endId]: { x: device.x - (Number(item.x) || 0), y: device.y - (Number(item.y) || 0) } };
+      return { ok: true, path: `devices[${entry.index}].stageboxEndOffsets.${endId}` };
+    }
     if (device.multiCoreIdentity) {
       const { multiCoreId, role, endId } = device.multiCoreIdentity;
       const matches = (this.root.multiCores || []).filter(mc => mc.id === multiCoreId);
@@ -468,7 +477,7 @@ export class ProjectMutationAdapter {
 
   commitCreatedWire(scene, wire) {
     const start = performance.now();
-    if (!wire || wire.multiCoreIdentity) return 0;
+    if (!wire || wire.multiCoreIdentity || wire.stageboxAssemblyId) return 0;
     const raw = this.connectionById.get(String(wire.sourceId || wire.id))?.item;
     if (raw) return 0;
     const connection = rawConnectionFromWire(scene, wire, this.uniqueConnectionId(wire.id));
@@ -533,7 +542,7 @@ export class ProjectMutationAdapter {
   commitRewiredWire(scene, wireId, connectionState = null) {
     const start = performance.now();
     const wire = scene.getWire(wireId);
-    if (!wire || wire.multiCoreIdentity) return 0;
+    if (!wire || wire.multiCoreIdentity || wire.stageboxAssemblyId) return 0;
     const sourceId = String(wire.sourceId || wire.id);
     const entry = this.connectionById.get(sourceId) || this.ensureConnection(scene, wire);
     if (connectionState) {
@@ -1045,10 +1054,10 @@ function projectRoot(project) {
 }
 
 function buildProjectFromSceneData(sceneData = {}) {
-  const devices = (sceneData.devices || []).filter(device => !device.multiCoreIdentity).map(rawDeviceFromSceneDevice);
+  const devices = (sceneData.devices || []).filter(device => !device.multiCoreIdentity && device.stageboxIdentity?.endId !== "end-b").map(rawDeviceFromSceneDevice);
   const connections = sceneData.modelData?.connectivity?.version === 1
     ? structuredClone(sceneData.modelData.connectivity.cables.map(cable => cable.connection))
-    : (sceneData.wires || []).filter(wire => !wire.multiCoreIdentity).map(wire => rawConnectionFromSceneWireData(sceneData, wire));
+    : (sceneData.wires || []).filter(wire => !wire.multiCoreIdentity && !wire.stageboxAssemblyId).map(wire => rawConnectionFromSceneWireData(sceneData, wire));
   return {
     ...multiCoreProjectFields(sceneData.modelData),
     format: ENGINE_EXPORT_FORMAT,
@@ -1066,6 +1075,7 @@ function buildProjectFromSceneData(sceneData = {}) {
 }
 
 function rawDeviceFromSceneDevice(device) {
+  if (device.stageboxSource) return deepClone(device.stageboxSource);
   return {
     ...(device.visual?.enableInternalRouting ? { internalSignalRoutes: deepClone(device.internalSignalRoutes || []) } : {}),
     instanceId: String(device.sourceId || device.id),

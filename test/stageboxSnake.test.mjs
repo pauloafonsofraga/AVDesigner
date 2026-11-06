@@ -93,19 +93,22 @@ test("portable device packages preserve passive ends and custom connector depend
   assert.deepEqual(imported.definition.connectors, value.connectors);
 });
 
-test("Engine normalization/export preserves metadata without projecting extra objects or changing topology", () => {
+test("Engine projects two ends but exports one assembly without a physical trunk", () => {
   const project = cableTypeSelectionFixture(), before = normalizeAvDesignerProject(project);
   project.devices[0].templateOverride = enable(project.devices[0].templateOverride);
   project.devices[0].powerWatts = 999;
   const after = normalizeAvDesignerProject(project);
-  assert.equal(after.devices.length, before.devices.length);assert.deepEqual(after.wires, before.wires);
+  assert.equal(after.devices.length, before.devices.length + 1);
+  assert.deepEqual(after.wires.filter(w => !w.stageboxAssemblyId), before.wires);
   assert.deepEqual(after.devices[0].connectors, before.devices[0].connectors);
   assert.equal(after.devices[0].powerWatts, 0);
   for (const key of ["id", "x", "y", "width", "height", "kind"]) assert.equal(after.devices[0][key], before.devices[0][key]);
   for (const data of [after, { ...after, projectData: null }]) {
     const mutations = new ProjectMutationAdapter(data), reopened = JSON.parse(mutations.exportJson());
     assert.equal(reopened.devices[0].templateOverride.isStageboxSnake, true);
-    assert.deepEqual(reopened.devices[0].templateOverride.stageboxSnake, after.devices[0].visual.stageboxSnake);
+    assert.deepEqual(reopened.devices[0].templateOverride.stageboxSnake, project.devices[0].templateOverride.stageboxSnake);
+    assert.equal(reopened.devices.length, project.devices.length);
+    assert.equal(reopened.connections.length, project.connections.length);
   }
 });
 

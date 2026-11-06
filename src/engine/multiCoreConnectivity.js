@@ -313,6 +313,18 @@ export function createMultiCoreConnectivity(projectInput, { getConnector, onStag
     if (instances.length !== 1) continue;
     const instance = instances[0], template = instance.templateOverride || instance.template
       || list(project.deviceLibrary).find(t => t.id === instance.templateId) || instance;
+    if (template.isStageboxSnake === true) {
+      for (const channel of list(template.stageboxSnake?.channels)) {
+        const from = resolve({ deviceId, connectorId: channel.a?.connectorId });
+        const to = resolve({ deviceId, connectorId: channel.b?.connectorId });
+        if (!from.valid || !to.valid) continue;
+        edges.push({ kind: "device-internal-route", key: key("stagebox-channel", deviceId, channel.id),
+          deviceId, deviceName: instance.name || template.name || deviceId, passive: true,
+          channelId: channel.id, channelName: channel.name, aContact: channel.a.contact || "", bContact: channel.b.contact || "",
+          fromKey: from.key, toKey: to.key });
+      }
+      continue;
+    }
     if (template.enableInternalRouting !== true || template.isMatrixRouter) continue;
     const connectors = connectorsByDevice.get(deviceId) || [];
     const device = { visual: { enableInternalRouting: true }, connectors };
@@ -434,7 +446,7 @@ export function traceMultiCoreSignalPath(snapshot, wireId, { reverse = false, br
         choices = choices.filter(k => {
           const edge = graph.edges.get(k);
           return arrivingInternally ? edge.kind === "external-cable"
-            : edge.kind === "device-internal-route" && (forward ? edge.fromKey : edge.toKey) === portKey;
+            : edge.kind === "device-internal-route" && (edge.passive || (forward ? edge.fromKey : edge.toKey) === portKey);
         });
         if (!choices.length) break;
       }
@@ -505,6 +517,8 @@ export function traceInternalSignalPaths(snapshot, wireId) {
 export function multiCoreConnectivityModelSnapshot(project) {
   const model = multiCoreModelSnapshot(project), root = rootOf(project);
   const references = list(root.connections).some(c => isMultiCoreEndpointReference(c?.from) || isMultiCoreEndpointReference(c?.to));
-  if (!model && !references) return undefined;
+  const stageboxes = [...list(root.devices), ...list(root.deviceLibrary)].some(d =>
+    [d, d?.templateOverride, d?.template].some(template => template?.isStageboxSnake && template.stageboxSnake?.channels?.length));
+  if (!model && !references && !stageboxes) return undefined;
   return freeze({ ...(model || { version: 1, diagnostics: [] }), connectivity: createMultiCoreConnectivity(project) });
 }

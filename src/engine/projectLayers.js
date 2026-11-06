@@ -75,7 +75,8 @@ export function applyProjectLayers(scene, root) {
     if (rack) Object.assign(item,{layerId:rack.layerId,layerOrder:rack.layerOrder,layerHidden:rack.layerHidden,layerLocked:rack.layerLocked});
   }
   scene.wires.forEach(item=>{
-    if(item.multiCoreIdentity)annotate(item,'multiCores',item.multiCoreIdentity.multiCoreId);else annotate(item,'connections');
+    if(item.stageboxAssemblyId)annotate(item,'devices',item.stageboxAssemblyId);
+    else if(item.multiCoreIdentity)annotate(item,'multiCores',item.multiCoreIdentity.multiCoreId);else annotate(item,'connections');
     const ends=[scene.getDevice(scene.wireEndpointObjectId(item,'from')),scene.getDevice(scene.wireEndpointObjectId(item,'to'))];
     item.layerHidden ||= ends.some(end=>end && !layerVisible(end));
     item.layerLocked ||= ends.some(end=>end?.layerLocked);

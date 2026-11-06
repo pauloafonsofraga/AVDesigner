@@ -3624,6 +3624,10 @@ function pushPolyline(vertices, points, width, color) {
 }
 
 function pushWireColorSegments(vertices, points, width, wire, fallbackColor, opacity = 1) {
+  if (wire?.stageboxAssemblyId) {
+    pushPolyline(vertices, points, width * 3, colorWithOpacity(wire.color, opacity));
+    return;
+  }
   if (wire?.multiCoreIdentity?.kind === "multi-core-trunk") {
     pushPolyline(vertices, points, width + 8, colorWithOpacity("#58636b", opacity));
     pushPolyline(vertices, points, width + 4, colorWithOpacity(fallbackColor, opacity));

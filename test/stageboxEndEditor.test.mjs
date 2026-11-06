@@ -65,7 +65,10 @@ test("asymmetric multipin contacts map independently to breakout connectors with
   assert.deepEqual(compactDeviceConfiguration(root).stageboxSnake.channels, root.stageboxSnake.channels);
   const clone = JSON.parse(JSON.stringify(root));assert.deepEqual(normalizeStageboxSnake(clone), normalizeStageboxSnake(root));
   const project = { deviceLibrary: [root], devices: [{ instanceId: "one-assembly", templateId: root.id }], connections: [] };
-  const scene = normalizeAvDesignerProject(project);assert.equal(scene.devices.length, 1);assert.equal(scene.wires.length, 0);
+  const scene = normalizeAvDesignerProject(project);
+  assert.deepEqual(scene.devices.map(d => d.connectors.map(c => c.id)), [["multi"], ["tail-1", "tail-2"]]);
+  assert.equal(scene.wires[0].stageboxAssemblyId, "one-assembly");
+  assert.equal(scene.modelData.connectivity.edges.filter(edge => edge.passive).length, 2);
 });
 
 test("invalid mappings, cross-end ID collisions and unsupported representations reject atomically", () => {

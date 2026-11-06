@@ -39,6 +39,7 @@ import {layerEditable,applyProjectLayers} from './projectLayers.js';
 import {
   normalizeAvDesignerDevice,
   normalizeAvDesignerProject,
+  projectStageboxAssembly,
   normalizeEngineCanvasObject
 } from "./projectAdapter.js";
 import { ProjectMutationAdapter } from "./projectMutations.js";
@@ -2547,6 +2548,14 @@ class ProductionEngineBridge {
     }
     const wireHit = hitTestWire(this.scene, world, tolerance);
     if (wireHit.wire) {
+      const assemblyId = wireHit.wire.wire.stageboxAssemblyId;
+      if (assemblyId) {
+        if (additiveSelection) this.scene.toggleSelection(assemblyId);
+        else this.scene.selectOnly(assemblyId);
+        this.updateSelectionHud();
+        this.scheduleRender();
+        return;
+      }
       this.clearJumpMoveArm("wire-pointerdown", { updateHud: false });
       if (!wireHit.breakout && !additiveSelection && this.beginWireSegmentDrag(wireHit, point, world)) {
         this.updateSelectionHud();
@@ -5224,7 +5233,9 @@ class ProductionEngineBridge {
       return device ? { id, x: device.x, y: device.y } : null;
     }).filter(Boolean);
     const afterRouteStates = captureWireRouteStates(this.scene, affectedWireIds);
-    this.beginProductionCommit(`move ${selectedIds.length} object${selectedIds.length === 1 ? "" : "s"}`, {deviceIds:selectedIds});
+    this.beginProductionCommit(`move ${selectedIds.length} object${selectedIds.length === 1 ? "" : "s"}`, {
+      deviceIds: selectedIds.filter(id => !this.scene.getDevice(id)?.stageboxIdentity)
+    });
     const deviceMutationMs = this.mutations?.commitDevicePositions(this.scene, selectedIds) || 0;
     const routeMutationMs = this.commitWireRouteStates(afterRouteStates);
     const mutationMs = deviceMutationMs + routeMutationMs;
@@ -5607,6 +5618,7 @@ class ProductionEngineBridge {
     const wireHit = hitTestWire(this.scene, world, tolerance);
     if (wireHit.wire) {
       const wire = wireHit.wire.wire;
+      if (wire.stageboxAssemblyId) return this.contextMenuObjectTarget(this.scene.getDevice(wire.stageboxAssemblyId));
       const renderedPoints = wireHit.wire.breakout?.points || this.scene.wireRenderPolyline(wire);
       const segment = renderedPoints.slice(wireHit.wire.segmentIndex, wireHit.wire.segmentIndex + 2);
       return {
@@ -6380,8 +6392,18 @@ class ProductionEngineBridge {
       : "-");
   }
 
+  selectedLogicalDevices() {
+    const selected = new Map();
+    for (const id of this.scene.selectedIds) {
+      const device = this.scene.getDevice(id);
+      if (device) selected.set(device.stageboxIdentity?.assemblyId || id, device);
+    }
+    return [...selected.values()];
+  }
+
   updateSelectionHud() {
-    const selectedDevices = this.scene.selectedIds.size;
+    const logicalDevices = this.selectedLogicalDevices();
+    const selectedDevices = logicalDevices.length;
     const selectedRacks = this.scene.selectedRackIds.size;
     const selectedWires = this.scene.selectedWireIds.size;
     const selectedRoutePoints = this.scene.selectedRoutePointKeys.size;
@@ -6398,10 +6420,7 @@ class ProductionEngineBridge {
     this.hud.setMetric("selected route points", selectedRoutePoints);
     this.hud.setMetric("selected jump nodes", [...this.scene.selectedIds].filter(id => this.scene.getDevice(id)?.kind === "jump").length);
     this.hud.setMetric("selected jump links", this.scene.selectedJumpLinkId || "-");
-    const selectedDeviceObjects = [...this.scene.selectedIds]
-      .map(id => this.scene.getDevice(id))
-      .filter(Boolean)
-      .map(device => ({
+    const selectedDeviceObjects = logicalDevices.map(device => ({
         id: device.id,
         ...(device.multiCoreIdentity ? { multiCoreIdentity: { ...device.multiCoreIdentity } } : {}),
         sourceId: device.sourceId || device.id,
@@ -7294,7 +7313,9 @@ class ProductionEngineBridge {
     if (!device) return { mutationMs: 0 };
     const sourceId = String(device.sourceId || device.id);
     const sanitized = sanitizeObjectInspectorFields(fields);
-    applyObjectFieldsToSceneDevice(device, sanitized);
+    if (device.stageboxIdentity && sanitized.powerWatts !== undefined) sanitized.powerWatts = 0;
+    const deviceIds = this.includeStageboxEnds([device.id]);
+    for (const id of deviceIds) applyObjectFieldsToSceneDevice(this.scene.getDevice(id), sanitized);
     const mutationMs = this.mutations?.updateObjectFields(sourceId, sanitized) || 0;
     const matrixVisibilityOnly = objectInspectorPatchOnlyInternalMatrixRouting(sanitized);
     if (matrixVisibilityOnly) {
@@ -7312,15 +7333,17 @@ class ProductionEngineBridge {
       this.scheduleRender();
       return { mutationMs, dirtyStats };
     }
-    this.scene.dirtyDevices.add(device.id);
-    this.scene.dirtyTextures.add(device.id);
-    const affectedWireIds = [...this.scene.affectedWireIdsForDevices([device.id])];
+    for (const id of deviceIds) {
+      this.scene.dirtyDevices.add(id);
+      this.scene.dirtyTextures.add(id);
+    }
+    const affectedWireIds = [...this.scene.affectedWireIdsForDevices(deviceIds)];
     const dirtyStats = this.renderer.updateDirty(this.scene, {
-      deviceIds: [device.id],
+      deviceIds,
       wireIds: affectedWireIds,
       refreshCableHops: false
     });
-    this.lastDirtyDeviceIds = new Set([device.id]);
+    this.lastDirtyDeviceIds = new Set(deviceIds);
     this.lastDirtyWireIds = new Set(affectedWireIds);
     this.renderOptions.dirtyDeviceIds = this.lastDirtyDeviceIds;
     this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
@@ -7337,7 +7360,9 @@ class ProductionEngineBridge {
     const device = this.resolveDeviceBySourceId(objectId);
     if (!device) return false;
     const sanitized = sanitizeObjectInspectorFields(fields);
-    applyObjectFieldsToSceneDevice(device, sanitized);
+    if (device.stageboxIdentity && sanitized.powerWatts !== undefined) sanitized.powerWatts = 0;
+    const deviceIds = this.includeStageboxEnds([device.id]);
+    for (const id of deviceIds) applyObjectFieldsToSceneDevice(this.scene.getDevice(id), sanitized);
     if (objectInspectorPatchOnlyInternalMatrixRouting(sanitized)) {
       this.scene.dirtyDevices.add(device.id);
       const dirtyStats = this.renderer.updateMatrixInternalRoutes?.(this.scene, [device.id]) || { totalMs: 0, dirtyDevices: 1, dirtyWires: 0 };
@@ -7350,15 +7375,17 @@ class ProductionEngineBridge {
       this.scheduleRender();
       return true;
     }
-    this.scene.dirtyDevices.add(device.id);
-    this.scene.dirtyTextures.add(device.id);
-    const affectedWireIds = [...this.scene.affectedWireIdsForDevices([device.id])];
+    for (const id of deviceIds) {
+      this.scene.dirtyDevices.add(id);
+      this.scene.dirtyTextures.add(id);
+    }
+    const affectedWireIds = [...this.scene.affectedWireIdsForDevices(deviceIds)];
     const dirtyStats = this.renderer.updateDirty(this.scene, {
-      deviceIds: [device.id],
+      deviceIds,
       wireIds: affectedWireIds,
       refreshCableHops: false
     });
-    this.lastDirtyDeviceIds = new Set([device.id]);
+    this.lastDirtyDeviceIds = new Set(deviceIds);
     this.lastDirtyWireIds = new Set(affectedWireIds);
     this.renderOptions.dirtyDeviceIds = this.lastDirtyDeviceIds;
     this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
@@ -8097,6 +8124,10 @@ class ProductionEngineBridge {
     const normalizedWiresById = new Map((normalized.wires || []).map(wire => [String(wire.id), wire]));
     const affectedDeviceIds = new Set((context.affectedDeviceIds || []).map(id => String(id || "")).filter(Boolean));
     const affectedWireIds = new Set((context.affectedWireIds || []).map(id => String(id || "")).filter(Boolean));
+    const assemblyIds = new Set(affectedDeviceIds);
+    for (const device of [...this.scene.devices, ...(normalized.devices || [])]) {
+      if (assemblyIds.has(device.stageboxIdentity?.assemblyId)) affectedDeviceIds.add(device.id);
+    }
 
     this.scene.wires.forEach(wire => {
       if (
@@ -8454,7 +8485,8 @@ class ProductionEngineBridge {
     const rackIds = this.selectedRackIds();
     const deviceIds = uniqueItems([...this.selectedDeletableDeviceIds(),
       ...rackIds.flatMap(id => this.scene.rackChildIds(id))]);
-    const wireIds = uniqueItems([...this.scene.selectedWireIds, ...this.scene.affectedWireIdsForObjects(deviceIds)]);
+    const wireIds = uniqueItems([...this.scene.selectedWireIds, ...this.scene.affectedWireIdsForObjects(this.includeStageboxEnds(deviceIds))])
+      .filter(id => !this.scene.getWire(id)?.stageboxAssemblyId);
     const devices = [], wires = [], racks = [];
     const deletion = () => withJumpAttachments(deleteRackInstancesCommand(racks, devices, wires, selection),
       beforeAttachments, this.jumpAttachmentSnapshot());
@@ -8612,7 +8644,7 @@ class ProductionEngineBridge {
       return;
     }
     const selectedRacks = [...this.scene.selectedRackIds].map(id => this.scene.getRack(id)).filter(Boolean);
-    const selectedDevices = [...this.scene.selectedIds].map(id => this.scene.getDevice(id)).filter(Boolean);
+    const selectedDevices = this.selectedLogicalDevices();
     const selectedWires = [...this.scene.selectedWireIds].map(id => this.scene.getWire(id)).filter(Boolean);
     const selectedRoutePoints = [...this.scene.selectedRoutePointKeys];
     const selectedConnectors = [...this.scene.selectedConnectorKeys]
@@ -8951,7 +8983,7 @@ class ProductionEngineBridge {
     let textureBuildDelta = 0;
     let textureRebuildDelta = 0;
     try {
-      this.beginProductionCommit(`${direction} ${command.type}`, { snapshot: false, deviceIds:command.protocolDeviceIds || [], origin:direction });
+      this.beginProductionCommit(`${direction} ${command.type}`, { snapshot: false, deviceIds:(command.protocolDeviceIds || []).filter(id => !this.scene.getDevice(id)?.stageboxIdentity), origin:direction });
       const mutationStart = performance.now();
       result = applyCommand() || {};
       mutationReplayMs = performance.now() - mutationStart;
@@ -9540,9 +9572,16 @@ class ProductionEngineBridge {
     const restoredData = normalized.visual.isProjector || Object.hasOwn(deviceData, "selectedProjectorLensId")
       ? { ...deviceData, selectedProjectorLensId: normalized.selectedProjectorLensId } : deviceData;
     const mutationResult = this.mutations?.restoreDeviceInstance(restoredData, index) || { mutationMs: 0 };
-    const device = this.scene.insertDevice(normalized);
+    const assembly = projectStageboxAssembly(normalized, restoredData, new Set(this.scene.devices.map(d => d.id)),
+      this.mutations?.root.wireMode);
+    const device = this.scene.insertDevice(assembly.ends[0]);
     if (!device) return { mutationMs: mutationResult.mutationMs || 0, device: null };
-    const dirtyStats = this.renderer.appendDevice(this.scene, device.id);
+    for (const end of assembly.ends.slice(1)) this.scene.insertDevice(end);
+    if (assembly.trunk) {
+      this.scene.insertWire(assembly.trunk);
+      applyProjectLayers(this.scene, this.mutations.root);
+    }
+    const dirtyStats = assembly.trunk ? this.renderer.setStaticScene(this.scene) : this.renderer.appendDevice(this.scene, device.id);
     console.info("[avdesigner-library-drag] renderer insert called", {
       deviceId: device.id,
       dirtyStats
@@ -9722,9 +9761,13 @@ class ProductionEngineBridge {
       return { mutationMs: 0, deviceData: null, index: -1 };
     }
     const mutationResult = this.mutations?.removeDeviceInstance(sourceId) || { mutationMs: 0, deviceData: null, index: -1 };
+    if (device.stageboxIdentity) {
+      for (const wire of this.scene.wires.filter(w => w.stageboxAssemblyId === sourceId)) this.scene.deleteWire(wire.id);
+      for (const end of this.scene.devices.filter(d => d.stageboxIdentity?.assemblyId === sourceId && d.id !== id)) this.scene.deleteDevice(end.id);
+    }
     const removed = this.scene.deleteDevice(id);
     if (!removed) return { mutationMs: mutationResult.mutationMs || 0, deviceData: mutationResult.deviceData, index: mutationResult.index };
-    const dirtyStats = this.renderer.removeDevice(this.scene, id);
+    const dirtyStats = device.stageboxIdentity ? this.renderer.setStaticScene(this.scene) : this.renderer.removeDevice(this.scene, id);
     this.lastDirtyDeviceIds = new Set([id]);
     this.lastDirtyWireIds = new Set();
     this.renderOptions.dirtyDeviceIds = this.lastDirtyDeviceIds;
@@ -9940,8 +9983,14 @@ class ProductionEngineBridge {
   }
 
   selectedDeletableDeviceIds() {
-    return [...this.scene.selectedIds]
-      .filter(id => layerEditable(this.scene.getDevice(id)) && isEngineDeletableDevice(this.scene.getDevice(id)));
+    return uniqueItems([...this.scene.selectedIds]
+      .filter(id => layerEditable(this.scene.getDevice(id)) && isEngineDeletableDevice(this.scene.getDevice(id)))
+      .map(id => this.scene.getDevice(id)?.stageboxIdentity?.assemblyId || id));
+  }
+
+  includeStageboxEnds(ids) {
+    const assemblies = new Set(ids.map(id => this.scene.getDevice(id)?.stageboxIdentity?.assemblyId).filter(Boolean));
+    return assemblies.size ? uniqueItems([...ids, ...this.scene.devices.filter(d => assemblies.has(d.stageboxIdentity?.assemblyId)).map(d => d.id)]) : ids;
   }
 
   selectedRackIds() {
@@ -9954,8 +10003,9 @@ class ProductionEngineBridge {
   }
 
   deleteSelectedDevices(deviceIds = this.selectedDeletableDeviceIds()) {
+    deviceIds = uniqueItems(deviceIds.map(id => this.scene.getDevice(id)?.stageboxIdentity?.assemblyId || id));
     if (this.scene.meta.projectLayers?.length && (deviceIds.some(id=>!layerEditable(this.scene.getDevice(id)))
-      || [...this.scene.affectedWireIdsForDevices(deviceIds)].some(id=>!layerEditable(this.scene.getWire(id))))) {
+      || [...this.scene.affectedWireIdsForDevices(this.includeStageboxEnds(deviceIds))].some(id=>!layerEditable(this.scene.getWire(id))))) {
       this.showError('Unlock the affected layers before deleting these objects.');return false;
     }
     if (deviceIds.some(id => this.scene.getDevice(id)?.multiCoreIdentity)) {
@@ -9987,7 +10037,8 @@ class ProductionEngineBridge {
     const commitStart = performance.now();
     const beforeAttachments = this.jumpAttachmentSnapshot();
     const selectionBefore = captureEngineSelection(this.scene);
-    const connectedWireIds = uniqueItems([...this.scene.affectedWireIdsForObjects(ids)]);
+    const connectedWireIds = uniqueItems([...this.scene.affectedWireIdsForObjects(this.includeStageboxEnds(ids))])
+      .filter(id => !this.scene.getWire(id)?.stageboxAssemblyId);
     this.customDeviceDiagnostic("delete selected devices start", {
       deviceIds: ids,
       connectedWireIds
@@ -10538,7 +10589,7 @@ class ProductionEngineBridge {
       const rafStart = performance.now();
       this.renderFrame = null;
       const renderMs = this.renderer.draw(this.scene, this.camera, {
-        selectedIds: this.scene.selectedIds,
+        selectedIds: new Set(this.includeStageboxEnds([...this.scene.selectedIds])),
         selectedRackIds: this.scene.selectedRackIds,
         selectedWireIds: this.scene.selectedWireIds,
         dragSession: this.dragSession,
@@ -12861,7 +12912,7 @@ function captureObjectInspectorFields(device, fields = {}) {
   const keys = Object.keys(sanitizeObjectInspectorFields(fields));
   const captured = {};
   keys.forEach(key => {
-    if (key === "name" || key === "label") captured[key] = device.label || device.visual?.displayName || "";
+    if (key === "name" || key === "label") captured[key] = device.stageboxIdentity?.assemblyName || device.label || device.visual?.displayName || "";
     else captured[key] = device[key] ?? "";
   });
   return captured;
@@ -12876,7 +12927,11 @@ function applyObjectFieldsToSceneDevice(device, fields = {}) {
   }
   if (sanitized.name !== undefined || sanitized.label !== undefined) {
     const nextName = sanitized.name ?? sanitized.label;
-    device.label = String(nextName || device.label || device.id);
+    if (device.stageboxIdentity) {
+      const identity = device.stageboxIdentity;
+      identity.assemblyName = String(nextName || identity.assemblyName || device.id);
+      device.label = `${identity.assemblyName} / ${identity.endName}`;
+    } else device.label = String(nextName || device.label || device.id);
     device.visual = {
       ...(device.visual || {}),
       displayName: device.label
@@ -13134,7 +13189,7 @@ function cloneRoutePoints(points = []) {
 function captureWireRouteStates(scene, wireIds = []) {
   return uniqueItems(wireIds).map(wireId => {
     const wire = scene.getWire(wireId);
-    if (!wire || isEngineInternalRackWire(wire)) return null;
+    if (!wire || wire.stageboxAssemblyId || isEngineInternalRackWire(wire)) return null;
     return {
       id: wire.id,
       routeStyle: wire.routeStyle || (wire.routePoints?.length ? "custom" : "bezier"),

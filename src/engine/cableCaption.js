@@ -60,7 +60,7 @@ export function wireCaption(scene, cable, highlighted = false) {
 }
 
 export function isPhysicalJumpWire(scene, wire) {
-  return Boolean(wire && !wire.multiCoreIdentity && !wire.outputJumpId && !wire.inputJumpId
+  return Boolean(wire && !wire.multiCoreIdentity && !wire.stageboxAssemblyId && !wire.outputJumpId && !wire.inputJumpId
     && (isJumpNodeDevice(scene.getDevice(wire.fromDeviceId))
       || isJumpNodeDevice(scene.getDevice(wire.toDeviceId))));
 }

@@ -48,6 +48,9 @@ export function presentMultiCorePath(path, rows, connectivity) {
     if (segment.kind === "multi-core-passive-channel") return { ...segment, from, to,
       title: `${segment.multiCoreName || segment.multiCoreId} / Channel ${segment.displayNumber}`,
       detail: `${reportLength(segment.length, segment.lengthUnit)} trunk / ${segment.direction}` };
+    if (segment.passive && segment.channelId) return { ...segment, from, to,
+      title: `${segment.deviceName} / ${segment.channelName || segment.channelId}`,
+      detail: [segment.aContact && `A contact ${segment.aContact}`, segment.bContact && `B contact ${segment.bContact}`].filter(Boolean).join(" / ") };
     if (segment.kind === "device-internal-route") return { ...segment, from, to,
       title: `${segment.deviceName} / Internal Signal Routing`, detail: `${from.detail} → ${to.detail}` };
     return { ...segment, from, to, title: "Jump continuation", detail: segment.jumpLinkId };

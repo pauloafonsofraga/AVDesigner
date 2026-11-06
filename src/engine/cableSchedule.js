@@ -211,7 +211,17 @@ function endpointDisplay(project, endpoint, getConnector, nodeColors, nodeDefini
   const node = nodeDefinition(nodeDefinitions, connector?.type);
   const groupedConnector=connector && {...connector,compatibilityType:connector.compatibilityType || node?.compatibilityType};
   const template = instance?.templateOverride || (project.deviceLibrary || []).find(item => item.id === instance?.templateId);
-  const semanticDevice = String(instance?.name || template?.name || surface?.name || "Unconnected");
+  const deviceName = String(instance?.name || template?.name || surface?.name || "Unconnected");
+  const ends = template?.isStageboxSnake && template.stageboxSnake?.ends;
+  const end = Array.isArray(ends) && (ends.find(item => item.connectorIds?.includes(endpoint?.connectorId)) || ends[0]);
+  const semanticDevice = end?.name ? `${deviceName} / ${end.name}` : deviceName;
+  const side = end?.id === "end-b" ? "b" : "a";
+  const stageboxChannels = (end && template.stageboxSnake?.channels || [])
+    .filter(channel => channel[side]?.connectorId === endpoint?.connectorId)
+    .map(channel => {
+      const contact = channel[side].contact;
+      return [channel.name || channel.id, contact && `contact ${contact}`].filter(Boolean).join(" / ");
+    });
   const semanticPort = String(connector?.nameText || (connector?.label !== connector?.type ? connector?.label : "")
     || (connector ? engineConnectorDisplayLabel({ ...connector, typeLabel: node?.label || connector.typeLabel,
       compatibilityType: connector.compatibilityType || node?.compatibilityType }) : "")
@@ -226,6 +236,7 @@ function endpointDisplay(project, endpoint, getConnector, nodeColors, nodeDefini
     port: patch ? `Port ${patch.slot}` : semanticPort,
     realDevice: semanticDevice,
     realPort: semanticPort,
+    stageboxChannels,
     type: String(connector ? engineConnectorCompatibilityType({ ...connector,
       compatibilityType: connector.compatibilityType || node?.compatibilityType }) || connector.physicalType || connector.type || "" : ""),
     typeId: String(connector?.type || ""),
@@ -250,8 +261,8 @@ function derivePatchReportNotes(notes, source, destination) {
 export function buildCableSchedule(input, options = {}) {
   const project = projectRoot(input);
   const connectivity = options.connectivity || (project.multiCores?.length
-    || project.deviceLibrary?.some(t => t.enableInternalRouting)
-    || project.devices?.some(d => d.templateOverride?.enableInternalRouting || d.template?.enableInternalRouting || d.enableInternalRouting)
+    || project.deviceLibrary?.some(t => t.enableInternalRouting || t.isStageboxSnake)
+    || project.devices?.some(d => [d, d.template, d.templateOverride].some(t => t?.enableInternalRouting || t?.isStageboxSnake))
     || project.connections?.some(c => isMultiCoreEndpointReference(c.from) || isMultiCoreEndpointReference(c.to))
     ? createMultiCoreConnectivity(project, { getConnector: options.getConnector }) : null);
   const groups = options.assignNumbers === false ? groupedCables(project, options.getConnector)
@@ -311,6 +322,8 @@ export function buildCableSchedule(input, options = {}) {
       fiberMode: String(value("fiberMode")),
       loomId, loom: String(loomRecord?.name || value("loom")), rackLocation,
       notes: [derivePatchReportNotes(deriveLoomReportNotes(value("notes"), loomRecord), source, destination),
+        ...[source, destination].filter(end => end.stageboxChannels?.length)
+          .map(end => `${end.realDevice}: ${end.stageboxChannels.join(", ")}`),
         physicalCircuits ? `${physicalCircuits.count} separate 75 ohm coaxial circuits: ${physicalCircuits.circuits.map(c=>c.id).join(", ")}. Grouped signal; all circuits required.` : "",
         primary.cableAssembly?.kind === "direct-attach-copper"
           ? ["Integrated DAC assembly", ...(primary.cableAssembly.supportedRates || []), ...(primary.cableAssembly.warnings || [])].join(" | ") : ""].filter(Boolean).join("\n"),

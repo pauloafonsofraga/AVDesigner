@@ -2035,6 +2035,12 @@ export class SceneGraph {
   }
 
   rawEndpointForWire(wire, end, offsetMap = null) {
+    if (wire.stageboxAssemblyId) {
+      const device = this.getDevice(wire[`${end}DeviceId`]);
+      if (!device) return { x: 0, y: 0 };
+      const pos = this.positionForDevice(device, offsetMap);
+      return { x: pos.x + (end === "from" ? device.width : 0), y: pos.y + device.height / 2 };
+    }
     if (wire.multiCoreIdentity?.kind === "multi-core-trunk") {
       const device = this.getDevice(wire[`${end}DeviceId`]);
       const pos = this.positionForDevice(device, offsetMap);
@@ -2131,7 +2137,7 @@ export class SceneGraph {
   }
 
   visibleEndpoint(wire, end, point, otherPoint) {
-    if (wire.multiCoreIdentity) return point;
+    if (wire.multiCoreIdentity || wire.stageboxAssemblyId) return point;
     if (this.wireEndpointSurfaceId(wire, end)) return point;
     const deviceId = end === "from" ? wire.fromDeviceId : wire.toDeviceId;
     const connectorId = end === "from" ? wire.fromConnectorId : wire.toConnectorId;
@@ -2317,8 +2323,9 @@ function normalizeDevice(device) {
     device.sourceKind
   );
   const canvasObject = isCanvasObjectKind(kind);
-  const width = device.multiCoreIdentity ? Number(device.width) : Math.max(40, Number(device.width) || 120);
-  const height = device.multiCoreIdentity ? Number(device.height) : Math.max(28, Number(device.height) || 58);
+  const authoredDimensions = device.multiCoreIdentity || device.stageboxIdentity;
+  const width = authoredDimensions ? Number(device.width) : Math.max(40, Number(device.width) || 120);
+  const height = authoredDimensions ? Number(device.height) : Math.max(28, Number(device.height) || 58);
   const schemaVersion = deviceDefinitionVersion(device);
   const connectors = isLedSurfaceKind({ kind, sourceKind: device.sourceKind, visual })
     ? []
@@ -2338,6 +2345,7 @@ function normalizeDevice(device) {
   const normalized = {
     id: String(device.id),
     ...(device.multiCoreIdentity ? { multiCoreIdentity: { ...device.multiCoreIdentity } } : {}),
+    ...(device.stageboxIdentity ? { stageboxIdentity: { ...device.stageboxIdentity } } : {}),
     schemaVersion,
     sourceKind: device.sourceKind || "",
     sourceId: device.sourceId || device.id || "",
@@ -2419,6 +2427,7 @@ function normalizeVisualMetadata(visual = {}) {
   if (!visual || typeof visual !== "object") return {};
   const faceImageScale = Number(visual.faceImageScale) || Number(visual.faceplateScale) || 1;
   return {
+    ...(visual.stageboxRepresentation ? { stageboxRepresentation: visual.stageboxRepresentation } : {}),
     brand: visual.brand || "",
     model: visual.model || "",
     category: visual.category || "",
@@ -2689,6 +2698,7 @@ function normalizeWire(wire) {
     id: String(wire.id),
     ...(wire.layerId ? {layerId:wire.layerId} : {}),
     ...(wire.multiCoreIdentity ? { multiCoreIdentity: { ...wire.multiCoreIdentity } } : {}),
+    ...(wire.stageboxAssemblyId ? { stageboxAssemblyId: wire.stageboxAssemblyId } : {}),
     sourceKind: wire.sourceKind || "",
     sourceId: wire.sourceId || wire.id || "",
     rackId: wire.rackId ? String(wire.rackId) : "",

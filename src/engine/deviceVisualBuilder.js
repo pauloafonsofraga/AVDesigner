@@ -232,6 +232,7 @@ export function deviceVisualCacheKey(device, options = {}) {
   return [
     "device-card-v9-comment-arrow-title-logo",
     visualKind,
+    visual.stageboxRepresentation || "",
     width,
     height,
     color,
@@ -404,14 +405,36 @@ function drawRackDeviceVisual(ctx, device, width, height, options) {
   const radius = 8;
   const pad = FACE_MARGIN;
 
-  roundRect(ctx, 0, 0, width, height, radius);
+  const representation = visual.stageboxRepresentation;
   ctx.fillStyle = LEGACY_DEVICE_BODY;
-  ctx.fill();
   ctx.lineWidth = 2;
   ctx.strokeStyle = LEGACY_DEVICE_BORDER;
-  ctx.stroke();
+  if (representation === "circular") {
+    ctx.beginPath();
+    ctx.arc(width / 2, height / 2, Math.min(width, height) / 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  } else if (representation === "fanout") {
+    const hub = { x: width / 2, y: height / 2 };
+    ctx.beginPath();
+    for (const connector of device.connectors || []) {
+      for (const anchor of connector.anchors?.length ? connector.anchors : [connector]) {
+        ctx.moveTo(hub.x, hub.y);
+        ctx.lineTo(anchor.x, anchor.y);
+      }
+    }
+    ctx.stroke();
+    roundRect(ctx, hub.x - 10, hub.y - 6, 20, 12, 3);
+    ctx.fill();
+    ctx.stroke();
+  } else {
+    roundRect(ctx, 0, 0, width, height, radius);
+    ctx.fill();
+    ctx.stroke();
+  }
 
   drawDeviceHeader(ctx, device, width, pad, detailed);
+  if (representation && !visual.hasFaceImage) return;
   const face = drawPowerDistroFaceplate(ctx, device, visual, width, height, detailed)
     || drawFaceplate(ctx, device, visual, width, height, pad, detailed);
 

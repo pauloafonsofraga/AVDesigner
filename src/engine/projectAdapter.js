@@ -1,5 +1,5 @@
 import { resolveProjectorLens } from "./projectorModel.js";
-import { normalizeStageboxSnake } from "./stageboxSnake.js";
+import { normalizeStageboxSnake, stageboxEndDraft } from "./stageboxSnake.js";
 import { projectWireRouting } from "./wireRoutingPolicy.js";
 import { reflowFaceImageLayout } from "./faceplateGeometry.js";
 import { deviceBrandForDisplay } from "./deviceDisplayName.js";
@@ -296,6 +296,11 @@ export function normalizeAvDesignerProject(data, loadMeta = {}) {
   const surfaceConnectionOrder = buildLedSurfaceConnectionIndex(root.connections || [], root.ledSurfaces || [],
     (deviceId, connectorId) => connectorsByDevice.get(deviceId)?.get(connectorId));
   const wireMode = root.wireMode === "orthogonal" ? "orthogonal" : "bezier";
+  const occupiedIds = new Set([...devices, ...areaDevices, ...imageDevices, ...jumpDevices,
+    ...surfaceDevices, ...titleBlockDevices, ...commentDevices, ...multiCoreProjection.devices].map(d => d.id));
+  const assemblies = devices.map((device, index) => projectStageboxAssembly(device, rawDevices[index], occupiedIds, wireMode));
+  const stageboxPortOwners = new Map(assemblies.filter(a => a.trunk).map(a => [a.ends[0].id,
+    new Map(a.ends.flatMap(end => end.connectors.map(port => [port.id, end.id])))]));
   surfaceDevices.forEach(surface => {
     // Legacy LED PNG surfaces do not expose visible connector nodes. Wires use
     // virtual left-edge landing points calculated from connected wire order, so
@@ -307,7 +312,7 @@ export function normalizeAvDesignerProject(data, loadMeta = {}) {
     ...areaDevices,
     ...imageDevices,
     ...surfaceDevices,
-    ...devices,
+    ...assemblies.flatMap(a => a.ends),
     ...multiCoreProjection.devices,
     ...jumpDevices,
     ...titleBlockDevices,
@@ -333,6 +338,7 @@ export function normalizeAvDesignerProject(data, loadMeta = {}) {
       deviceIds,
       connectorIdsByDevice,
       normalizedDeviceById,
+      stageboxPortOwners,
       jumpNodeIds,
       surfaceIds,
       surfaceConnectionOrder,
@@ -354,7 +360,7 @@ export function normalizeAvDesignerProject(data, loadMeta = {}) {
     wireMode,
     placedRackIds
   });
-  const wires = [...projectWires, ...rackInternalWires, ...multiCoreProjection.trunks];
+  const wires = [...projectWires, ...rackInternalWires, ...multiCoreProjection.trunks, ...assemblies.flatMap(a => a.trunk ? [a.trunk] : [])];
   const explicitJumpLinks = normalizeJumpLinks(root.jumpLinks || [], { jumpNodeIds });
   const jumpConnector = endpoint => normalizedDeviceById.get(endpoint.deviceId)?.connectors.find(c => c.id === endpoint.connectorId) || null;
   const legacyJumpLinks = explicitJumpLinks.length
@@ -501,6 +507,44 @@ function applyNodeTypeMetadata(connector, nodeLabelByType, nodeCompatibilityByTy
   const compatibilityType = String(connector.compatibilityType || nodeCompatibilityByType.get(type) || "").trim();
   return typeLabel || compatibilityType ? { ...connector, ...(typeLabel ? { typeLabel } : {}),
     ...(compatibilityType ? { compatibilityType } : {}) } : connector;
+}
+
+export function projectStageboxAssembly(device, instance, occupiedIds = new Set(), wireMode = "bezier") {
+  const definition = device.visual?.stageboxSnake;
+  if (!definition) return { ends: [device] };
+  const base = `stagebox-end-b-${encodeURIComponent(device.id)}`;
+  let secondId = base;
+  for (let suffix = 2; occupiedIds.has(secondId); suffix++) secondId = `${base}:${suffix}`;
+  occupiedIds.add(secondId);
+  const ends = definition.ends.map((end, index) => {
+    const id = index ? secondId : device.id;
+    const ids = new Set(end.connectorIds);
+    const draft = stageboxEndDraft({ ...device.visual, connectors: device.connectors }, end.id);
+    const position = instance.stageboxEndOffsets?.[end.id];
+    const connectors = device.connectors.filter(c => ids.has(c.id) || !index
+      && !definition.ends[1].connectorIds.includes(c.id)).map(c => {
+      const layout = end.connectorLayout[c.id] || {};
+      const anchors = (layout.anchors || c.anchors || []).map(anchor => ({ ...anchor,
+        x: anchor.x === device.width && !layout.anchors ? end.width : anchor.x }));
+      return { ...c, ...layout, anchors, x: layout.x ?? (c.x === device.width ? end.width : c.x) };
+    });
+    return { ...device, id, x: device.x + finiteNumber(position?.x, index ? definition.ends[0].width + 160 : 0),
+      y: device.y + finiteNumber(position?.y, 0), width: end.width, height: end.height,
+      label: `${device.label} / ${end.name}`, connectors, portCount: connectors.length,
+      ...(!index ? { stageboxSource: { ...instance, templateOverride: instance.templateOverride || {
+        ...device.visual, id: device.templateId, name: device.label, width: device.width, height: device.height,
+        connectors: device.connectors, connectorRelationships: device.connectorRelationships
+      } } } : {}),
+      connectorRelationships: draft.connectorRelationships,
+      stageboxIdentity: { assemblyId: device.id, assemblyName: device.label, endId: end.id, endName: end.name,
+        representation: end.representation },
+      visual: { ...normalizeDeviceVisualMetadata(draft, {}, end.width, end.height, new Map()),
+        enableInternalRouting: false, stageboxRepresentation: end.representation },
+      matrixRoutes: {}, internalSignalRoutes: [] };
+  });
+  return { ends, trunk: { id: `stagebox-trunk:${secondId}`, stageboxAssemblyId: device.id,
+    fromDeviceId: ends[0].id, toDeviceId: ends[1].id, fromSide: "right", toSide: "left",
+    color: "#80d4ff", hideLabel: true, routeStyle: wireMode } };
 }
 
 function normalizeProjectDevice(instance, index, templates, nodeColorByType, nodeLabelByType = new Map(), nodeCompatibilityByType = new Map()) {
@@ -1541,8 +1585,9 @@ function normalizeEndpoint(endpoint, end, wire, context) {
     return normalizeSurfaceEndpoint(directSurfaceId, wire, context);
   }
   if (endpoint.deviceId) {
-    const deviceId = String(endpoint.deviceId);
     const connectorId = String(endpoint.connectorId || "");
+    const canonicalId = String(endpoint.deviceId);
+    const deviceId = context.stageboxPortOwners?.get(canonicalId)?.get(connectorId) || canonicalId;
     const anchorId = String(endpoint.anchorId || (end === "from" ? wire.fromAnchorId : wire.toAnchorId) || "");
     if (context.surfaceIds.has(deviceId) || connectorId.startsWith("surface-port-")) {
       // Compatibility repair for early Engine builds that serialized LED

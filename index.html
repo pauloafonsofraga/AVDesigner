@@ -30987,10 +30987,10 @@
       const items = selectedCanvasItemsForClipboard();
       if (!items.length) return null;
       const bridge = activeEngineBridge();
-      const rects = items.map(item => {
+      const rects = items.flatMap(item => {
         if (item.type === "rack") return null;
-        const device = bridge?.scene.devices.find(device => (device.sourceId || device.id) === item.id);
-        if (device) return { x: device.x, y: device.y, width: device.width, height: device.height };
+        const devices = bridge?.scene.devices.filter(device => (device.sourceId || device.id) === item.id);
+        if (devices?.length) return devices.map(({ x, y, width, height }) => ({ x, y, width, height }));
         if (item.type === "image-object") return state.imageObjects?.find(image => image.id === item.id);
         return objectSnapRectForSelection(item);
       }).filter(Boolean);
