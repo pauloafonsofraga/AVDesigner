@@ -10,6 +10,7 @@ import { engineConnectorTypeDisplayName, engineConnectorUserFacingTypeLabel } fr
 import { normalizeRackShell, rackShellStyle } from "./rackShell.js";
 import { multiCorePortReference } from "./multiCoreProjection.js";
 import { isTransceiverCage, transceiverModulePresentation } from "./transceiverModules.js";
+import { stageboxSignalPath } from "./stageboxSignalPath.js";
 
 function freeze(value) {
   if (value && typeof value === "object") { Object.values(value).forEach(freeze); Object.freeze(value); }
@@ -157,6 +158,9 @@ export function outputCableTrace(model, selection) {
   if (link) return [{ id: link.id, type: "jump-link", points: link.polyline, color: "#32b6ff" }];
   const wire = model.scene.getWire(selection.id);
   if (selection.type !== "wire" || !wire || wire.multiCoreIdentity || wire.stageboxAssemblyId) return [];
+  const byId = new Map(model.contract.wires.map(wire => [wire.id, wire]));
+  const stagebox = stageboxSignalPath(model.scene, { wire, polyline: wire => byId.get(wire.id)?.renderPolyline || [] });
+  if (stagebox.length) return stagebox.map(step => ({ ...step, id: step.wireId || step.trunkId }));
   // Adapt only endpoint identity for the existing semantic tracer. All geometry
   // comes directly from the immutable contract, never a production project.
   const endpoint = (w, end) => {

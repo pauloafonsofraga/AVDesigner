@@ -13,6 +13,7 @@ import {
 import { distanceToPolyline, hitTestConnector, hitTestDevice, hitTestWire, screenToWorld } from "./hitTest.js";
 import { powerDistroDiagnostics } from "./powerDistroModel.js";
 import { normalizeAvDesignerDevice } from "./projectAdapter.js";
+import { projectStageboxEndNodes } from "./stageboxNodeGeometry.js";
 import { DEFAULT_RENDER_OPTIONS, WebglGraphRenderer } from "./renderer.js";
 import { SceneGraph } from "./sceneGraph.js";
 import { fitCameraToBounds } from "./cameraFit.js";
@@ -164,7 +165,8 @@ export function createPreviewDeviceFromDraft(draft = {}, index = 0) {
   }
 
   const projectData = previewProjectDataWithTemplate(draft.projectData || draft.project || {}, template);
-  return normalizeAvDesignerDevice(projectData, instance, index);
+  const device = normalizeAvDesignerDevice(projectData, instance, index);
+  return device?.visual?.stageboxEndId ? projectStageboxEndNodes(device, { keepFrame: true }) : device;
 }
 
 export function screenToWorldPoint(camera, point) {

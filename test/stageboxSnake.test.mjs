@@ -101,9 +101,11 @@ test("Engine projects two ends but exports one assembly without a physical trunk
   const after = normalizeAvDesignerProject(project);
   assert.equal(after.devices.length, before.devices.length + 1);
   assert.deepEqual(after.wires.filter(w => !w.stageboxAssemblyId), before.wires);
-  assert.deepEqual(after.devices[0].connectors, before.devices[0].connectors);
+  const topology = ({ x, y, anchors, stageboxNumber, ...c }) => ({ ...c, anchorIds: anchors.map(a => a.id) });
+  assert.deepEqual(after.devices[0].connectors.map(topology), before.devices[0].connectors.map(topology));
+  assert.ok(after.devices[0].width < before.devices[0].width);
   assert.equal(after.devices[0].powerWatts, 0);
-  for (const key of ["id", "x", "y", "width", "height", "kind"]) assert.equal(after.devices[0][key], before.devices[0][key]);
+  for (const key of ["id", "x", "y", "kind"]) assert.equal(after.devices[0][key], before.devices[0][key]);
   for (const data of [after, { ...after, projectData: null }]) {
     const mutations = new ProjectMutationAdapter(data), reopened = JSON.parse(mutations.exportJson());
     assert.equal(reopened.devices[0].templateOverride.isStageboxSnake, true);

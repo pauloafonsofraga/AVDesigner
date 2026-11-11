@@ -21,7 +21,17 @@ try {
   const audio = page.locator('[data-device-type-group="Audio"]');
   if (await audio.getAttribute("open") === null) await audio.locator("summary").click();
   await page.locator('[data-device-type="Stageboxes & Snakes"]').click();
-  const snake = page.locator('#deviceList [data-template-id="passive-xlr-snake-4ch"]');
+  await page.evaluate(() => {
+    const definition = structuredClone(personalLibraryDevices.find(d => d.id === "passive-xlr-snake-4ch"));
+    delete definition.factoryTemplateId;
+    definition.id = "warehouse-snake";
+    definition.name = "Warehouse Snake";
+    definition.connectors.push({ id: "spare", type: "", direction: "output", empty: true });
+    definition.stageboxSnake.ends[1].connectorIds.push("spare");
+    personalLibraryDevices.push(definition);
+    renderDeviceLibrary();
+  });
+  const snake = page.locator('#deviceList [data-template-id="warehouse-snake"]');
   assert.equal(await snake.count(), 1);
   assert.equal(await page.locator('#deviceList [data-template-id="custom-device-dm7-copy"]').count(), 0);
   const row = await snake.boundingBox(), canvas = await page.locator(".engine-bridge-canvas").boundingBox();
@@ -34,11 +44,12 @@ try {
     const bridge = activeEngineBridge();
     const ids = bridge.scene.devices.filter(d => d.stageboxIdentity).map(d => d.sourceId);
     return { ids, instances: bridge.mutations.root.devices.filter(d => ids.includes(d.instanceId))
-      .map(d => ({ name: d.name, channels: d.templateOverride?.stageboxSnake?.channels.length })) };
+      .map(d => ({ name: d.name, channels: d.templateOverride?.stageboxSnake?.channels.length,
+        spare: d.templateOverride?.connectors.some(c => c.id === "spare" && c.empty) })) };
   });
   assert.equal(new Set(placed.ids).size, 1);
   assert.equal(placed.instances.length, 1);
-  assert.match(placed.instances[0].name, /4-Channel XLR Snake/);
+  assert.deepEqual(placed.instances[0], { name: "Warehouse Snake", channels: 4, spare: true });
   const project = cableTypeSelectionFixture();
   project.devices[1].x = 1300;
   const source = project.devices[0];
@@ -53,12 +64,18 @@ try {
     const a = scene.getDevice(trunk.fromDeviceId), b = scene.getDevice(trunk.toDeviceId);
     return { a: [a.x, a.y], b: [b.x, b.y], bId: b.id, patchOwner: scene.getWire("cable-0").fromDeviceId };
   });
-  const point = part => page.evaluate(part => {
+  const point = part => page.evaluate(async part => {
     const bridge = activeEngineBridge(), { scene } = bridge;
     const trunk = scene.wires.find(w => w.stageboxAssemblyId === "source");
     const b = scene.getDevice(trunk.toDeviceId);
     const points = scene.wireRenderPolyline(trunk);
-    const target = part === "trunk" ? points[Math.floor(points.length / 2)] : { x: b.x + 65, y: b.y + 45 };
+    const { hitTestConnector, hitTestWire } = await import("/src/engine/hitTest.js");
+    const targets = [.35, .5, .65, .15, .85].flatMap(dx => [.15, .85, .35, .65].map(dy =>
+      ({ x: b.x + b.width * dx, y: b.y + b.height * dy })));
+    const target = part === "trunk" ? points[Math.floor(points.length / 2)] : targets.find(candidate =>
+      !hitTestConnector(scene, candidate, bridge.connectorHitToleranceWorld()).connector
+      && !hitTestWire(scene, candidate, bridge.hitToleranceWorld()).wire);
+    if (!target) throw new Error("No unobstructed point to drag the compact end");
     const local = bridge.worldToScreenPoint(target), rect = bridge.canvas.getBoundingClientRect();
     return { x: rect.left + local.x, y: rect.top + local.y };
   }, part);

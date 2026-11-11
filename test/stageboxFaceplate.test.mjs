@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { drawDeviceVisual, stageboxFaceplateLayout } from "../src/engine/deviceVisualBuilder.js";
+import { projectStageboxEndNodes } from "../src/engine/stageboxNodeGeometry.js";
 import { OutputSvgContext } from "../src/engine/outputSvgContext.js";
 import { normalizeStageboxSnake, stageboxEndDraft, commitStageboxEndDraft } from "../src/engine/stageboxSnake.js";
 
@@ -74,8 +75,9 @@ test("fanouts point outward and export Bezier branches colored per connector", (
     const layout = stageboxFaceplateLayout(connectors, "fanout", end, 380, 300);
     assert.ok(layout.nodes.every(n => Math.sign(n.x - layout.stem.rootX) === sign));
     const ctx = new OutputSvgContext();
-    drawDeviceVisual(ctx, { kind: "device", label: "Snake", connectors,
-      visual: { stageboxEndId: end, stageboxRepresentation: "fanout" } }, 380, 300);
+    const device = projectStageboxEndNodes({ kind: "device", label: "Snake", connectors, width: 380, height: 300,
+      visual: { stageboxEndId: end, stageboxRepresentation: "fanout" } });
+    drawDeviceVisual(ctx, device, device.width, device.height);
     assert.match(ctx.defs.join(""), /linearGradient.*#80d4ff.*#ee9933/);
     assert.match(ctx.elements.join(""), /<path d="M[^"]*C/);
   }

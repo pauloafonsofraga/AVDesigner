@@ -6,6 +6,7 @@ import { normalizeSignalDirection } from "./deviceDefinitionV2.js";
 import { resolveInstalledCardConnectors } from "./modularDeviceLayout.js";
 import { deriveLegacyPairJumpLinks, orientJumpPair, jumpConnectorBaseRole } from "./jumpNodeModel.js";
 import { normalizeInternalSignalRoutes } from "./matrixRouting.js?v=iteration54-4-0-matrix-routing-internal-routes";
+import { effectiveStageboxChannels } from "./stageboxSnake.js";
 
 export const MULTI_CORE_CONNECTIVITY_VERSION = 1;
 const rootOf = project => project?.state || project?.project || project || {};
@@ -117,7 +118,7 @@ export function projectHasStageboxChannels(project) {
   const templates = index(list(root.deviceLibrary), device => device?.id);
   return list(root.devices).some(instance => {
     const template = instance && equipmentTemplate(instance, templates);
-    return template?.isStageboxSnake === true && list(template.stageboxSnake?.channels).length > 0;
+    return template?.isStageboxSnake === true && effectiveStageboxChannels(template.stageboxSnake, template.connectors).length > 0;
   });
 }
 
@@ -329,7 +330,7 @@ export function createMultiCoreConnectivity(projectInput, { getConnector, onStag
     const instance = instances[0], template = ordinary.definitions.get(deviceId);
     if (!template) continue;
     if (template.isStageboxSnake === true) {
-      for (const channel of list(template.stageboxSnake?.channels)) {
+      for (const channel of effectiveStageboxChannels(template.stageboxSnake, template.connectors)) {
         const from = resolve({ deviceId, connectorId: channel.a?.connectorId });
         const to = resolve({ deviceId, connectorId: channel.b?.connectorId });
         if (!from.valid || !to.valid) continue;

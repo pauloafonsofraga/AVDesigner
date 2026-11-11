@@ -2039,6 +2039,8 @@ export class SceneGraph {
       const device = this.getDevice(wire[`${end}DeviceId`]);
       if (!device) return { x: 0, y: 0 };
       const pos = this.positionForDevice(device, offsetMap);
+      const trunk = device.visual?.stageboxNodeOnly?.trunk;
+      if (trunk) return { x: pos.x + trunk.x, y: pos.y + trunk.y };
       return { x: pos.x + (end === "from" ? device.width : 0), y: pos.y + device.height / 2 };
     }
     if (wire.multiCoreIdentity?.kind === "multi-core-trunk") {
@@ -2144,6 +2146,7 @@ export class SceneGraph {
     const side = end === "from" ? wire.fromSide : wire.toSide;
     const anchorId = end === "from" ? wire.fromAnchorId : wire.toAnchorId;
     const device = this.getDevice(deviceId);
+    if (device?.visual?.stageboxNodeOnly) return point;
     if (isLedSurfaceKind(device)) return point;
     if (isJumpNodeDevice(device) && connectorId === JUMP_NODE_CONNECTOR_ID) return point;
     const connector = connectorId ? device?.connectorsById.get(connectorId) : null;
@@ -2429,6 +2432,7 @@ function normalizeVisualMetadata(visual = {}) {
   return {
     ...(visual.stageboxRepresentation ? { stageboxRepresentation: visual.stageboxRepresentation } : {}),
     ...(visual.stageboxEndId ? { stageboxEndId: visual.stageboxEndId } : {}),
+    ...(visual.stageboxNodeOnly ? { stageboxNodeOnly: cloneJson(visual.stageboxNodeOnly) } : {}),
     brand: visual.brand || "",
     model: visual.model || "",
     category: visual.category || "",
@@ -2776,6 +2780,7 @@ function normalizeConnector(connector, index, deviceWidth = 0, options = {}) {
   const direction = signalDirectionToLegacyDirection(topology.signalDirection, connector.direction || "io");
   return {
     ...cloneConnectorModuleMetadata(connector),
+    ...(Number.isInteger(connector.stageboxNumber) ? { stageboxNumber: connector.stageboxNumber } : {}),
     id: String(connector.id || `connector-${index}`),
     schemaVersion: topology.schemaVersion,
     type: connector.type || "",

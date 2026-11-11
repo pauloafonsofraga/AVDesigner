@@ -1,5 +1,6 @@
 import { resolveProjectorLens } from "./projectorModel.js";
-import { normalizeStageboxSnake, stageboxEndDraft } from "./stageboxSnake.js";
+import { effectiveStageboxChannels, normalizeStageboxSnake, stageboxEndDraft } from "./stageboxSnake.js";
+import { projectStageboxEndNodes } from "./stageboxNodeGeometry.js";
 import { projectWireRouting } from "./wireRoutingPolicy.js";
 import { reflowFaceImageLayout } from "./faceplateGeometry.js";
 import { deviceBrandForDisplay } from "./deviceDisplayName.js";
@@ -509,9 +510,10 @@ function applyNodeTypeMetadata(connector, nodeLabelByType, nodeCompatibilityByTy
     ...(compatibilityType ? { compatibilityType } : {}) } : connector;
 }
 
-export function projectStageboxAssembly(device, instance, occupiedIds = new Set(), wireMode = "bezier") {
+export function projectStageboxAssembly({ stageboxTemplate, ...device }, instance, occupiedIds = new Set(), wireMode = "bezier") {
   const definition = device.visual?.stageboxSnake;
   if (!definition) return { ends: [device] };
+  const channels = effectiveStageboxChannels(definition, stageboxTemplate.connectors);
   const base = `stagebox-end-b-${encodeURIComponent(device.id)}`;
   let secondId = base;
   for (let suffix = 2; occupiedIds.has(secondId); suffix++) secondId = `${base}:${suffix}`;
@@ -519,7 +521,9 @@ export function projectStageboxAssembly(device, instance, occupiedIds = new Set(
   const ends = definition.ends.map((end, index) => {
     const id = index ? secondId : device.id;
     const ids = new Set(end.connectorIds);
-    const draft = stageboxEndDraft({ ...device.visual, connectors: device.connectors }, end.id);
+    // Empty slots belong to the authored end even though they have no live canvas connector.
+    const draft = stageboxEndDraft({ ...device.visual, connectors: stageboxTemplate.connectors,
+      connectorRelationships: device.connectorRelationships }, end.id);
     const position = instance.stageboxEndOffsets?.[end.id];
     const connectors = device.connectors.filter(c => ids.has(c.id) || !index
       && !definition.ends[1].connectorIds.includes(c.id)).map(c => {
@@ -528,19 +532,16 @@ export function projectStageboxAssembly(device, instance, occupiedIds = new Set(
         x: anchor.x === device.width && !layout.anchors ? end.width : anchor.x }));
       return { ...c, ...layout, anchors, x: layout.x ?? (c.x === device.width ? end.width : c.x) };
     });
-    return { ...device, id, x: device.x + finiteNumber(position?.x, index ? definition.ends[0].width + 160 : 0),
+    return projectStageboxEndNodes({ ...device, id, x: device.x + finiteNumber(position?.x, index ? definition.ends[0].width + 160 : 0),
       y: device.y + finiteNumber(position?.y, 0), width: end.width, height: end.height,
       label: `${device.label} / ${end.name}`, connectors, portCount: connectors.length,
-      ...(!index ? { stageboxSource: { ...instance, templateOverride: instance.templateOverride || {
-        ...device.visual, id: device.templateId, name: device.label, width: device.width, height: device.height,
-        connectors: device.connectors, connectorRelationships: device.connectorRelationships
-      } } } : {}),
+      ...(!index ? { stageboxSource: { ...instance, templateOverride: instance.templateOverride || stageboxTemplate } } : {}),
       connectorRelationships: draft.connectorRelationships,
       stageboxIdentity: { assemblyId: device.id, assemblyName: device.label, endId: end.id, endName: end.name,
-        representation: end.representation },
+        representation: end.representation, ...(!index ? { channels } : {}) },
       visual: { ...normalizeDeviceVisualMetadata(draft, {}, end.width, end.height, new Map()),
         enableInternalRouting: false, stageboxRepresentation: end.representation },
-      matrixRoutes: {}, internalSignalRoutes: [] };
+      matrixRoutes: {}, internalSignalRoutes: [] });
   });
   return { ends, trunk: { id: `stagebox-trunk:${secondId}`, stageboxAssemblyId: device.id,
     fromDeviceId: ends[0].id, toDeviceId: ends[1].id, fromSide: "right", toSide: "left",
@@ -672,6 +673,7 @@ function normalizeProjectDevice(instance, index, templates, nodeColorByType, nod
     model: visual.model,
     category: visual.category,
     visual,
+    ...(visual.isStageboxSnake ? { stageboxTemplate: template } : {}),
     matrixRoutes: {}
   };
   // Matrix routing keeps the Legacy storage shape: instance.matrixRoutes is an

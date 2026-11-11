@@ -82,6 +82,8 @@ import {
 import { wirePlaybackEase } from "./wirePlayback.js";
 import { isPhysicalJumpWire, wireCaption } from "./cableCaption.js";
 import { highlightedCableWireIds } from "./cableSelection.js";
+import { stageboxSignalPath } from "./stageboxSignalPath.js";
+import { STAGEBOX_NODE_RADIUS, STAGEBOX_NODE_RIM } from "./stageboxNodeGeometry.js";
 import { rackShellSlices, rackShellStyle, normalizeRackShell } from "./rackShell.js";
 
 export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-154-project-layers";
@@ -1154,6 +1156,11 @@ export class WebglGraphRenderer {
     const selectedWireIds = options.selectedWireIds || new Set();
     const highlightedWireIds = highlightedCableWireIds(scene, selectedWireIds);
     const hoveredWireId = interaction.hoveredWire?.wire?.id || interaction.hoveredWireId || "";
+    const stageboxSelections = interaction.wirePlayback?.active ? [] : [...selectedWireIds].map(id =>
+      stageboxSignalPath(scene, { wire: scene.getWire(id) })).filter(path => path.length);
+    const stageboxHover = !stageboxSelections.length && !interaction.wirePlayback?.active
+      ? stageboxSignalPath(scene, { wire: scene.getWire(hoveredWireId), connectorHit: interaction.hoveredConnector }) : [];
+    stageboxSelections.flat().forEach(step => { if (step.type === "wire") highlightedWireIds.add(step.wireId); });
     const activeWireEdit = interaction.activeWireEdit || null;
     const staticSuppressedWireIds = new Set(dragSession?.affectedWireIds || []);
     const loomJumpPreviews = interaction.loomJumpPreviews || [];
@@ -1367,6 +1374,15 @@ export class WebglGraphRenderer {
           const wire = scene.getWire(hoveredWireId);
           if (wire && renderOptions.wires) pushWireHover(liveVertices, scene, wire, null, renderOptions, this.cableHopMap);
         }
+        if (renderOptions.wires) {
+          for (const step of [...stageboxSelections.flat(), ...stageboxHover]) {
+            if (step.type === "stagebox") pushPolyline(liveVertices, step.points, step.part === "trunk" ? WIRE_STATIC_WIDTH * 3 : 3.6, "#c4eaff");
+            else if (stageboxHover.includes(step) && step.wireId !== hoveredWireId) {
+              const wire = scene.getWire(step.wireId);
+              if (wire) pushWireHover(liveVertices, scene, wire, null, renderOptions, this.cableHopMap);
+            }
+          }
+        }
         frameStats.jumpLinkOverlays = pushJumpLinkOverlays(liveVertices, interaction, scene);
         // Jump nodes must stay visually on top of selected/hovered wire
         // emphasis. They are normally part of the static device buffer, so a
@@ -1396,6 +1412,8 @@ export class WebglGraphRenderer {
       camera,
       resolution: this.resolution,
     });
+    frameStats.connectorOverlayCount += pushVisibleConnectorNodes(liveVertices, scene, camera, this.resolution,
+      renderOptions, dragSession, layerTrace, this, true);
     frameStats.connectorNotWorkingMarks = pushVisibleConnectorNotWorkingMarks(liveVertices, scene, camera, this.resolution, renderOptions, dragSession);
     frameStats.interactionOverlayMs = performance.now() - interactionStart;
     frameStats.connectorOverlayCount += interactionStats.connectorOverlayCount || 0;
@@ -1468,6 +1486,8 @@ export class WebglGraphRenderer {
       .map(device => scene.canvasDeviceForId?.(device.id) || device);
     const dragSession = options.dragSession || null;
     const offsets = dragSession?.offsetMap();
+    if (renderOptions.connectorMarkers) drawStageboxNodeBadges(ctx, visibleDevices(scene, camera, this.resolution)
+      .filter(device => deviceVisible(device, renderOptions)), camera, offsets);
     const selectedIds = options.selectedIds || new Set();
     const selectedRackIds = new Set(options.selectedRackIds || []);
     const hoveredDevice = options.interactionState?.hoveredDevice?.device || options.interactionState?.hoveredDevice || null;
@@ -2756,7 +2776,7 @@ function pushSmallArrowHead(vertices, from, to, color) {
   pushLine(vertices, right, tip, 1.6, color);
 }
 
-function pushVisibleConnectorNodes(vertices, scene, camera, resolution, renderOptions = DEFAULT_RENDER_OPTIONS, dragSession = null, layerTrace = null, renderer = null) {
+function pushVisibleConnectorNodes(vertices, scene, camera, resolution, renderOptions = DEFAULT_RENDER_OPTIONS, dragSession = null, layerTrace = null, renderer = null, stageboxes = false) {
   if (!renderOptions.connectorMarkers) return 0;
   const offsets = dragSession?.offsetMap() || null;
   const selectedIds = new Set(dragSession?.selectedIds || []);
@@ -2764,6 +2784,7 @@ function pushVisibleConnectorNodes(vertices, scene, camera, resolution, renderOp
   let count = 0;
   const drawDeviceConnectors = (device, reason) => {
     if (!device || drawn.has(device.id)) return;
+    if (Boolean(device.visual?.stageboxEndId) !== stageboxes) return;
     if (!deviceVisible(device, renderOptions) || !deviceUsesTextureLayer(device, renderOptions)) return;
     if (device.kind === "jump" || isLedSurfaceKind(device)) return;
     const offset = offsets?.get(device.id);
@@ -3286,10 +3307,12 @@ function pushSegmentedCircle(vertices, point, radius, colors, opacity = 1) {
 }
 
 function connectorVisualRadius(device = {}, camera = null) {
+  if (device.visual?.stageboxEndId) return STAGEBOX_NODE_RADIUS - STAGEBOX_NODE_RIM;
   return device?.kind === "jump" ? JUMP_CONNECTOR_RADIUS : legacyConnectorRadius(camera?.zoom || 1, CONNECTOR_RADIUS);
 }
 
 function connectorVisualStrokeWidth(device = {}, camera = null) {
+  if (device.visual?.stageboxEndId) return STAGEBOX_NODE_RIM * 2;
   return device?.kind === "jump" ? 2 : legacyConnectorStrokeWidth(camera?.zoom || 1);
 }
 
@@ -3860,6 +3883,7 @@ export function drawEngineOutputLabels(ctx, scene, bounds) {
   const resolution = { width: bounds.width, height: bounds.height };
   ctx.save();
   ctx.translate(bounds.x, bounds.y);
+  drawStageboxNodeBadges(ctx, scene.devices, camera);
   scene.racks.forEach(rack => drawRackLabel(ctx, rack, camera));
   scene.devices.forEach(device => {
     drawDeviceLabel(ctx, device, camera);
@@ -4014,6 +4038,33 @@ function matrixRouteConnectorColor(connector = {}, options = DEFAULT_RENDER_OPTI
   return connector.color || PORT_COLOR;
 }
 
+function drawStageboxNodeBadges(ctx, devices, camera, offsets = null) {
+  for (const device of devices) {
+    if (!device.visual?.stageboxEndId) continue;
+    const shift = offsets?.get(device.id);
+    const displayLayout = createConnectorDisplayLayout(device);
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    for (const connector of device.connectors) {
+      if (connector.hiddenOnCanvas || !connector.stageboxNumber) continue;
+      const luminance = parseColor(connector.color).slice(0, 3)
+        .map(c => c <= .04045 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4)
+        .reduce((sum, c, i) => sum + c * [.2126, .7152, .0722][i], 0);
+      ctx.fillStyle = luminance > .179 ? "#080b0e" : "#fff";
+      for (const anchor of connectorDisplayAnchors(device, connector, displayLayout)) {
+        const x = (device.x + anchor.x + (shift?.dx || 0) - camera.x) * camera.zoom;
+        const y = (device.y + anchor.y + (shift?.dy || 0) - camera.y) * camera.zoom;
+        ctx.font = `700 ${4.35 * camera.zoom}px system-ui, sans-serif`;
+        ctx.fillText(connector.direction === "input" ? "IN" : "OUT", x, y - 2.45 * camera.zoom);
+        ctx.font = `700 ${5 * camera.zoom}px system-ui, sans-serif`;
+        ctx.fillText(String(connector.stageboxNumber), x, y + 2.45 * camera.zoom);
+      }
+    }
+    ctx.restore();
+  }
+}
+
 function packVertexMap(map) {
   let total = 0;
   map.forEach(chunk => {
@@ -4054,6 +4105,7 @@ function drawVisibleConnectorLabels(ctx, scene, camera, renderOptions = DEFAULT_
   const drawn = new Set();
   const drawDeviceConnectors = (device, reason) => {
     if (!device || drawn.has(device.id)) return 0;
+    if (device.visual?.stageboxEndId) return 0;
     if (!deviceVisible(device, renderOptions) || !deviceUsesTextureLayer(device, renderOptions)) return 0;
     if (device.kind === "jump" || isLedSurfaceKind(device)) return 0;
     const offset = offsets?.get(device.id);
@@ -4283,6 +4335,7 @@ function drawVisibleConnectorInfoBoxes(ctx, scene, camera, renderOptions = DEFAU
   const entries = [];
   const collectDeviceInfoBoxes = (device) => {
     if (!device || drawn.has(device.id)) return;
+    if (device.visual?.stageboxEndId) return;
     if (!deviceVisible(device, renderOptions) || !deviceUsesTextureLayer(device, renderOptions)) return;
     if (device.kind === "jump" || device.kind === "adapter" || isLedSurfaceKind(device)) return;
     const entryStart = entries.length;

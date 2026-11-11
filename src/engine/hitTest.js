@@ -60,7 +60,8 @@ export function hitTestConnector(scene, worldPoint, tolerance = 10) {
     if (!point || !connector || !layerHitAllowed(scene,device)) return;
     if (scene.meta?.projectLayers?.length && (hitTestDevice(scene,worldPoint).device?.layerOrder || 0) > (device.layerOrder || 0)) return;
     const distance = Math.hypot(point.x - worldPoint.x, point.y - worldPoint.y);
-    const radius = device.kind === "jump" ? Math.max(tolerance * 1.9, device.visual?.jumpLoomId || device.visual?.jumpMultiCoreId ? 22 : 0) : tolerance;
+    const radius = device.kind === "jump" ? Math.max(tolerance * 1.9, device.visual?.jumpLoomId || device.visual?.jumpMultiCoreId ? 22 : 0)
+      : device.visual?.stageboxNodeOnly ? Math.min(tolerance, 11) : tolerance;
     if (distance <= radius && distance < bestDistance) {
       bestDistance = distance;
       const anchor = payload.anchor || null;

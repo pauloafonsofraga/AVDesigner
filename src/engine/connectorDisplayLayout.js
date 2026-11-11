@@ -17,6 +17,7 @@ export function sharedBusDisplaySpan(memberCount) {
 }
 
 export function createConnectorDisplayLayout(device = {}, connectors = device?.connectors || []) {
+  if (device.visual?.stageboxNodeOnly) return { groups: [], byConnectorId: new Map(), hasSharedBus: false };
   const visibleConnectors = (Array.isArray(connectors) ? connectors : [])
     .filter(connector => connector && connector.hiddenOnCanvas !== true && connector.empty !== true);
   const connectorsById = new Map(

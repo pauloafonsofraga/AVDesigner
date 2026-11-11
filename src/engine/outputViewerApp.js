@@ -8,6 +8,7 @@ import { polylineLength, polylinePointAtDistance, wirePlaybackDurationMs, wirePl
 import { isJumpNodeDevice, jumpNodeCenter } from "./jumpNodeModel.js";
 import { multiCorePathMarkup } from "./multiCoreReportPresentation.js";
 import {multibandCss} from "./multibandSignals.js";
+import { continuousStageboxPoints } from "./stageboxSignalPath.js";
 
 export class EngineOutputViewer {
   constructor(host, snapshot, options = {}) {
@@ -235,18 +236,22 @@ export class EngineOutputViewer {
   }
   updateHover(point) {
     this.hoverPoint = point;
-    const beforeJump = this.hoveredJumpId, beforeWire = this.hoveredWireId;
+    const beforeJump = this.hoveredJumpId, beforeWire = this.hoveredWireId, beforeAnchor = this.hoveredStageboxConnector?.anchorKey;
     this.refreshHover();
     if (!this.pointers.size) this.showDeviceHint(point);
-    if (beforeJump !== this.hoveredJumpId || beforeWire !== this.hoveredWireId) this.requestRender();
+    if (beforeJump !== this.hoveredJumpId || beforeWire !== this.hoveredWireId
+      || beforeAnchor !== this.hoveredStageboxConnector?.anchorKey) this.requestRender();
   }
   refreshHover() {
     this.hoveredJumpId = null;
     this.hoveredWireId = null;
+    this.hoveredStageboxConnector = null;
     if (!this.hoverPoint || this.pointers.size) return;
     const world = screenToWorld(this.camera, this.hoverPoint), tolerance = 9 / this.camera.zoom;
     this.hoveredJumpId = this.jumpAt(world)?.id || null;
-    if (this.hoveredJumpId || hitTestConnector(this.scene, world, tolerance).connector) return;
+    const hit = hitTestConnector(this.scene, world, tolerance).connector;
+    if (hit?.device.stageboxIdentity) this.hoveredStageboxConnector = hit;
+    if (this.hoveredJumpId || hit) return;
     if (this.visibleJumpLinkOverlays().some(link => distanceToPolyline(link.points, world).distance < tolerance)) return;
     this.hoveredWireId = hitTestWire(this.scene, world, tolerance).wire?.wire.id || null;
   }
@@ -429,8 +434,10 @@ export class EngineOutputViewer {
   }
   play() {
     if (this.playback) { this.stopPlayback(); return; }
-    const steps = outputCableTrace(this.model, this.selection);
-    if (!steps.length) return;
+    const route = outputCableTrace(this.model, this.selection);
+    if (!route.length) return;
+    const steps = route.some(step => step.type === "stagebox")
+      ? [{ type: "stagebox-route", points: continuousStageboxPoints(route) }] : route;
     this.playback = { steps, index: 0, start: performance.now() };
     this.centerPlaybackCamera(steps[0].points[0]);
     this.inspector.querySelector('[data-action="play"]').textContent = "Stop";
@@ -459,6 +466,7 @@ export class EngineOutputViewer {
     if (!this.pointers.size && this.hoverPoint) this.showDeviceHint(this.hoverPoint);
     const interactionState = { selectedConnectors: this.scene.selectedConnectorKeys,
       hoveredWireId: this.hoveredWireId,
+      hoveredConnector: this.hoveredStageboxConnector,
       jumpLinkOverlays: this.visibleJumpLinkOverlays() };
     if (this.playback) {
       const step = this.playback.steps[this.playback.index];

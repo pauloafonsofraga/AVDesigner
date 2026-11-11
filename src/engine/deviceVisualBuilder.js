@@ -236,6 +236,7 @@ export function deviceVisualCacheKey(device, options = {}) {
     visualKind,
     visual.stageboxRepresentation || "",
     visual.stageboxEndId || "",
+    ...(visual.stageboxNodeOnly ? [JSON.stringify(visual.stageboxNodeOnly)] : []),
     width,
     height,
     color,
@@ -339,6 +340,10 @@ export function textureQuality(options = {}) {
 }
 
 export function drawDeviceVisual(ctx, device, width, height, options = {}) {
+  if (device.visual?.stageboxNodeOnly) {
+    drawStageboxNodeOnly(ctx, device);
+    return;
+  }
   if (device.visual?.isRackCompact) {
     drawCompactRackDeviceVisual(ctx, device, width, height);
     return;
@@ -487,44 +492,38 @@ export function stageboxFaceplateLayout(connectors, representation, endId, width
   }) };
 }
 
-function drawStageboxFaceplate(ctx, device, width, height) {
-  const { stageboxRepresentation, stageboxEndId } = device.visual;
-  const { panel, circle, stem, nodes } = stageboxFaceplateLayout(device.connectors || [],
-    stageboxRepresentation, stageboxEndId, width, height);
-  if (!panel.width || !panel.height) return;
+function drawStageboxNodeOnly(ctx, device) {
+  const { shape, cx, cy, halfWidth, halfHeight, root, trunk } = device.visual.stageboxNodeOnly;
   ctx.save();
-  if (circle) {
+  ctx.lineCap = "round";
+  ctx.strokeStyle = "#8da6b8";
+  ctx.lineWidth = 1.4;
+  if (shape === "circular") {
     ctx.beginPath();
-    ctx.arc(circle.x, circle.y, circle.radius, 0, Math.PI * 2);
-  } else roundRect(ctx, panel.x, panel.y, panel.width, panel.height, 8);
-  ctx.fillStyle = "#22435a";
-  ctx.fill();
-  ctx.strokeStyle = "#80d4ff";
-  ctx.lineWidth = 1.5;
-  ctx.stroke();
-  if (stem && nodes.length) {
-    ctx.lineCap = "round";
-    ctx.beginPath();
-    ctx.moveTo(stem.x, stem.y);
-    ctx.lineTo(stem.rootX, stem.y);
+    ctx.arc(cx, cy, halfWidth, 0, Math.PI * 2);
     ctx.stroke();
-    for (const node of nodes) {
-      const gradient = ctx.createLinearGradient(stem.rootX, stem.y, node.x, stem.y);
+  } else if (shape === "rectangle") {
+    roundRect(ctx, cx - halfWidth, cy - halfHeight, halfWidth * 2, halfHeight * 2, 6);
+    ctx.stroke();
+  } else if (root && device.connectors.some(c => !c.hiddenOnCanvas)) {
+    ctx.lineWidth = 2.2;
+    ctx.strokeStyle = "#80d4ff";
+    ctx.beginPath();
+    ctx.moveTo(trunk.x, trunk.y);
+    ctx.lineTo(root.x, root.y);
+    ctx.stroke();
+    for (const c of device.connectors) {
+      if (c.hiddenOnCanvas) continue;
+      const dx = c.x - root.x;
+      const gradient = ctx.createLinearGradient(root.x, root.y, c.x, root.y);
       gradient.addColorStop(0, "#80d4ff");
-      gradient.addColorStop(1, node.port.color || "#d4dce5");
+      gradient.addColorStop(1, c.color || "#d4dce5");
       ctx.strokeStyle = gradient;
       ctx.beginPath();
-      ctx.moveTo(stem.rootX, stem.y);
-      const spread = node.x - stem.rootX;
-      ctx.bezierCurveTo(stem.rootX + spread * .55, stem.y, node.x - spread * .3, node.y, node.x, node.y);
+      ctx.moveTo(root.x, root.y);
+      ctx.bezierCurveTo(root.x + dx * .55, root.y, c.x - dx * .3, c.y, c.x, c.y);
       ctx.stroke();
     }
-  }
-  for (const node of nodes) {
-    ctx.fillStyle = node.port.color || "#d4dce5";
-    ctx.beginPath();
-    ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
-    ctx.fill();
   }
   ctx.restore();
 }
@@ -544,7 +543,6 @@ function drawRackDeviceVisual(ctx, device, width, height, options) {
 
   drawDeviceHeader(ctx, device, width, pad, detailed);
   if (visual.stageboxRepresentation && !visual.hasFaceImage) {
-    if (!visual.faceplateDeleted) drawStageboxFaceplate(ctx, device, width, height);
     return;
   }
   const face = drawPowerDistroFaceplate(ctx, device, visual, width, height, detailed)

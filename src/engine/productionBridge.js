@@ -149,6 +149,7 @@ import {
   wirePlaybackEase,
   wirePlaybackDurationMs
 } from "./wirePlayback.js";
+import { continuousStageboxPoints, stageboxSignalPath } from "./stageboxSignalPath.js";
 
 const {
   hitTestConnector,
@@ -6115,6 +6116,11 @@ class ProductionEngineBridge {
   }
 
   wirePlaybackPlanForWire(sourceWire) {
+    const stagebox = stageboxSignalPath(this.scene, { wire: sourceWire, polyline: wire => this.playbackPointsForWire(wire) });
+    if (stagebox.length) {
+      const points = continuousStageboxPoints(stagebox);
+      return { semanticSteps: stagebox, steps: [{ type: "stagebox-route", points, durationMs: wirePlaybackDurationMs(points) }] };
+    }
     const rawProject = this.mutations?.project || this.api.getProjectData?.() || {};
     const idsToTry = uniqueItems([sourceWire.sourceId || "", sourceWire.id || ""]).filter(Boolean);
     let semanticSteps = [];
@@ -9571,9 +9577,9 @@ class ProductionEngineBridge {
     const normalized = normalizeAvDesignerDevice(projectData, deviceData, Number.isInteger(index) ? index : 0);
     const restoredData = normalized.visual.isProjector || Object.hasOwn(deviceData, "selectedProjectorLensId")
       ? { ...deviceData, selectedProjectorLensId: normalized.selectedProjectorLensId } : deviceData;
-    const mutationResult = this.mutations?.restoreDeviceInstance(restoredData, index) || { mutationMs: 0 };
     const assembly = projectStageboxAssembly(normalized, restoredData, new Set(this.scene.devices.map(d => d.id)),
       this.mutations?.root.wireMode);
+    const mutationResult = this.mutations?.restoreDeviceInstance(restoredData, index) || { mutationMs: 0 };
     const device = this.scene.insertDevice(assembly.ends[0]);
     if (!device) return { mutationMs: mutationResult.mutationMs || 0, device: null };
     for (const end of assembly.ends.slice(1)) this.scene.insertDevice(end);
@@ -13227,6 +13233,10 @@ function endpointLabel(scene, deviceId, connectorId) {
 
 function playbackStepSummary(step = {}) {
   if (!step || typeof step !== "object") return { type: "unknown" };
+  if (step.type === "stagebox") {
+    const { type, part, channelId, trunkId } = step;
+    return { type, part, channelId, trunkId };
+  }
   if (step.type === "teleport") {
     return {
       type: "teleport",
@@ -13251,6 +13261,7 @@ function playbackStepSummary(step = {}) {
 }
 
 function playbackPathLabel(step = {}) {
+  if (step.type === "stagebox") return `stagebox:${step.trunkId}:${step.channelId}:${step.part}`;
   if (step.type === "teleport") return `teleport:${step.fromJumpId}>${step.toJumpId}`;
   if (step.type === "jump-link") return `jump-link:${step.jumpLinkId}:${step.fromJumpId}>${step.toJumpId}`;
   return `wire:${step.wireId}:${step.reverse ? "r" : "f"}`;
