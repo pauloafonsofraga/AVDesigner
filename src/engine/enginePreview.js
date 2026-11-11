@@ -166,7 +166,8 @@ export function createPreviewDeviceFromDraft(draft = {}, index = 0) {
 
   const projectData = previewProjectDataWithTemplate(draft.projectData || draft.project || {}, template);
   const device = normalizeAvDesignerDevice(projectData, instance, index);
-  return device?.visual?.stageboxEndId ? projectStageboxEndNodes(device, { keepFrame: true }) : device;
+  return device?.visual?.stageboxEndId
+    ? projectStageboxEndNodes(device, { keepFrame: true, editorConnectors: template.connectors }) : device;
 }
 
 export function screenToWorldPoint(camera, point) {
@@ -382,29 +383,30 @@ export class EnginePreviewSurface {
       : this.scene.devices;
     const entries = [];
     devices.forEach(device => {
+      const addEntry = (connector, anchor, world) => {
+        entries.push({
+          device, connector, anchor,
+          anchorId: anchor.id || "",
+          logicalKey: `${device.id}:${connector.id}`,
+          anchorKey: `${device.id}:${connector.id}:${anchor.id || "primary"}`,
+          local: { x: Number(anchor.x ?? connector.x) || 0, y: Number(anchor.y ?? connector.y) || 0 },
+          world, screen: this.worldToScreen(world)
+        });
+      };
       const displayLayout = this.scene.connectorDisplayLayoutForDevice(device);
       (device.connectors || []).forEach(connector => {
         if (!includeHidden && connector.hiddenOnCanvas === true) return;
         if (!includeReferenceOnly && connector.referenceOnlyOnCanvas === true) return;
         if (predicate && !predicate({ device, connector })) return;
         connectorDisplayAnchors(device, connector, displayLayout).forEach(anchor => {
-          const world = this.scene.connectorAnchorWorldPoint(device, connector, anchor.id, displayLayout);
-          entries.push({
-            device,
-            connector,
-            anchor,
-            anchorId: anchor.id || "",
-            logicalKey: `${device.id}:${connector.id}`,
-            anchorKey: `${device.id}:${connector.id}:${anchor.id || "primary"}`,
-            local: {
-              x: Number(anchor.x ?? connector.x) || 0,
-              y: Number(anchor.y ?? connector.y) || 0
-            },
-            world,
-            screen: this.worldToScreen(world)
-          });
+          addEntry(connector, anchor, this.scene.connectorAnchorWorldPoint(device, connector, anchor.id, displayLayout));
         });
       });
+      if (options.includeEmptySlots === true) for (const slot of device.visual?.stageboxNodeOnly?.emptySlots || []) {
+        const connector = { ...slot, empty: true };
+        if (predicate && !predicate({ device, connector })) continue;
+        for (const anchor of slot.anchors) addEntry(connector, anchor, { x: device.x + anchor.x, y: device.y + anchor.y });
+      }
     });
     return entries;
   }

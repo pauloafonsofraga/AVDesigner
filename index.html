@@ -21288,7 +21288,7 @@
     function deviceEditorEngineConnectorEntries(template = currentEditorTemplate()) {
       const surface = editorEnginePreviewSurface;
       const deviceId = editorEnginePreviewLastDeviceId || DEVICE_EDITOR_ENGINE_PREVIEW_DEVICE_ID;
-      const entries = surface?.connectorEntries?.(deviceId) || [];
+      const entries = surface?.connectorEntries?.(deviceId, { includeEmptySlots: Boolean(template?.stageboxEndDraftId) }) || [];
       if (!entries.length || !template) return entries;
       const draftConnectorIds = new Set((template.connectors || []).map(connector => connector.id));
       return entries.filter(entry => draftConnectorIds.has(entry.connector?.id));
@@ -21360,14 +21360,17 @@
       if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y)) return "";
       const width = deviceTemplateWidth(template);
       const previewPositions = editorPreviewPositions(template);
+      const stageboxEntries = template.stageboxEndDraftId ? deviceEditorEngineConnectorEntriesById(template) : null;
       const maximumDistance = SLOT_HEIGHT * .68;
       let nearest = null;
       (template.connectors || []).forEach(connector => {
         if (!connector?.empty) return;
         const displayY = previewPositions.get(connector.id) ?? connector.y;
-        editorDisplayAnchorsForConnector(connector, width, displayY).forEach(anchor => {
+        const projected = stageboxEntries?.get(connector.id);
+        const anchors = projected?.length ? projected.map(entry => entry.local) : editorDisplayAnchorsForConnector(connector, width, displayY);
+        anchors.forEach(anchor => {
           const distance = Math.hypot(point.x - Number(anchor.x), point.y - Number(anchor.y));
-          if (distance > maximumDistance) return;
+          if (distance > (projected?.length ? 11 : maximumDistance)) return;
           if (!nearest || distance < nearest.distance || (distance === nearest.distance && connector.id < nearest.id)) {
             nearest = { id: connector.id, distance };
           }
@@ -21575,7 +21578,8 @@
       const previewPositions = editorPreviewPositions(template);
       template.connectors.forEach((connector, index) => {
         const selected = editorSelectedNodeIds.has(connector.id) || editorSelectedNodeIndex === index;
-        const engineEntries = connector.empty ? [] : entriesById.get(connector.id) || [];
+        const engineEntries = entriesById.get(connector.id) || [];
+        const compactStagebox = Boolean(engineEntries[0]?.device.visual?.stageboxNodeOnly);
         const points = engineEntries.length
           ? engineEntries.map(entry => ({
               x: entry.local.x,
@@ -21600,7 +21604,7 @@
             class: "editor-engine-hit",
             cx: point.x,
             cy: point.y,
-            r: 19
+            r: compactStagebox ? 11 : 19
           }));
           if (connector.empty) {
             g.appendChild(createSvg("circle", {
@@ -21613,18 +21617,24 @@
               "stroke-dasharray": "3 2",
               "stroke-width": 2
             }));
-            const label = createSvg("text", {
-              x: point.side === "right" ? point.x - 22 : point.x + 22,
-              y: point.y + 22,
-              fill: state.darkMode ? "#edf2f7" : "#1f2a36",
-              "font-size": 8.5,
-              "text-anchor": point.side === "right" ? "end" : "start",
-              "paint-order": "stroke",
-              stroke: "rgba(0,0,0,.75)",
-              "stroke-width": 3
-            });
-            label.textContent = "Drop node";
-            g.appendChild(label);
+            if (compactStagebox) {
+              const title = createSvg("title");
+              title.textContent = connector.direction === "output" ? "Drop node: empty output" : "Drop node: empty input";
+              g.appendChild(title);
+            } else {
+              const label = createSvg("text", {
+                x: point.side === "right" ? point.x - 22 : point.x + 22,
+                y: point.y + 22,
+                fill: state.darkMode ? "#edf2f7" : "#1f2a36",
+                "font-size": 8.5,
+                "text-anchor": point.side === "right" ? "end" : "start",
+                "paint-order": "stroke",
+                stroke: "rgba(0,0,0,.75)",
+                "stroke-width": 3
+              });
+              label.textContent = "Drop node";
+              g.appendChild(label);
+            }
           }
           if (selected && !connector.empty) drawEditorEngineSelectionHalo(g, point.x, point.y, anchorIndex === 0);
           parent.appendChild(g);

@@ -182,8 +182,59 @@ try {
     await grab(page, `${shape}.png`);
   }
   const saved = await page.evaluate(() => activeEngineBridge().mutations.exportJson());
-  await page.evaluate(json => loadProjectFile(new File([json], "Stagebox Node-Only.avd")), saved);
+  await page.evaluate(json => new Promise((onLoaded, onError) =>
+    loadProjectFile(new File([json], "Stagebox Node-Only.avd"), { onLoaded, onError })), saved);
   await page.waitForFunction(() => activeEngineBridge().scene.devices.filter(d => d.visual?.stageboxNodeOnly?.shape === "fanout").length === 2);
+
+  const draftProject = stageboxNodeOnlyFixture(4, ["rectangle", "fanout"]);
+  draftProject.connections = [];
+  const draftSnake = draftProject.devices[1].templateOverride;
+  draftSnake.stageboxSnake.channels = [];
+  for (const c of draftSnake.connectors.filter(c => c.id.startsWith("a-"))) {
+    Object.assign(c, { type: "", empty: true });
+  }
+  await load(page, draftProject);
+  await page.evaluate(() => openDeviceEditorForInstance("snake"));
+  await page.locator('[data-editor-tab="connectors"]').click();
+  const pane = endId => page.locator(`[data-stagebox-pane="${endId}"]`);
+  const activateEnd = async endId => {
+    const active = await pane(endId).evaluate(el => el.classList.contains("active"));
+    if (active) return;
+    const button = pane(endId).locator("[data-stagebox-end]");
+    await (await button.count() ? button : pane(endId).locator(".stagebox-preview-slot")).click();
+  };
+  await activateEnd("end-a");
+  const shape = pane("end-a").locator('[data-stagebox-field="stageboxRepresentation"]');
+  const slot = id => page.locator(`[data-editor-node-id="${id}"] .editor-slot-shape`);
+  const positions = () => page.evaluate(() => {
+    const template = currentEditorTemplate();
+    return Object.fromEntries(deviceEditorEngineConnectorEntries(template).map(entry => [entry.connector.id, entry.local]));
+  });
+  const rectSlots = await positions();
+  assert.equal(Object.keys(rectSlots).length, 4);
+  assert.equal(new Set(Object.values(rectSlots).map(p => p.x)).size, 2, JSON.stringify(rectSlots));
+  await shape.selectOption("circular");
+  const ringSlots = await positions();
+  assert.notDeepEqual(ringSlots, rectSlots);
+  const visibleSlot = slot("a-2");
+  assert.equal(Number(await visibleSlot.getAttribute("cx")), ringSlots["a-2"].x);
+  const slotBox = await visibleSlot.boundingBox();
+  const picked = await page.evaluate(box => editorPaletteNearestSlotIdAtClient({
+    clientX: box.x + box.width / 2, clientY: box.y + box.height / 2
+  }), slotBox);
+  assert.equal(picked, "a-2");
+  await page.locator('#nodePalette [data-node-type="xlr-3pin"]').dragTo(visibleSlot);
+  await page.waitForFunction(() => currentEditorTemplate().connectors.find(c => c.id === "a-2")?.empty === false);
+  assert.deepEqual(await positions(), ringSlots);
+  await activateEnd("end-b");
+  await page.locator("#addInputNode").click();
+  await page.locator("#addOutputNode").click();
+  const fanout = await positions();
+  assert.equal(Object.keys(fanout).length, 6);
+  assert.equal(new Set(Object.values(fanout).map(p => p.x)).size, 1);
+  assert.equal(await pane("end-b").locator(".editor-slot-shape").count(), 2);
+  await page.screenshot({ path: join(artifacts, "editor-empty-slots.png") });
+
   await writeFile(join(artifacts, "stagebox-node-only.avd"), JSON.stringify(project, null, 2));
   const bundle = JSON.parse(await readFile(new URL("../src/engine/generated/outputViewerBundle.json", import.meta.url), "utf8"));
   const html = buildEngineViewerHtml({ engineScene: buildEngineOutputScene(project) }, { bundle });

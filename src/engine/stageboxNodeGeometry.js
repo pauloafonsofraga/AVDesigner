@@ -1,4 +1,5 @@
 import { stageboxFaceplateLayout } from "./deviceVisualBuilder.js";
+import { connectorVisualAnchors } from "./deviceDefinitionV2.js";
 
 export const STAGEBOX_TRUNK_COLOR = "#80d4ff";
 export const STAGEBOX_NODE_RADIUS = 7;
@@ -19,7 +20,7 @@ function compactScale({ nodes, panel }, shape) {
   return { x: RING_CLEARANCE / nearest, y: RING_CLEARANCE / nearest };
 }
 
-export function projectStageboxEndNodes(device, { keepFrame = false } = {}) {
+export function projectStageboxEndNodes(device, { keepFrame = false, editorConnectors } = {}) {
   const { visual, connectors } = device;
   const { stageboxRepresentation: shape, stageboxEndId: endId } = visual || {};
   if (!shape || !endId) return device;
@@ -27,11 +28,19 @@ export function projectStageboxEndNodes(device, { keepFrame = false } = {}) {
   const ports = connectors.map(c => Object.hasOwn(counts, c.direction) && !c.hiddenOnCanvas && !c.empty
     ? { ...c, stageboxNumber: ++counts[c.direction] } : c);
   const live = ports.filter(c => !c.hiddenOnCanvas && !c.empty);
+  const liveById = new Map(live.map(c => [c.id, c]));
+  const emptySlots = (editorConnectors || []).filter(c => c.empty && !c.hiddenOnCanvas);
+  const emptyIds = new Set(emptySlots.map(c => c.id));
+  // Use draft order so filling a slot does not change its position or move its neighbours.
+  const layoutPorts = editorConnectors ? editorConnectors.flatMap(c => {
+    const livePort = liveById.get(c.id);
+    return livePort ? [livePort] : emptyIds.has(c.id) ? [{ id: c.id }] : [];
+  }) : live;
   // Authored artwork and distinct visual anchors still use their authored geometry.
-  if (visual.hasFaceImage || visual.faceImage || live.length > 100 || live.some(c => c.anchors?.length > 1)) {
+  if (visual.hasFaceImage || visual.faceImage || layoutPorts.length > 100 || live.some(c => c.anchors?.length > 1)) {
     return { ...device, connectors: ports };
   }
-  const layout = stageboxFaceplateLayout(live, shape, endId, Math.max(120, device.width), Math.max(80, device.height));
+  const layout = stageboxFaceplateLayout(layoutPorts, shape, endId, Math.max(120, device.width), Math.max(80, device.height));
   const scale = compactScale(layout, shape);
   const offsets = layout.nodes.map(node => ({ id: node.port.id,
     x: (node.x - (layout.panel.x + layout.panel.width / 2)) * scale.x,
@@ -50,7 +59,12 @@ export function projectStageboxEndNodes(device, { keepFrame = false } = {}) {
   const trunk = { x: cx + (stem ? stemOffset : endId === "end-a" ? halfWidth : -halfWidth), y: cy };
   return { ...device, width, height,
     visual: { ...visual, stageboxNodeOnly: { shape, cx, cy, halfWidth, halfHeight, trunk,
-      ...(stem ? { root: { x: cx + rootOffset, y: cy } } : {}) } },
+      ...(stem ? { root: { x: cx + rootOffset, y: cy } } : {}),
+      ...(emptySlots.length ? { emptySlots: emptySlots.map(slot => ({
+        id: slot.id, direction: slot.direction, anchors: connectorVisualAnchors(slot, device).map(anchor => ({
+          ...anchor, ...points.get(slot.id)
+        }))
+      })) } : {}) } },
     connectors: ports.map(c => {
       const point = points.get(c.id);
       return point ? { ...c, ...point, anchors: (c.anchors || []).map(a => ({ ...a, ...point })) } : c;

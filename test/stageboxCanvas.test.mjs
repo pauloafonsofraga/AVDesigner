@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { normalizeStageboxSnake, assignStageboxConnector, setStageboxChannel } from "../src/engine/stageboxSnake.js";
+import { normalizeStageboxSnake, assignStageboxConnector, setStageboxChannel, stageboxEndDraft } from "../src/engine/stageboxSnake.js";
 import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
 import { ProjectMutationAdapter } from "../src/engine/projectMutations.js";
 import { SceneGraph } from "../src/engine/sceneGraph.js";
@@ -15,6 +15,7 @@ import { continuousStageboxPoints, stageboxSignalPath } from "../src/engine/stag
 import { stageboxTrunkArc } from "../src/engine/stageboxNodeGeometry.js";
 import { hitTestConnector } from "../src/engine/hitTest.js";
 import { generatePdf } from "../src/engine/outputPdf.js";
+import { createPreviewDeviceFromDraft } from "../src/engine/enginePreview.js";
 
 const port = (id, direction, x) => ({ id, nameText: id, type: "hdmi", direction, x, y: 75 });
 const device = (id, x, connectors) => ({ instanceId: id, name: id, x, y: 0,
@@ -146,6 +147,31 @@ test("automatic rectangular and circular ends use compact live anchors without c
     assert.ok(save.devices[1].templateOverride.connectors.every(c => !c.stageboxNumber));
     assert.equal(scene.getDevice("ordinary").visual.stageboxNodeOnly, undefined);
     assert.ok(scene.getDevice("ordinary").connectors.every(c => !c.stageboxNumber));
+  }
+});
+
+test("editor-only empty slots share every Stagebox layout and stay put when filled", () => {
+  for (const [shape, side] of [["rectangle", "end-a"], ["circular", "end-a"], ["fanout", "end-b"]]) {
+    const project = stageboxNodeOnlyFixture(4, [shape, shape]);
+    const template = project.devices[1].templateOverride;
+    const end = template.stageboxSnake.ends.find(e => e.id === side);
+    const id = end.connectorIds[1];
+    const connector = template.connectors.find(c => c.id === id);
+    connector.empty = true;
+    template.stageboxSnake.channels = template.stageboxSnake.channels.filter(c => c.a.connectorId !== id && c.b.connectorId !== id);
+    const draft = stageboxEndDraft(template, side);
+    const preview = createPreviewDeviceFromDraft({ template: draft });
+    const slot = preview.visual.stageboxNodeOnly.emptySlots[0];
+    assert.equal(slot.id, id);
+    assert.ok(!preview.connectors.some(c => c.id === id));
+    assert.ok(slot.anchors[0].x > 0 && slot.anchors[0].x < preview.width);
+    draft.connectors.find(c => c.id === id).empty = false;
+    const filled = createPreviewDeviceFromDraft({ template: draft });
+    assert.deepEqual(filled.connectors.find(c => c.id === id).anchors[0], slot.anchors[0]);
+    assert.deepEqual(filled.connectors.filter(c => c.id !== id).map(c => c.anchors), preview.connectors.map(c => c.anchors));
+    const main = normalizeAvDesignerProject(project).devices.find(d => d.stageboxIdentity?.endId === side);
+    assert.equal(main.visual.stageboxNodeOnly.emptySlots, undefined);
+    assert.ok(!main.connectors.some(c => c.id === id));
   }
 });
 
