@@ -15,6 +15,11 @@ The editor shows a red notice at the limit; existing slots can still be
 filled or removed. Older definitions above the cap keep their existing
 anchors rather than dropping nodes.
 
+Use the horizontal and vertical arrow sliders in a rectangular end's pane
+to resize its outline. The grid repacks at the same node size; when there
+isn't room, the opposite dimension grows to fit. Each end saves its own
+size, and untouched rectangular ends keep their automatic layout.
+
 In the Device Editor's Connectors tab, select a node or its fanout branch.
 The Inspector can set a one- or two-line inside node label; clearing it
 restores the automatic direction and number. For fanouts it can also set or

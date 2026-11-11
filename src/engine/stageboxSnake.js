@@ -2,7 +2,7 @@ import "./stageboxSnakeCore.js";
 
 export const { STAGEBOX_SNAKE_CATEGORY, STAGEBOX_MAX_NODES, normalizeStageboxSnake, stageboxSnakeTogglePatch, stageboxEndDraft,
   commitStageboxEndDraft, assignStageboxConnector, setStageboxChannel,
-  normalizeStageboxNodeLabel, normalizeStageboxFanoutColor } = globalThis.WireNexusStageboxSnake;
+  normalizeStageboxNodeLabel, normalizeStageboxFanoutColor, normalizeStageboxRectangleSize } = globalThis.WireNexusStageboxSnake;
 
 export function effectiveStageboxChannels(definition, connectors = []) {
   const channels = [...(definition?.channels || [])];

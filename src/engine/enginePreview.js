@@ -19,6 +19,7 @@ import { SceneGraph } from "./sceneGraph.js";
 import { fitCameraToBounds } from "./cameraFit.js";
 export { fitCameraToBounds } from "./cameraFit.js";
 export const STAGEBOX_PREVIEW_MIN_ZOOM = .005;
+export { STAGEBOX_RECTANGLE_MIN_SIZE } from "./stageboxNodeGeometry.js";
 
 export const ENGINE_PREVIEW_BUILD_ID = "iteration53-4-3-compact-rack-projection";
 
@@ -168,7 +169,7 @@ export function createPreviewDeviceFromDraft(draft = {}, index = 0) {
   const projectData = previewProjectDataWithTemplate(draft.projectData || draft.project || {}, template);
   const device = normalizeAvDesignerDevice(projectData, instance, index);
   return device?.visual?.stageboxEndId
-    ? projectStageboxEndNodes(device, { keepFrame: true, editorConnectors: template.connectors }) : device;
+    ? projectStageboxEndNodes(device, { keepFrame: true, editorConnectors: template.connectors, rectangleSize: template.stageboxRectangleSize }) : device;
 }
 
 export function screenToWorldPoint(camera, point) {
@@ -357,7 +358,7 @@ export class EnginePreviewSurface {
     this.stageboxPeerSlotOverlay = svg;
   }
 
-  replaceDevice(deviceOrDraft = {}, { render = true, refreshTexture = true } = {}) {
+  replaceDevice(deviceOrDraft = {}, { render = true, refreshTexture = true, fitStagebox = true } = {}) {
     if (this.disposed) return null;
     const device = normalizePreviewDeviceInput(deviceOrDraft, this.scene.devices.length);
     if (!device) return null;
@@ -372,12 +373,12 @@ export class EnginePreviewSurface {
     });
     const newBounds = oldBounds && stageboxPreviewBounds(device);
     if (newBounds) {
-      if (Math.abs(newBounds.width - oldBounds.width) > .01 || Math.abs(newBounds.height - oldBounds.height) > .01) {
+      if (fitStagebox && (Math.abs(newBounds.width - oldBounds.width) > .01 || Math.abs(newBounds.height - oldBounds.height) > .01)) {
         this.fitToContent({ padding: 34 });
       } else {
-        // Authored frame resizing can translate the same layout without changing any visible geometry.
-        this.camera.x += newBounds.x - oldBounds.x;
-        this.camera.y += newBounds.y - oldBounds.y;
+        // Keep the box center steady when the frame moves or a size slider is active.
+        this.camera.x += newBounds.x - oldBounds.x + (newBounds.width - oldBounds.width) / 2;
+        this.camera.y += newBounds.y - oldBounds.y + (newBounds.height - oldBounds.height) / 2;
       }
     }
     ENGINE_PREVIEW_LIFECYCLE.incrementalDeviceReplacements += 1;

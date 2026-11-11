@@ -8,6 +8,9 @@
       .split(/\r\n?|\n/).map(line => line.trim()).filter(Boolean).slice(0, 2).join("\n")
     : "";
   const normalizeStageboxFanoutColor = value => typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value) ? value.toLowerCase() : "";
+  const normalizeStageboxRectangleSize = value => value && ["width", "height"].includes(value.axis)
+    && [value.width, value.height].every(n => Number.isFinite(n) && n > 0 && n <= 100000)
+    ? { width: value.width, height: value.height, axis: value.axis } : undefined;
   const STAGEBOX_FACEPLATE_TOP = 34;
   // Keep authored connector lane origins stable; generated node layouts size themselves.
   const stageboxFaceplateHeight = (representation, connectorCount) =>
@@ -55,6 +58,7 @@
           || ["x", "y"].some(key => layout[key] !== undefined && !Number.isFinite(layout[key]))) throw new Error("Invalid Stagebox / Snake end layout.");
       }
       return { ...end, id, name: typeof end?.name === "string" ? end.name : `End ${index ? "B" : "A"}`, width, height, representation,
+        ...(end?.rectangleSize === undefined ? {} : { rectangleSize: normalizeStageboxRectangleSize(end.rectangleSize) }),
         connectorLayout, connectorIds: [...connectorIds] };
     });
     const ids = new Set();
@@ -83,7 +87,8 @@
     else if (endId === "end-a") for (const key of artworkKeys) if (template[key] !== undefined) draft[key] = structuredClone(template[key]);
     delete draft.stageboxSnake;delete draft.defaultConfiguration;
     Object.assign(draft, { isStageboxSnake: false, isPartOfPair: false, pairedTemplateId: "", pairPlaceFirst: false, name: end.name, width: end.width, height: end.height, manualHeight: end.height,
-      stageboxRepresentation: end.representation, stageboxEndId: end.id, hasSwappableCards: false, cardTypes: [], cardSlots: [],
+      stageboxRepresentation: end.representation, stageboxEndId: end.id, stageboxRectangleSize: end.rectangleSize,
+      hasSwappableCards: false, cardTypes: [], cardSlots: [],
       isAdapterBreakout: false, objectType: "device", isPowerDistro: false, isProjector: false, isMatrixRouter: false, isLedProcessor: false, isEthernetSwitch: false,
       connectors: connectorIds.map(id => ({ ...structuredClone(template.connectors.find(c => c.id === id)), ...structuredClone(end.connectorLayout[id] || {}) })) });
     const relationships = template.connectorRelationships || template.connectorTopology?.relationships || [];
@@ -120,6 +125,9 @@
     end.connectorLayout = Object.fromEntries(draft.connectors.map(c => [c.id, Object.fromEntries(geometryKeys.filter(key => c[key] !== undefined).map(key => [key, structuredClone(c[key])]))]));
     Object.assign(end, { name: draft.name, width: draft.width, height: Math.max(Number(draft.height) || 0, Number(draft.manualHeight) || 0), representation: draft.stageboxRepresentation || "rectangle",
       artwork: Object.fromEntries(artworkKeys.filter(key => draft[key] !== undefined).map(key => [key, structuredClone(draft[key])])) });
+    const rectangleSize = normalizeStageboxRectangleSize(draft.stageboxRectangleSize);
+    if (rectangleSize) end.rectangleSize = rectangleSize;
+    else delete end.rectangleSize;
     data.channels = data.channels.filter(c => !removed.has(c.a.connectorId) && !removed.has(c.b.connectorId));
     const relationships = result.connectorRelationships || result.connectorTopology?.relationships || [];
     result.connectorRelationships = relationships.filter(r => !members(r).some(id => removed.has(id)) && !members(r).every(id => previousIds.has(id)));
@@ -157,6 +165,6 @@
 
   globalThis.WireNexusStageboxSnake = Object.freeze({ STAGEBOX_SNAKE_CATEGORY, normalizeStageboxSnake, stageboxSnakeTogglePatch,
     STAGEBOX_MAX_NODES, STAGEBOX_NODE_LABEL_MAX_LENGTH, STAGEBOX_FACEPLATE_TOP, stageboxFaceplateHeight,
-    normalizeStageboxNodeLabel, normalizeStageboxFanoutColor,
+    normalizeStageboxNodeLabel, normalizeStageboxFanoutColor, normalizeStageboxRectangleSize,
     stageboxEndDraft, commitStageboxEndDraft, assignStageboxConnector, setStageboxChannel });
 })();

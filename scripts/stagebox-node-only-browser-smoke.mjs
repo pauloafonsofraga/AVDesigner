@@ -266,7 +266,42 @@ try {
   assert.equal((await branchDetails()).branchColor, "#ff6419");
   await clickBranch();
   await page.screenshot({ path: join(artifacts, "stagebox-appearance-inspector.png") });
+  const rectangleBox = () => page.evaluate(() => {
+    const surface = editorStageboxEndId === "end-a" ? editorEnginePreviewSurface : editorStageboxPeerSurface;
+    const device = surface.scene.devices[0], { halfWidth, halfHeight } = device.visual.stageboxNodeOnly;
+    return { width: halfWidth * 2, height: halfHeight * 2, zoom: surface.camera.zoom,
+      columns: new Set(device.connectors.map(c => c.x)).size, rows: new Set(device.connectors.map(c => c.y)).size };
+  });
+  const rectangleWidth = pane("end-a").getByRole("slider", { name: "Resize box width End A", exact: true });
+  const rectangleHeight = pane("end-a").getByRole("slider", { name: "Resize box height End A", exact: true });
+  assert.ok(await pane("end-a").locator('[data-stagebox-field="width"]').isHidden());
+  assert.ok(await pane("end-a").locator('[data-stagebox-field="manualHeight"]').isHidden());
+  assert.equal(await pane("end-b").getByRole("slider").count(), 0);
+  const automaticBox = await rectangleBox();
+  await rectangleWidth.press("Home");
+  const narrowerBox = await rectangleBox();
+  assert.ok(narrowerBox.width < automaticBox.width);
+  assert.equal(narrowerBox.columns, 1);
+  assert.equal(narrowerBox.rows, 4);
+  assert.ok(await pane("end-b").evaluate(el => el.classList.contains("active")));
   await activateEnd("end-a");
+  const boxBeforeDrag = await rectangleBox();
+  await rectangleHeight.focus();
+  await rectangleHeight.evaluate(slider => {
+    slider.value = slider.min;
+    slider.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  const previewBoxSize = await rectangleBox();
+  assert.equal(previewBoxSize.rows, 1);
+  assert.equal(previewBoxSize.zoom, boxBeforeDrag.zoom);
+  await page.keyboard.press("Escape");
+  assert.deepEqual(await rectangleBox(), boxBeforeDrag);
+  await rectangleHeight.press("Home");
+  assert.equal((await rectangleBox()).rows, 1);
+  await page.evaluate(() => undoEditorConnectorMetadata());
+  assert.equal((await rectangleBox()).columns, 1);
+  const { width: savedBoxWidth, height: savedBoxHeight } = await rectangleBox();
+  await page.screenshot({ path: join(artifacts, "stagebox-rectangle-sliders.png") });
   await pane("end-a").locator('[data-editor-node-id="a-1"] .editor-engine-hit').click();
   await badge.waitFor();
   assert.equal(await picker.count(), 0);
@@ -278,6 +313,8 @@ try {
   await page.evaluate(json => new Promise((onLoaded, onError) =>
     loadProjectFile(new File([json], "Snake Appearance.avd"), { onLoaded, onError })), JSON.stringify(coloredProject));
   await openConnectors();
+  const reopenedBox = await rectangleBox();
+  assert.deepEqual([reopenedBox.width, reopenedBox.height], [savedBoxWidth, savedBoxHeight]);
   await clickBranch();
   assert.equal(await picker.inputValue(), "#ff6419");
   assert.equal(await badge.inputValue(), "MIC\nA1");

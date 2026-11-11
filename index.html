@@ -5490,6 +5490,11 @@
     .stagebox-end-controls > button { grid-column:1/-1; justify-self:start; }
     .stagebox-node-limit { grid-column:1/-1; padding:6px 8px; border:1px solid #df525d; border-radius:4px; background:#681e28; color:#fff; }
     #selectedStageboxNodeLabel { height:56px; min-height:56px; padding:7px 9px; font:inherit; line-height:1.35; }
+    .stagebox-rectangle-size { grid-column:1/-1; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+    .stagebox-rectangle-size[hidden] { display:none; }
+    .stagebox-rectangle-size label { display:flex; align-items:center; gap:6px; min-width:0; }
+    .stagebox-rectangle-size label > span { color:var(--muted); font-size:16px; }
+    #stageboxEndEditor .stagebox-rectangle-size input { min-width:0; padding:0; border:0; background:transparent; accent-color:#32b6ff; }
     .stagebox-end-controls input, .stagebox-end-controls select { width:100%; }
     .stagebox-preview-tools { grid-column:1/-1; }
     .stagebox-preview-slot { position:relative; min-height:240px; min-width:0; background:#10161c; }
@@ -9377,6 +9382,7 @@
     }
 
     function cancelDeviceEditorActiveInteraction() {
+      if (typeof cancelStageboxRectangleResize === "function" && cancelStageboxRectangleResize()) return true;
       if (editorPaletteDragSession?.active) { clearEditorPaletteDragSession(); return true; }
       if (cancelEditorResizeSession() || cancelEditorPowerPlugMarquee() || cancelEditorStableDrags()) return true;
       if (editorPowerPlugDrag) {
@@ -13766,6 +13772,7 @@
     }
 
     function disposeDeviceEditor() {
+      if (typeof cancelStageboxRectangleResize === "function") cancelStageboxRectangleResize({ render: false });
       editorDependencySession++;
       editorPendingFields?.dispose();
       editorPendingFields = null;
@@ -20297,6 +20304,78 @@
     let editorStageboxPeerSurface = null;
     let editorStageboxPeerKey = "";
     let editorStageboxPeerCameraOnSwap = null;
+    let editorStageboxRectangleResize = null;
+
+    function stageboxRectanglePreviewDraft(view) {
+      const adjustment = editorStageboxRectangleResize;
+      return adjustment && adjustment.view === view ? { ...view, stageboxRectangleSize: adjustment.size } : view;
+    }
+
+    function syncStageboxRectangleSliders(pane, device) {
+      const group = pane?.querySelector(".stagebox-rectangle-size");
+      if (!group) return;
+      const box = device?.visual?.stageboxNodeOnly;
+      group.hidden = box?.shape !== "rectangle";
+      if (group.hidden) return;
+      const min = editorEnginePreviewModule.STAGEBOX_RECTANGLE_MIN_SIZE;
+      const count = device.connectors.length + (box.emptySlots?.length || 0);
+      for (const slider of group.querySelectorAll("[data-stagebox-size]")) {
+        const axis = slider.dataset.stageboxSize;
+        if (editorStageboxRectangleResize?.slider === slider) continue;
+        const size = Math.round((axis === "width" ? box.halfWidth : box.halfHeight) * 2);
+        slider.min = min;
+        slider.max = Math.max(size, Math.ceil(min * (1 + 2.5 * Math.sqrt(Math.max(4, count)))));
+        slider.value = size;
+      }
+    }
+
+    function renderStageboxRectangleResize(pane) {
+      if (pane.classList.contains("active")) renderDeviceEditorPreview({ fitStagebox: false });
+      else renderStageboxPeerPreview({ fitStagebox: false });
+    }
+
+    function cancelStageboxRectangleResize({ render = true } = {}) {
+      const adjustment = editorStageboxRectangleResize;
+      if (!adjustment) return false;
+      editorStageboxRectangleResize = null;
+      if (render) renderStageboxRectangleResize(adjustment.pane);
+      return true;
+    }
+
+    function adjustStageboxRectangleSlider(event) {
+      const slider = event.target.closest("[data-stagebox-size]");
+      if (!slider || !editorDraft[editorIndex]?.isStageboxSnake) return;
+      const pane = slider.closest("[data-stagebox-pane]");
+      const surface = pane.classList.contains("active") ? editorEnginePreviewSurface : editorStageboxPeerSurface;
+      const box = surface?.scene.devices[0]?.visual?.stageboxNodeOnly;
+      if (box?.shape !== "rectangle") return;
+      if (editorStageboxRectangleResize?.slider !== slider) {
+        const view = stageboxEditorEndDraft(editorDraft[editorIndex], pane.dataset.stageboxPane);
+        const base = { width: box.halfWidth * 2, height: box.halfHeight * 2 };
+        editorStageboxRectangleResize = { pane, view, slider, base };
+      }
+      const adjustment = editorStageboxRectangleResize;
+      const axis = slider.dataset.stageboxSize;
+      adjustment.size = { ...adjustment.base, [axis]: Number(slider.value), axis };
+      if (event.type === "change") {
+        editorStageboxRectangleResize = null;
+        if (adjustment.size[axis] !== Math.round(adjustment.base[axis])) {
+          const before = structuredClone(adjustment.view);
+          adjustment.view.stageboxRectangleSize = adjustment.size;
+          recordEditorPlacementHistory(adjustment.view, before);
+        }
+      }
+      renderStageboxRectangleResize(pane);
+      if (event.type === "change") {
+        const next = surface.scene.devices[0]?.visual?.stageboxNodeOnly;
+        const { width, height } = surface.renderer.resolution;
+        if (next && (next.halfWidth * 2 * surface.camera.zoom > width - 24 || next.halfHeight * 2 * surface.camera.zoom > height - 24)) {
+          surface.fitToContent({ padding: 34 });
+          surface.render();
+          if (pane.classList.contains("active")) syncDeviceEditorEngineOverlayViewBox();
+        }
+      }
+    }
 
     function updateStageboxNodeLimitNotice(view) {
       const notice = document.querySelector(`[data-stagebox-pane="${view.stageboxEndDraftId}"] .stagebox-node-limit`);
@@ -20326,6 +20405,10 @@
               <label class="field"><span>Representation</span><select data-stagebox-field="stageboxRepresentation"><option value="rectangle">Rectangular box</option><option value="circular">Circular breakout</option><option value="fanout">Cable tails / fanout</option></select></label>
               <label class="field"><span>Width</span><input data-stagebox-field="width" type="number" min="120" step="1"></label>
               <label class="field"><span>Height</span><input data-stagebox-field="manualHeight" type="number" min="80" step="1"></label>
+              <div class="stagebox-rectangle-size" hidden>
+                <label title="Resize box width"><span aria-hidden="true">&#8596;</span><input type="range" step="1" data-stagebox-size="width" aria-label="Resize box width End ${index ? "B" : "A"}"></label>
+                <label title="Resize box height"><span aria-hidden="true">&#8597;</span><input type="range" step="1" data-stagebox-size="height" aria-label="Resize box height End ${index ? "B" : "A"}"></label>
+              </div>
               <div class="stagebox-node-limit" role="status" hidden>Maximum number of nodes reached (${WireNexusStageboxSnake.STAGEBOX_MAX_NODES.toLocaleString("en-US")}).</div>
               <div class="slot-actions stagebox-preview-tools" role="group" aria-label="End ${index ? "B" : "A"} preview zoom">
                 <button class="tool-button" type="button" data-stagebox-zoom="out" title="Zoom out" aria-label="Zoom out End ${index ? "B" : "A"}">−</button>
@@ -20348,6 +20431,7 @@
         pane.querySelector("[data-stagebox-upload]").classList.toggle("hidden", editorActiveTab !== "faceplate");
         for (const field of pane.querySelectorAll("[data-stagebox-field]")) {
           const key = field.dataset.stageboxField;
+          if (key === "width" || key === "manualHeight") field.parentElement.classList.toggle("hidden", view.stageboxRepresentation === "rectangle");
           field.value = key === "manualHeight" ? view.height : view[key];
         }
         const slot = pane.querySelector(".stagebox-preview-slot");
@@ -20370,14 +20454,14 @@
       editorStageboxPeerCameraOnSwap = null;
     }
 
-    function renderStageboxPeerPreview() {
+    function renderStageboxPeerPreview(options = {}) {
       const panel = document.getElementById("stageboxEndEditor");
       if (panel.classList.contains("hidden") || !editorEnginePreviewModule?.EnginePreviewSurface) return;
       const pane = panel.querySelector(".stagebox-end-pane:not(.active)");
       const slot = pane?.querySelector(".stagebox-preview-slot");
       if (!slot) return;
       const view = stageboxEditorEndDraft(editorDraft[editorIndex], pane.dataset.stageboxPane);
-      const payload = editorEnginePreviewPayload(view);
+      const payload = editorEnginePreviewPayload(stageboxRectanglePreviewDraft(view));
       const showStageboxSlots = editorActiveTab === "connectors";
       const key = JSON.stringify([pane.dataset.stageboxPane, payload.template, slot.clientWidth, slot.clientHeight, showStageboxSlots]);
       if (key === editorStageboxPeerKey) return;
@@ -20387,10 +20471,20 @@
           owner: "stagebox-peer", fit: false, renderOptions: { gridVisible: false, connectorColors: true }
         });
       } else editorStageboxPeerSurface.mount(slot);
-      const savedCamera = editorStageboxPeerCameraOnSwap;
+      const currentBox = editorStageboxPeerSurface.scene.devices[0]?.visual?.stageboxNodeOnly;
+      const keepScale = options.fitStagebox === false && currentBox;
+      const savedCamera = editorStageboxPeerCameraOnSwap || (keepScale ? { ...editorStageboxPeerSurface.camera } : null);
       editorStageboxPeerCameraOnSwap = null;
       editorStageboxPeerSurface.setDraftDevice(payload, { fit: !savedCamera, showStageboxSlots, fitOptions: { padding: 34 } });
-      if (savedCamera) editorStageboxPeerSurface.setCamera(savedCamera);
+      const next = editorStageboxPeerSurface.scene.devices[0];
+      if (savedCamera) {
+        if (keepScale && next?.visual?.stageboxNodeOnly) {
+          savedCamera.x += next.visual.stageboxNodeOnly.cx - currentBox.cx;
+          savedCamera.y += next.visual.stageboxNodeOnly.cy - currentBox.cy;
+        }
+        editorStageboxPeerSurface.setCamera(savedCamera);
+      }
+      syncStageboxRectangleSliders(pane, next);
     }
     function currentEditorTemplate() {
       const root = editorDraft[editorIndex];
@@ -20982,6 +21076,8 @@
     function readonlyDeviceEditorPreviewTemplate(template) {
       const sourceTemplate = editorResizePreviewTemplateFor(template);
       const draft = structuredClone(sourceTemplate);
+      const boxResize = sourceTemplate?.stageboxEndDraftId && editorStageboxRectangleResize;
+      if (boxResize && boxResize.view === sourceTemplate) draft.stageboxRectangleSize = boxResize.size;
       draft.width = deviceTemplateWidth(template);
       draft.name = editorPreviewDeviceName(template);
       validateDraftDefaults(draft);
@@ -21085,7 +21181,7 @@
         });
         editorEnginePreviewDraftSynced = true;
       } else {
-        surface.replaceDevice(device, { render: false, refreshTexture: !canSkipTextureRefresh });
+        surface.replaceDevice(device, { render: false, refreshTexture: !canSkipTextureRefresh, fitStagebox: options.fitStagebox });
         if (options.fit === true) surface.fitToContent({ padding: 34, bounds: fitBounds });
         surface.render();
       }
@@ -21947,11 +22043,15 @@
       const previewDevice = syncDeviceEditorEnginePreview(previewTemplate, {
         fit: !editorEnginePreviewDraftSynced || editorEnginePreviewFitPending,
         fitBounds: editorActivePreviewBounds(previewTemplate),
+        fitStagebox: options.fitStagebox,
         refreshTexture,
         motionOnly: options.motionFrame === true || editorPlacementMotionHasEntries(),
         dynamicCardArtwork
       });
       editorEnginePreviewFitPending = false;
+      if (template.stageboxEndDraftId) {
+        syncStageboxRectangleSliders(deviceEditorPreviewHost.closest("[data-stagebox-pane]"), previewDevice);
+      }
       deviceEditorPreview.innerHTML = "";
       syncDeviceEditorEngineOverlayViewBox();
       deviceEditorPreview.appendChild(createSvg("rect", {
@@ -23487,7 +23587,7 @@
 	      if (deviceEditorActivePreviewUsesEngine()) {
         if (template.stageboxEndDraftId && options.motionFrame !== true) updateStageboxNodeLimitNotice(template);
         renderDeviceEditorEnginePreview(template, options);
-        if (template.stageboxEndDraftId && options.motionFrame !== true) renderStageboxPeerPreview();
+        if (template.stageboxEndDraftId && options.motionFrame !== true) renderStageboxPeerPreview(options);
         return;
       }
     }
@@ -35878,6 +35978,7 @@ document.addEventListener("click", function(event) {
       if (tab.disabled || tab.getAttribute("aria-disabled") === "true") return;
       const previousTab = editorActiveTab;
       const nextTab = tab.dataset.editorTab;
+      if (previousTab !== nextTab) cancelStageboxRectangleResize({ render: false });
       flushEditorStageboxEnds();
       if (previousTab !== nextTab) clearEditorPaletteDragSession();
       if (previousTab !== nextTab) cancelEditorResizeSession(null, { render: false });
@@ -36210,7 +36311,10 @@ document.addEventListener("click", function(event) {
       }
       if (active) syncDeviceEditorEngineOverlayViewBox();
     });
+    document.getElementById("stageboxEndEditor").addEventListener("input", adjustStageboxRectangleSlider);
+    document.getElementById("stageboxEndEditor").addEventListener("pointercancel", () => cancelStageboxRectangleResize());
     document.getElementById("stageboxEndEditor").addEventListener("change", event => {
+      if (event.target.matches("[data-stagebox-size]")) return adjustStageboxRectangleSlider(event);
       const key = event.target.dataset.stageboxField;
       if (!key) return;
       const value = event.target.value;

@@ -13,7 +13,7 @@ import { captureTopologyState, createTopologyCommand, createTopologyReplayState,
 import { stageboxNodeOnlyFixture } from "../fixtures/stagebox-node-only.mjs";
 import { createOutputViewerModel, outputCableTrace } from "../src/engine/outputViewerModel.js";
 import { continuousStageboxPoints, stageboxSignalPath } from "../src/engine/stageboxSignalPath.js";
-import { STAGEBOX_NODE_RIM, stageboxFanoutBranchPoints, stageboxNodeDetailScale, stageboxNodeFillRadius, stageboxNodeHitRadius, stageboxPreviewBounds, stageboxTrunkArc } from "../src/engine/stageboxNodeGeometry.js";
+import { STAGEBOX_NODE_RIM, STAGEBOX_RECTANGLE_MIN_SIZE, stageboxFanoutBranchPoints, stageboxNodeDetailScale, stageboxNodeFillRadius, stageboxNodeHitRadius, stageboxPreviewBounds, stageboxTrunkArc } from "../src/engine/stageboxNodeGeometry.js";
 import { legacyCanvasDetailScale, legacyConnectorRadius, legacyConnectorStrokeWidth } from "../src/engine/legacyZoomDetail.js";
 import { hitTestConnector, hitTestStageboxFanoutBranch } from "../src/engine/hitTest.js";
 import { generatePdf } from "../src/engine/outputPdf.js";
@@ -213,6 +213,45 @@ test("automatic rectangular and circular ends use compact live anchors without c
     assert.equal(scene.getDevice("ordinary").visual.stageboxNodeOnly, undefined);
     assert.ok(scene.getDevice("ordinary").connectors.every(c => !c.stageboxNumber));
   }
+});
+
+test("rectangular ends reflow within the adjusted axis while retaining connector identities and clearance", () => {
+  const min = STAGEBOX_RECTANGLE_MIN_SIZE;
+  const project = stageboxNodeOnlyFixture(9, ["rectangle", "circular"]);
+  const instance = project.devices[1];
+  const original = normalizeAvDesignerProject(project);
+  const originalEnd = original.devices.find(d => d.id === "snake");
+  const draft = stageboxEndDraft(instance.templateOverride, "end-a");
+  const size = (device, axis) => 2 * device.visual.stageboxNodeOnly[axis === "width" ? "halfWidth" : "halfHeight"];
+  for (const axis of ["width", "height"]) {
+    draft.stageboxRectangleSize = { width: size(originalEnd, "width"), height: size(originalEnd, "height"), [axis]: min + 2, axis };
+    const preview = createPreviewDeviceFromDraft({ template: draft });
+    assert.equal(size(preview, axis), min + 2);
+    assert.equal(new Set(preview.connectors.map(c => axis === "width" ? c.x : c.y)).size, 1);
+    const other = axis === "width" ? "height" : "width";
+    assert.ok(size(preview, other) > size(originalEnd, other));
+    const points = preview.connectors.map(c => c.anchors[0]);
+    const radius = stageboxNodeHitRadius(preview, .05);
+    points.forEach((p, i) => assert.ok(points.slice(i + 1).every(q => Math.hypot(p.x - q.x, p.y - q.y) > 2 * radius)));
+    const edited = commitStageboxEndDraft(instance.templateOverride, "end-a", draft);
+    const saved = JSON.parse(JSON.stringify({ ...project, devices: project.devices.map(item =>
+      item === instance ? { ...item, templateOverride: edited } : item) }));
+    assert.deepEqual(stageboxEndDraft(saved.devices[1].templateOverride, "end-a").stageboxRectangleSize, draft.stageboxRectangleSize);
+    const reopened = normalizeAvDesignerProject(saved);
+    const end = reopened.devices.find(d => d.id === "snake");
+    assert.deepEqual(end.connectors.map(c => c.id), originalEnd.connectors.map(c => c.id));
+    assert.deepEqual(reopened.wires, original.wires);
+    assert.equal(size(end, axis), min + 2);
+    const relative = device => device.connectors.map(c => [c.x - device.visual.stageboxNodeOnly.cx, c.y - device.visual.stageboxNodeOnly.cy]);
+    assert.deepEqual(relative(end), relative(preview));
+    assert.deepEqual(reopened.devices.find(d => d.stageboxIdentity?.endId === "end-b"), original.devices.find(d => d.stageboxIdentity?.endId === "end-b"));
+  }
+  draft.connectors[1].empty = true;
+  const withSlot = createPreviewDeviceFromDraft({ template: draft });
+  const slot = withSlot.visual.stageboxNodeOnly.emptySlots[0];
+  draft.connectors[1].empty = false;
+  const filled = createPreviewDeviceFromDraft({ template: draft });
+  assert.deepEqual(filled.connectors.find(c => c.id === slot.id).anchors, slot.anchors);
 });
 
 test("editor-only empty slots share every Stagebox layout and stay put when filled", () => {

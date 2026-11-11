@@ -542,7 +542,7 @@ export function projectStageboxAssembly({ stageboxTemplate, ...device }, instanc
       visual: { ...normalizeDeviceVisualMetadata(draft, {}, end.width, end.height, new Map()),
         enableInternalRouting: false, stageboxRepresentation: end.representation },
       matrixRoutes: {}, internalSignalRoutes: [] },
-    { authoredConnectors: draft.connectors, legacyFanoutColors: instance.stageboxFanoutColors });
+    { authoredConnectors: draft.connectors, legacyFanoutColors: instance.stageboxFanoutColors, rectangleSize: end.rectangleSize });
   });
   return { ends, trunk: { id: `stagebox-trunk:${secondId}`, stageboxAssemblyId: device.id,
     fromDeviceId: ends[0].id, toDeviceId: ends[1].id, fromSide: "right", toSide: "left",

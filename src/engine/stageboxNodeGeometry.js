@@ -1,6 +1,6 @@
 import { stageboxFaceplateLayout } from "./deviceVisualBuilder.js";
 import { connectorVisualAnchors } from "./deviceDefinitionV2.js";
-import { STAGEBOX_MAX_NODES, normalizeStageboxFanoutColor, normalizeStageboxNodeLabel } from "./stageboxSnake.js";
+import { STAGEBOX_MAX_NODES, normalizeStageboxFanoutColor, normalizeStageboxNodeLabel, normalizeStageboxRectangleSize } from "./stageboxSnake.js";
 import {
   LEGACY_CANVAS_DETAIL_MAX_SCALE, legacyCanvasDetailScale, legacyConnectorRadius, legacyConnectorStrokeWidth
 } from "./legacyZoomDetail.js";
@@ -22,6 +22,7 @@ const markerExtent = fillRadius => fillRadius + STAGEBOX_NODE_RIM * 2.4 + .55;
 const BOX_MAX_EXTENT = markerExtent(BOX_NODE_OUTER_RADIUS - STAGEBOX_NODE_RIM * 2) * LEGACY_CANVAS_DETAIL_MAX_SCALE;
 const GRID_PITCH = Math.ceil(BOX_MAX_EXTENT * 2 + 1);
 const BOX_PAD = Math.ceil(BOX_MAX_EXTENT + 1);
+export const STAGEBOX_RECTANGLE_MIN_SIZE = BOX_PAD * 2;
 
 export function stageboxNodeDetailScale(device, zoom = 1) {
   const spacing = device?.visual?.stageboxNodeOnly?.nodeSpacing;
@@ -39,10 +40,6 @@ function compactScale({ nodes, panel }, shape) {
     const pitch = nodes[1].y - nodes[0].y;
     return { x: 1, y: Math.max(1, RING_CLEARANCE / pitch), spacing: Math.max(pitch, RING_CLEARANCE) };
   }
-  if (shape === "rectangle") {
-    const columns = Math.ceil(Math.sqrt(nodes.length)), rows = Math.ceil(nodes.length / columns);
-    return { x: GRID_PITCH * (columns + 1) / panel.width, y: GRID_PITCH * (rows + 1) / panel.height, spacing: GRID_PITCH };
-  }
   let nearestSquared = Infinity;
   for (let i = 0; i < nodes.length; i++) for (let j = i + 1; j < nodes.length; j++) {
     const dx = nodes[i].x - nodes[j].x, dy = nodes[i].y - nodes[j].y;
@@ -52,8 +49,33 @@ function compactScale({ nodes, panel }, shape) {
   return { x: scale, y: scale, spacing: GRID_PITCH };
 }
 
+function packStageboxRectangle(ports, requestedSize) {
+  const count = Math.max(1, ports.length);
+  const span = tracks => STAGEBOX_RECTANGLE_MIN_SIZE + (tracks - 1) * GRID_PITCH;
+  const capacity = size => Math.min(count, Math.floor((size - STAGEBOX_RECTANGLE_MIN_SIZE) / GRID_PITCH) + 1);
+  const size = normalizeStageboxRectangleSize(requestedSize);
+  let columns = Math.ceil(Math.sqrt(count)), rows = Math.ceil(count / columns);
+  let width = span(columns), height = span(rows);
+  if (size) {
+    width = Math.max(STAGEBOX_RECTANGLE_MIN_SIZE, size.width);
+    height = Math.max(STAGEBOX_RECTANGLE_MIN_SIZE, size.height);
+    // Honor the axis being adjusted; the other axis absorbs any overflow.
+    columns = size.axis === "height" ? Math.ceil(count / capacity(height)) : capacity(width);
+    rows = Math.ceil(count / columns);
+    width = Math.max(width, span(columns));
+    height = Math.max(height, span(rows));
+  }
+  const dx = columns > 1 ? (width - STAGEBOX_RECTANGLE_MIN_SIZE) / (columns - 1) : 0;
+  const dy = rows > 1 ? (height - STAGEBOX_RECTANGLE_MIN_SIZE) / (rows - 1) : 0;
+  const offsets = ports.map((port, index) => {
+    const row = Math.floor(index / columns), rowSize = Math.min(columns, count - row * columns);
+    return { id: port.id, x: (index % columns - (rowSize - 1) / 2) * dx, y: (row - (rows - 1) / 2) * dy };
+  });
+  return { offsets, halfWidth: width / 2, halfHeight: height / 2, spacing: GRID_PITCH };
+}
+
 export function projectStageboxEndNodes(device, { keepFrame = false, editorConnectors, authoredConnectors = editorConnectors,
-  legacyFanoutColors } = {}) {
+  legacyFanoutColors, rectangleSize } = {}) {
   const { visual, connectors } = device;
   const { stageboxRepresentation: shape, stageboxEndId: endId } = visual || {};
   if (!shape || !endId) return device;
@@ -78,16 +100,17 @@ export function projectStageboxEndNodes(device, { keepFrame = false, editorConne
   if (visual.hasFaceImage || visual.faceImage || layoutPorts.length > STAGEBOX_MAX_NODES || live.some(c => c.anchors?.length > 1)) {
     return { ...device, connectors: ports };
   }
-  const layout = stageboxFaceplateLayout(layoutPorts, shape, endId, Math.max(120, device.width), Math.max(80, device.height));
-  const scale = compactScale(layout, shape);
-  const offsets = layout.nodes.map(node => ({ id: node.port.id,
+  const rectangle = shape === "rectangle" ? packStageboxRectangle(layoutPorts, rectangleSize) : null;
+  const layout = rectangle ? null : stageboxFaceplateLayout(layoutPorts, shape, endId, Math.max(120, device.width), Math.max(80, device.height));
+  const scale = layout ? compactScale(layout, shape) : rectangle;
+  const offsets = rectangle?.offsets || layout.nodes.map(node => ({ id: node.port.id,
     x: (node.x - (layout.panel.x + layout.panel.width / 2)) * scale.x,
     y: (node.y - (layout.panel.y + layout.panel.height / 2)) * scale.y }));
   const padding = isEnclosed(shape) ? BOX_PAD : PAD;
-  const halfWidth = padding + Math.max(0, ...offsets.map(p => shape === "circular" ? Math.hypot(p.x, p.y) : Math.abs(p.x)));
-  const halfHeight = shape === "circular" ? halfWidth : padding + Math.max(0, ...offsets.map(p => Math.abs(p.y)));
-  const stem = layout.stem;
-  const designWidth = layout.panel.x * 2 + layout.panel.width;
+  const halfWidth = rectangle?.halfWidth ?? padding + Math.max(0, ...offsets.map(p => shape === "circular" ? Math.hypot(p.x, p.y) : Math.abs(p.x)));
+  const halfHeight = rectangle?.halfHeight ?? (shape === "circular" ? halfWidth : padding + Math.max(0, ...offsets.map(p => Math.abs(p.y))));
+  const stem = layout?.stem;
+  const designWidth = stem ? layout.panel.x * 2 + layout.panel.width : 0;
   const stemOffset = stem ? stem.x - designWidth / 2 : 0;
   const rootOffset = stem ? stem.rootX - designWidth / 2 : 0;
   const marginX = Math.max(halfWidth, Math.abs(stemOffset) + 5);
