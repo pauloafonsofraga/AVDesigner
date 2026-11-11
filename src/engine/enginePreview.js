@@ -13,7 +13,7 @@ import {
 import { distanceToPolyline, hitTestConnector, hitTestDevice, hitTestWire, screenToWorld } from "./hitTest.js";
 import { powerDistroDiagnostics } from "./powerDistroModel.js";
 import { normalizeAvDesignerDevice } from "./projectAdapter.js";
-import { projectStageboxEndNodes } from "./stageboxNodeGeometry.js";
+import { projectStageboxEndNodes, stageboxPreviewBounds } from "./stageboxNodeGeometry.js";
 import { DEFAULT_RENDER_OPTIONS, WebglGraphRenderer } from "./renderer.js";
 import { SceneGraph } from "./sceneGraph.js";
 import { fitCameraToBounds } from "./cameraFit.js";
@@ -327,6 +327,8 @@ export class EnginePreviewSurface {
     if (this.disposed) return null;
     const device = normalizePreviewDeviceInput(deviceOrDraft, this.scene.devices.length);
     if (!device) return null;
+    const before = this.owner === "device-editor" ? this.scene.getDevice(device.id) : null;
+    const oldBounds = before?.visual?.stageboxEndId === device.visual?.stageboxEndId ? stageboxPreviewBounds(before) : null;
     const replaced = this.scene.replaceDevice(device);
     this.lastDirtyStats = this.renderer.updateDirty(this.scene, {
       deviceIds: [device.id],
@@ -334,6 +336,16 @@ export class EnginePreviewSurface {
       refreshDeviceTextures: refreshTexture !== false,
       refreshCableHops: false
     });
+    const newBounds = oldBounds && stageboxPreviewBounds(device);
+    if (newBounds) {
+      if (Math.abs(newBounds.width - oldBounds.width) > .01 || Math.abs(newBounds.height - oldBounds.height) > .01) {
+        this.fitToContent({ padding: 34 });
+      } else {
+        // Authored frame resizing can translate the same layout without changing any visible geometry.
+        this.camera.x += newBounds.x - oldBounds.x;
+        this.camera.y += newBounds.y - oldBounds.y;
+      }
+    }
     ENGINE_PREVIEW_LIFECYCLE.incrementalDeviceReplacements += 1;
     if (render) this.render();
     return replaced;
@@ -342,11 +354,13 @@ export class EnginePreviewSurface {
   fitToContent({ padding = 36, bounds = null } = {}) {
     if (this.disposed) return this.camera;
     this.renderer.resize();
+    const stagebox = this.scene.devices.length === 1 ? stageboxPreviewBounds(this.scene.devices[0]) : null;
     this.camera = fitCameraToBounds(
-      bounds || this.scene.bounds(),
+      stagebox || bounds || this.scene.bounds(),
       this.renderer.resolution.width,
       this.renderer.resolution.height,
-      padding
+      padding,
+      stagebox ? { maxZoom: 3 } : undefined
     );
     return this.camera;
   }

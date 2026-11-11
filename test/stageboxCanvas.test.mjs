@@ -12,11 +12,11 @@ import { captureTopologyState, createTopologyCommand, createTopologyReplayState,
 import { stageboxNodeOnlyFixture } from "../fixtures/stagebox-node-only.mjs";
 import { createOutputViewerModel, outputCableTrace } from "../src/engine/outputViewerModel.js";
 import { continuousStageboxPoints, stageboxSignalPath } from "../src/engine/stageboxSignalPath.js";
-import { STAGEBOX_NODE_RIM, stageboxNodeDetailScale, stageboxNodeFillRadius, stageboxNodeHitRadius, stageboxTrunkArc } from "../src/engine/stageboxNodeGeometry.js";
+import { STAGEBOX_NODE_RIM, stageboxNodeDetailScale, stageboxNodeFillRadius, stageboxNodeHitRadius, stageboxPreviewBounds, stageboxTrunkArc } from "../src/engine/stageboxNodeGeometry.js";
 import { legacyCanvasDetailScale, legacyConnectorRadius, legacyConnectorStrokeWidth } from "../src/engine/legacyZoomDetail.js";
 import { hitTestConnector } from "../src/engine/hitTest.js";
 import { generatePdf } from "../src/engine/outputPdf.js";
-import { createPreviewDeviceFromDraft } from "../src/engine/enginePreview.js";
+import { createPreviewDeviceFromDraft, EnginePreviewSurface, fitCameraToBounds } from "../src/engine/enginePreview.js";
 
 const port = (id, direction, x) => ({ id, nameText: id, type: "hdmi", direction, x, y: 75 });
 const device = (id, x, connectors) => ({ instanceId: id, name: id, x, y: 0,
@@ -132,7 +132,7 @@ test("automatic rectangular and circular ends use compact live anchors without c
     const dimensions = ends.map(d => [d.width, d.height]);
     if (count === 4) {
       assert.ok(dimensions[0].every(n => n <= 96));
-      assert.ok(dimensions[1].every(n => n < 60));
+      assert.ok(dimensions[1].every(n => n < 115));
     }
     for (const end of ends) {
       assert.equal(end.connectors.length, count);
@@ -176,7 +176,7 @@ test("editor-only empty slots share every Stagebox layout and stay put when fill
   }
 });
 
-test("Stagebox markers use device zoom compensation where there is room without moving anchors", () => {
+test("Enclosed Stagebox nodes match device zoom compensation without overlap, while fanout is unchanged", () => {
   const scene = new SceneGraph();
   scene.setData(normalizeAvDesignerProject(stageboxNodeOnlyFixture(4, ["rectangle", "fanout"])));
   const ends = scene.devices.filter(d => d.stageboxIdentity);
@@ -200,14 +200,41 @@ test("Stagebox markers use device zoom compensation where there is room without 
   const ring = dense.devices.find(d => d.stageboxIdentity?.endId === "end-b");
   const points = ring.connectors.map(c => dense.connectorWorldPoint(ring, c));
   const scale = stageboxNodeDetailScale(ring, .2);
-  assert.ok(scale > 1 && scale < legacyCanvasDetailScale(.2));
-  const visibleDiameter = 2 * (7 - .625 + 1.25 * 1.2 + .55) * scale;
-  assert.ok(points.every((p, i) => points.slice(i + 1).every(q => Math.hypot(p.x - q.x, p.y - q.y) > visibleDiameter)));
-  assert.deepEqual(ring.connectors.map(c => dense.connectorWorldPoint(ring, c)), points);
+  assert.equal(scale, legacyCanvasDetailScale(.2));
+  assert.equal(stageboxNodeFillRadius(ring), stageboxNodeFillRadius(box));
+  const minDistance = Math.min(...points.flatMap((p, i) => points.slice(i + 1).map(q => Math.hypot(p.x - q.x, p.y - q.y))));
+  const ringGap = minDistance - 2 * stageboxNodeHitRadius(ring, .2);
+  assert.ok(ringGap >= 1 && ringGap < 2, "Circular layout should only reserve the required marker clearance");
   const node = scene.connectorWorldPoint(tails, tails.connectors[0]);
   const edge = { x: node.x + stageboxNodeHitRadius(tails, .5) - 1, y: node.y };
   assert.equal(hitTestConnector(scene, edge, 30, 1).connector, null);
   assert.equal(hitTestConnector(scene, edge, 30, .5).connector?.connector.id, tails.connectors[0].id);
+});
+
+test("Stagebox editor fits visible content and preserves camera zoom on authored frame shifts", () => {
+  const snake = stageboxNodeOnlyFixture(4).devices[1].templateOverride;
+  const draft = stageboxEndDraft(snake, "end-b");
+  const device = createPreviewDeviceFromDraft({ template: draft });
+  const scene = new SceneGraph();
+  scene.setData({ devices: [device] });
+  const viewport = { width: 500, height: 400 };
+  const surface = Object.assign(Object.create(EnginePreviewSurface.prototype), {
+    owner: "device-editor", scene, renderer: { resolution: viewport, resize() {}, updateDirty() {} },
+    camera: { x: 0, y: 0, zoom: 1 }
+  });
+  const fit = d => fitCameraToBounds(stageboxPreviewBounds(d), viewport.width, viewport.height, 34, { maxZoom: 3 });
+  surface.fitToContent({ padding: 34, bounds: { x: 0, y: 0, width: 900, height: 1000 } });
+  assert.deepEqual(surface.camera, fit(device));
+  surface.camera = { x: -25, y: 43, zoom: 1.5 };
+  const before = surface.worldToScreen(scene.connectorWorldPoint(scene.devices[0], scene.devices[0].connectors[0]));
+  const shifted = createPreviewDeviceFromDraft({ template: { ...draft, height: draft.height + 200 } });
+  surface.replaceDevice(shifted, { render: false });
+  assert.deepEqual(surface.worldToScreen(scene.connectorWorldPoint(scene.devices[0], scene.devices[0].connectors[0])), before);
+  assert.equal(surface.camera.zoom, 1.5);
+  const grown = createPreviewDeviceFromDraft({ template: { ...draft, connectors: [...draft.connectors,
+    { id: "extra-slot", empty: true, direction: "input" }] } });
+  surface.replaceDevice(grown, { render: false });
+  assert.deepEqual(surface.camera, fit(grown));
 });
 
 test("both signal directions use only their mapped channel and preserve every join through movement and export", async () => {

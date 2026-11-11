@@ -105,6 +105,14 @@ try {
     await page.waitForFunction(id => activeEngineBridge().hoverState.connector?.connector.id === id, id);
   }
 
+  await load(page, project, { x: -30, y: -5, zoom: .5 });
+  const circularRim = await zoomNodes();
+  const { id: ringId, point: ringPoint } = circularRim[1];
+  const ringRim = await screen(page, { ...ringPoint, x: ringPoint.x + 14 });
+  await page.mouse.move(ringRim.x, ringRim.y);
+  await page.waitForFunction(id => activeEngineBridge().hoverState.connector?.connector.id === id, ringId);
+  await grab(page, "snake-circular-zoom-50.png");
+
   await load(page, project);
   for (const [id, wireIds, channel] of [["left-1", ["left-1", "right-1"], "ch-1"], ["right-2", ["right-2", "left-2"], "ch-2"]]) {
     const point = await page.evaluate(id => {
@@ -238,6 +246,17 @@ try {
   assert.notDeepEqual(ringSlots, rectSlots);
   const visibleSlot = slot("a-2");
   assert.equal(Number(await visibleSlot.getAttribute("cx")), ringSlots["a-2"].x);
+  const isFramed = () => page.evaluate(async () => {
+    const { stageboxPreviewBounds } = await import("/src/engine/stageboxNodeGeometry.js");
+    const { fitCameraToBounds } = await import("/src/engine/cameraFit.js");
+    const surface = editorEnginePreviewSurface;
+    const { width, height } = surface.renderer.resolution;
+    const bounds = stageboxPreviewBounds(surface.scene.devices[0]);
+    const expected = fitCameraToBounds(bounds, width, height, 34, { maxZoom: 3 });
+    return Object.keys(expected).every(key => Math.abs(surface.camera[key] - expected[key]) < .01);
+  });
+  await page.locator("#editorZoomReset").click();
+  assert.ok(await isFramed(), "Fit should frame the circular nodes, not the authored frame");
   const slotBox = await visibleSlot.boundingBox();
   const picked = await page.evaluate(box => editorPaletteNearestSlotIdAtClient({
     clientX: box.x + box.width / 2, clientY: box.y + box.height / 2
@@ -246,6 +265,7 @@ try {
   await page.locator('#nodePalette [data-node-type="xlr-3pin"]').dragTo(visibleSlot);
   await page.waitForFunction(() => currentEditorTemplate().connectors.find(c => c.id === "a-2")?.empty === false);
   assert.deepEqual(await positions(), ringSlots);
+  assert.ok(await isFramed(), "Filling a slot should not move the visible layout");
   await activateEnd("end-b");
   await page.locator("#addInputNode").click();
   await page.locator("#addOutputNode").click();
@@ -253,6 +273,7 @@ try {
   assert.equal(Object.keys(fanout).length, 6);
   assert.equal(new Set(Object.values(fanout).map(p => p.x)).size, 1);
   assert.equal(await pane("end-b").locator(".editor-slot-shape").count(), 2);
+  assert.ok(await isFramed(), "Growing the fanout should refit the visible content");
   await page.screenshot({ path: join(artifacts, "editor-empty-slots.png") });
 
   await writeFile(join(artifacts, "stagebox-node-only.avd"), JSON.stringify(project, null, 2));

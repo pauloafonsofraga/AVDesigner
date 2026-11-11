@@ -9,10 +9,11 @@ export const STAGEBOX_NODE_RADIUS = 7;
 export const STAGEBOX_NODE_RIM = .625;
 const PAD = 13, RING_CLEARANCE = 21;
 const BOX_NODE_OUTER_RADIUS = legacyConnectorRadius(1) + legacyConnectorStrokeWidth(1);
-const isBox = device => device?.visual?.stageboxNodeOnly?.shape === "rectangle";
+const isEnclosed = shape => shape === "rectangle" || shape === "circular";
 
 export function stageboxNodeFillRadius(device) {
-  return isBox(device) ? BOX_NODE_OUTER_RADIUS - STAGEBOX_NODE_RIM * 2 : STAGEBOX_NODE_RADIUS - STAGEBOX_NODE_RIM;
+  return isEnclosed(device?.visual?.stageboxNodeOnly?.shape)
+    ? BOX_NODE_OUTER_RADIUS - STAGEBOX_NODE_RIM * 2 : STAGEBOX_NODE_RADIUS - STAGEBOX_NODE_RIM;
 }
 
 // Include the thin white rim and the outer dark outline when budgeting space.
@@ -45,7 +46,7 @@ function compactScale({ nodes, panel }, shape) {
   for (const [i, a] of nodes.entries()) for (const b of nodes.slice(i + 1)) {
     nearest = Math.min(nearest, Math.hypot(a.x - b.x, a.y - b.y));
   }
-  return { x: RING_CLEARANCE / nearest, y: RING_CLEARANCE / nearest, spacing: RING_CLEARANCE };
+  return { x: GRID_PITCH / nearest, y: GRID_PITCH / nearest, spacing: GRID_PITCH };
 }
 
 export function projectStageboxEndNodes(device, { keepFrame = false, editorConnectors } = {}) {
@@ -73,7 +74,7 @@ export function projectStageboxEndNodes(device, { keepFrame = false, editorConne
   const offsets = layout.nodes.map(node => ({ id: node.port.id,
     x: (node.x - (layout.panel.x + layout.panel.width / 2)) * scale.x,
     y: (node.y - (layout.panel.y + layout.panel.height / 2)) * scale.y }));
-  const padding = shape === "rectangle" ? BOX_PAD : PAD;
+  const padding = isEnclosed(shape) ? BOX_PAD : PAD;
   const halfWidth = padding + Math.max(0, ...offsets.map(p => shape === "circular" ? Math.hypot(p.x, p.y) : Math.abs(p.x)));
   const halfHeight = shape === "circular" ? halfWidth : padding + Math.max(0, ...offsets.map(p => Math.abs(p.y)));
   const stem = layout.stem;
@@ -100,6 +101,14 @@ export function projectStageboxEndNodes(device, { keepFrame = false, editorConne
       return point ? { ...c, ...point, anchors: (c.anchors || []).map(a => ({ ...a, ...point })) } : c;
     })
   };
+}
+
+export function stageboxPreviewBounds(device) {
+  const layout = device?.visual?.stageboxNodeOnly;
+  if (!layout) return null;
+  const { cx, cy, halfWidth, halfHeight, trunk } = layout;
+  const left = Math.min(cx - halfWidth, trunk.x), right = Math.max(cx + halfWidth, trunk.x);
+  return { x: device.x + left, y: device.y + cy - halfHeight, width: right - left, height: halfHeight * 2 };
 }
 
 // Approved prototype arc, mirrored above/below the trunk with a straight level join.
