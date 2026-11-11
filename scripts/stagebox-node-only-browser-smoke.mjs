@@ -218,7 +218,7 @@ try {
   draftProject.connections = [];
   const draftSnake = draftProject.devices[1].templateOverride;
   draftSnake.stageboxSnake.channels = [];
-  for (const c of draftSnake.connectors.filter(c => c.id.startsWith("a-"))) {
+  for (const c of draftSnake.connectors.filter(c => c.id.startsWith("a-") || c.id === "b-4")) {
     Object.assign(c, { type: "", empty: true });
   }
   await load(page, draftProject);
@@ -255,8 +255,11 @@ try {
     const expected = fitCameraToBounds(bounds, width, height, 34, { maxZoom: 3 });
     return Object.keys(expected).every(key => Math.abs(surface.camera[key] - expected[key]) < .01);
   });
-  await page.locator("#editorZoomReset").click();
+  await pane("end-a").getByRole("button", { name: "Fit End A", exact: true }).click();
   assert.ok(await isFramed(), "Fit should frame the circular nodes, not the authored frame");
+  assert.equal(await page.locator("#editorZoomReset").isHidden(), true);
+  await pane("end-b").locator('[data-stagebox-empty-slot="b-4"]').waitFor({ state: "visible" });
+  assert.equal(await pane("end-a").locator(".editor-slot-shape").count(), 4);
   const slotBox = await visibleSlot.boundingBox();
   const picked = await page.evaluate(box => editorPaletteNearestSlotIdAtClient({
     clientX: box.x + box.width / 2, clientY: box.y + box.height / 2
@@ -266,14 +269,39 @@ try {
   await page.waitForFunction(() => currentEditorTemplate().connectors.find(c => c.id === "a-2")?.empty === false);
   assert.deepEqual(await positions(), ringSlots);
   assert.ok(await isFramed(), "Filling a slot should not move the visible layout");
+  const cameras = () => page.evaluate(() => ({
+    active: { ...editorEnginePreviewSurface.camera }, peer: { ...editorStageboxPeerSurface.camera }
+  }));
+  const fitted = await cameras();
+  await pane("end-b").getByRole("button", { name: "Zoom out End B", exact: true }).click();
+  const zoomed = await cameras();
+  assert.deepEqual(zoomed.active, fitted.active);
+  assert.ok(zoomed.peer.zoom < fitted.peer.zoom);
+  assert.ok(await pane("end-a").evaluate(el => el.classList.contains("active")));
+  await pane("end-b").getByRole("button", { name: "Fit End B", exact: true }).click();
+  assert.deepEqual(await cameras(), fitted);
+  await pane("end-b").getByRole("button", { name: "Zoom in End B", exact: true }).click();
+  await pane("end-a").getByRole("button", { name: "Zoom out End A", exact: true }).click();
+  const beforeSwitch = await cameras();
   await activateEnd("end-b");
+  assert.deepEqual(await cameras(), { active: beforeSwitch.peer, peer: beforeSwitch.active });
+  await pane("end-a").locator("[data-stagebox-empty-slot]").first().waitFor({ state: "visible" });
+  assert.equal(await pane("end-a").locator("[data-stagebox-empty-slot]").count(), 3);
+  assert.equal(await pane("end-b").locator(".editor-slot-shape").count(), 1);
   await page.locator("#addInputNode").click();
   await page.locator("#addOutputNode").click();
+  assert.equal((await cameras()).active.zoom, beforeSwitch.peer.zoom,
+    "Adding slots within the same footprint should preserve manual zoom");
+  await page.locator("#addInputNode").click();
   const fanout = await positions();
-  assert.equal(Object.keys(fanout).length, 6);
+  assert.equal(Object.keys(fanout).length, 7);
   assert.equal(new Set(Object.values(fanout).map(p => p.x)).size, 1);
-  assert.equal(await pane("end-b").locator(".editor-slot-shape").count(), 2);
+  assert.equal(await pane("end-b").locator(".editor-slot-shape").count(), 4);
   assert.ok(await isFramed(), "Growing the fanout should refit the visible content");
+  const columnBox = await page.locator(".stagebox-preview-column").boundingBox();
+  const previewBox = await pane("end-b").locator(".stagebox-preview-slot").boundingBox();
+  assert.ok(Math.abs(columnBox.y + columnBox.height - previewBox.y - previewBox.height) < 4,
+    "The split previews should fill the column after replacing the shared toolbar");
   await page.screenshot({ path: join(artifacts, "editor-empty-slots.png") });
 
   await writeFile(join(artifacts, "stagebox-node-only.avd"), JSON.stringify(project, null, 2));

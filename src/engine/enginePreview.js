@@ -1,6 +1,6 @@
 import { adapterMappingForDevice } from "./adapterMapping.js";
 import { connectorDisplayAnchors, createConnectorDisplayLayout } from "./connectorDisplayLayout.js";
-import { normalizeConnectorRelationships } from "./deviceDefinitionV2.js";
+import { connectorVisualAnchors, normalizeConnectorRelationships } from "./deviceDefinitionV2.js";
 import {
   deviceVisualAssetReadySubscriberCount,
   deviceVisualCacheKey
@@ -319,8 +319,41 @@ export class EnginePreviewSurface {
 
   setDraftDevice(draft = {}, options = {}) {
     const device = createPreviewDeviceFromDraft(draft, 0);
+    if (this.owner === "stagebox-peer") {
+      this.setStageboxPeerSlotOverlay(device, options.showStageboxSlots ? draft.template?.connectors : null);
+    }
     this.setSceneData({ devices: [device], wires: [], racks: [], meta: { source: "draft-device" } }, options);
     return device;
+  }
+
+  setStageboxPeerSlotOverlay(device, draftConnectors) {
+    this.stageboxPeerSlotOverlay?.remove();
+    this.stageboxPeerSlotOverlay = null;
+    if (!device?.visual?.stageboxEndId || !draftConnectors) return;
+    const slots = device.visual.stageboxNodeOnly?.emptySlots ?? draftConnectors
+      .filter(connector => connector.empty && !connector.hiddenOnCanvas)
+      .map(connector => ({ id: connector.id, anchors: connectorVisualAnchors(connector, device) }));
+    if (!slots.length) return;
+    const documentRef = this.dom.root.ownerDocument;
+    const create = tag => documentRef.createElementNS("http://www.w3.org/2000/svg", tag);
+    const svg = create("svg");
+    svg.setAttribute("width", "100%");
+    svg.setAttribute("height", "100%");
+    svg.setAttribute("aria-hidden", "true");
+    for (const slot of slots) for (const anchor of slot.anchors) {
+      const circle = create("circle");
+      circle.setAttribute("data-stagebox-empty-slot", slot.id);
+      circle.setAttribute("cx", device.x + anchor.x);
+      circle.setAttribute("cy", device.y + anchor.y);
+      circle.setAttribute("r", "7");
+      circle.setAttribute("fill", "rgba(40,189,253,.12)");
+      circle.setAttribute("stroke", "#28bdfd");
+      circle.setAttribute("stroke-dasharray", "3 2");
+      circle.setAttribute("stroke-width", "2");
+      svg.appendChild(circle);
+    }
+    this.dom.overlay.appendChild(svg);
+    this.stageboxPeerSlotOverlay = svg;
   }
 
   replaceDevice(deviceOrDraft = {}, { render = true, refreshTexture = true } = {}) {
@@ -563,6 +596,11 @@ export class EnginePreviewSurface {
       renderOptions: this.renderOptions,
       previewSurface: true
     });
+    if (this.stageboxPeerSlotOverlay) {
+      const { x, y, zoom } = this.camera;
+      const { width, height } = this.renderer.resolution;
+      this.stageboxPeerSlotOverlay.setAttribute("viewBox", `${x} ${y} ${width / zoom} ${height / zoom}`);
+    }
     ENGINE_PREVIEW_LIFECYCLE.renderedFrames += 1;
     return stats;
   }
