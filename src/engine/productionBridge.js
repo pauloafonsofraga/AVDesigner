@@ -2327,7 +2327,7 @@ class ProductionEngineBridge {
         this.enterWireLoomGateway(gateway);
         return;
       }
-      const connector = hitTestConnector(this.scene, world, this.connectorHitToleranceWorld()).connector;
+      const connector = hitTestConnector(this.scene, world, this.connectorHitToleranceWorld(), this.camera.zoom).connector;
       const surface = connector ? null : hitTestLedSurfaceTarget(this.scene, world, this.wireCreate.from).target;
       const target = connector || surface;
       if (target && target !== this.wireCreate.from) {
@@ -2344,7 +2344,7 @@ class ProductionEngineBridge {
       event.preventDefault();
       this.capturePointer(event.pointerId);
       const world = screenToWorld(this.camera, point);
-      const connector = hitTestConnector(this.scene, world, this.connectorHitToleranceWorld()).connector;
+      const connector = hitTestConnector(this.scene, world, this.connectorHitToleranceWorld(), this.camera.zoom).connector;
       if (connector && connector !== this.wireCreate.from) {
         this.wireCreate.target = connector;
         this.completeWireRewire();
@@ -2434,7 +2434,7 @@ class ProductionEngineBridge {
       return;
     }
 
-    const connectorHit = hitTestConnector(this.scene, world, this.connectorHitToleranceWorld());
+    const connectorHit = hitTestConnector(this.scene, world, this.connectorHitToleranceWorld(), this.camera.zoom);
     if (connectorHit.connector) {
       if (isJumpConnectorHit(connectorHit.connector)) {
         const jumpDevice = connectorHit.connector.device;
@@ -2966,7 +2966,7 @@ class ProductionEngineBridge {
       const gateway = !this.wireCreate.loomId
         ? hitTestLoom(this.scene, world, this.hitToleranceWorld()) : null;
       this.wireCreate.gatewayHover = gateway?.part === "sideA" || gateway?.part === "sideB" ? gateway : null;
-      const connectorHit = hitTestConnector(this.scene, world, this.connectorHitToleranceWorld());
+      const connectorHit = hitTestConnector(this.scene, world, this.connectorHitToleranceWorld(), this.camera.zoom);
       const surfaceHit = connectorHit.connector
         ? { target: null, candidates: 0, ms: 0 }
         : hitTestLedSurfaceTarget(this.scene, world, this.wireCreate.from);
@@ -5443,7 +5443,7 @@ class ProductionEngineBridge {
       let suppressedConnectorHit = { connector: null, candidates: 0, ms: 0 };
       let suppressedWireHit = { wire: null, candidates: 0, ms: 0 };
       if (this.debugJumpNodes || engineDebugHudEnabled()) {
-        suppressedConnectorHit = hitTestConnector(this.scene, world, this.connectorHitToleranceWorld());
+        suppressedConnectorHit = hitTestConnector(this.scene, world, this.connectorHitToleranceWorld(), this.camera.zoom);
         suppressedWireHit = hitTestWire(this.scene, world, tolerance);
       }
       const hoverOwnership = jumpIdleHoverPrecedence({
@@ -5491,7 +5491,7 @@ class ProductionEngineBridge {
       this.scheduleRender();
       return;
     }
-    let connectorHit = hitTestConnector(this.scene, world, this.connectorHitToleranceWorld());
+    let connectorHit = hitTestConnector(this.scene, world, this.connectorHitToleranceWorld(), this.camera.zoom);
     if (!this.wireCreate && isJumpConnectorHit(connectorHit.connector)) {
       connectorHit = { connector: null, candidates: connectorHit.candidates, ms: connectorHit.ms };
     }
@@ -5601,7 +5601,7 @@ class ProductionEngineBridge {
         };
       }
     }
-    const connectorHit = hitTestConnector(this.scene, world, this.connectorHitToleranceWorld());
+    const connectorHit = hitTestConnector(this.scene, world, this.connectorHitToleranceWorld(), this.camera.zoom);
     if (connectorHit.connector) {
       const device = connectorHit.connector.device;
       if (isJumpConnectorHit(connectorHit.connector)) return this.contextMenuObjectTarget(device);

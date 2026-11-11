@@ -85,6 +85,23 @@ try {
   assert.ok(first.equals(second), "Ordinary device canvas pixels differed");
   await before.close();
 
+  const zoomProject = stageboxNodeOnlyFixture(4, ["rectangle", "fanout"]);
+  const zoomNode = () => page.evaluate(() => {
+    const { scene } = activeEngineBridge();
+    const end = scene.devices.find(d => d.stageboxIdentity?.endId === "end-b");
+    const connector = scene.getConnector(end.id, "b-4");
+    return scene.connectorWorldPoint(end, connector);
+  });
+  await load(page, zoomProject, { x: -30, y: -5, zoom: 1 });
+  const zoomAnchor = await zoomNode();
+  await grab(page, "snake-zoom-100.png");
+  await load(page, zoomProject, { x: -30, y: -5, zoom: .5 });
+  assert.deepEqual(await zoomNode(), zoomAnchor);
+  await grab(page, "snake-zoom-50.png");
+  const zoomedRim = await screen(page, { ...zoomAnchor, x: zoomAnchor.x + 14 });
+  await page.mouse.move(zoomedRim.x, zoomedRim.y);
+  await page.waitForFunction(() => activeEngineBridge().hoverState.connector?.connector.id === "b-4");
+
   await load(page, project);
   for (const [id, wireIds, channel] of [["left-1", ["left-1", "right-1"], "ch-1"], ["right-2", ["right-2", "left-2"], "ch-2"]]) {
     const point = await page.evaluate(id => {

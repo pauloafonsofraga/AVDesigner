@@ -1,23 +1,39 @@
 import { stageboxFaceplateLayout } from "./deviceVisualBuilder.js";
 import { connectorVisualAnchors } from "./deviceDefinitionV2.js";
+import { legacyCanvasDetailScale } from "./legacyZoomDetail.js";
 
 export const STAGEBOX_TRUNK_COLOR = "#80d4ff";
 export const STAGEBOX_NODE_RADIUS = 7;
 export const STAGEBOX_NODE_RIM = .625;
 const PAD = 13, GRID_PITCH = 26, RING_CLEARANCE = 21;
+// Allow for the thin white rim and the outer dark outline.
+const STAGEBOX_MARKER_EXTENT = STAGEBOX_NODE_RADIUS - STAGEBOX_NODE_RIM + STAGEBOX_NODE_RIM * 2.4 + .55;
+
+export function stageboxNodeDetailScale(device, zoom = 1) {
+  const spacing = device?.visual?.stageboxNodeOnly?.nodeSpacing;
+  const limit = spacing ? Math.max(1, (spacing - 1) / (2 * STAGEBOX_MARKER_EXTENT)) : Infinity;
+  return Math.min(legacyCanvasDetailScale(zoom), limit);
+}
+
+export function stageboxNodeHitRadius(device, zoom) {
+  return Math.max(11, STAGEBOX_MARKER_EXTENT * stageboxNodeDetailScale(device, zoom));
+}
 
 function compactScale({ nodes, panel }, shape) {
   if (nodes.length < 2) return { x: 1, y: 1 };
-  if (shape === "fanout") return { x: 1, y: Math.max(1, RING_CLEARANCE / (nodes[1].y - nodes[0].y)) };
+  if (shape === "fanout") {
+    const pitch = nodes[1].y - nodes[0].y;
+    return { x: 1, y: Math.max(1, RING_CLEARANCE / pitch), spacing: Math.max(pitch, RING_CLEARANCE) };
+  }
   if (shape === "rectangle") {
     const columns = Math.ceil(Math.sqrt(nodes.length)), rows = Math.ceil(nodes.length / columns);
-    return { x: GRID_PITCH * (columns + 1) / panel.width, y: GRID_PITCH * (rows + 1) / panel.height };
+    return { x: GRID_PITCH * (columns + 1) / panel.width, y: GRID_PITCH * (rows + 1) / panel.height, spacing: GRID_PITCH };
   }
   let nearest = Infinity;
   for (const [i, a] of nodes.entries()) for (const b of nodes.slice(i + 1)) {
     nearest = Math.min(nearest, Math.hypot(a.x - b.x, a.y - b.y));
   }
-  return { x: RING_CLEARANCE / nearest, y: RING_CLEARANCE / nearest };
+  return { x: RING_CLEARANCE / nearest, y: RING_CLEARANCE / nearest, spacing: RING_CLEARANCE };
 }
 
 export function projectStageboxEndNodes(device, { keepFrame = false, editorConnectors } = {}) {
@@ -59,6 +75,7 @@ export function projectStageboxEndNodes(device, { keepFrame = false, editorConne
   const trunk = { x: cx + (stem ? stemOffset : endId === "end-a" ? halfWidth : -halfWidth), y: cy };
   return { ...device, width, height,
     visual: { ...visual, stageboxNodeOnly: { shape, cx, cy, halfWidth, halfHeight, trunk,
+      ...(scale.spacing ? { nodeSpacing: scale.spacing } : {}),
       ...(stem ? { root: { x: cx + rootOffset, y: cy } } : {}),
       ...(emptySlots.length ? { emptySlots: emptySlots.map(slot => ({
         id: slot.id, direction: slot.direction, anchors: connectorVisualAnchors(slot, device).map(anchor => ({

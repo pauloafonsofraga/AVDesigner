@@ -416,7 +416,7 @@ export class EnginePreviewSurface {
       return this.hitTestConnectorEntries(screenPoint, tolerancePx, options);
     }
     const worldPoint = this.screenToWorld(screenPoint);
-    return hitTestConnector(this.scene, worldPoint, Math.max(1, tolerancePx / Math.max(0.0001, this.camera.zoom)));
+    return hitTestConnector(this.scene, worldPoint, Math.max(1, tolerancePx / Math.max(0.0001, this.camera.zoom)), this.camera.zoom);
   }
 
   hitTestConnectorEntries(screenPoint, tolerancePx = 12, options = {}) {

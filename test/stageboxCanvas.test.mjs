@@ -12,7 +12,8 @@ import { captureTopologyState, createTopologyCommand, createTopologyReplayState,
 import { stageboxNodeOnlyFixture } from "../fixtures/stagebox-node-only.mjs";
 import { createOutputViewerModel, outputCableTrace } from "../src/engine/outputViewerModel.js";
 import { continuousStageboxPoints, stageboxSignalPath } from "../src/engine/stageboxSignalPath.js";
-import { stageboxTrunkArc } from "../src/engine/stageboxNodeGeometry.js";
+import { stageboxNodeDetailScale, stageboxNodeHitRadius, stageboxTrunkArc } from "../src/engine/stageboxNodeGeometry.js";
+import { legacyCanvasDetailScale } from "../src/engine/legacyZoomDetail.js";
 import { hitTestConnector } from "../src/engine/hitTest.js";
 import { generatePdf } from "../src/engine/outputPdf.js";
 import { createPreviewDeviceFromDraft } from "../src/engine/enginePreview.js";
@@ -173,6 +174,32 @@ test("editor-only empty slots share every Stagebox layout and stay put when fill
     assert.equal(main.visual.stageboxNodeOnly.emptySlots, undefined);
     assert.ok(!main.connectors.some(c => c.id === id));
   }
+});
+
+test("Stagebox markers use device zoom compensation where there is room without moving anchors", () => {
+  const scene = new SceneGraph();
+  scene.setData(normalizeAvDesignerProject(stageboxNodeOnlyFixture(4, ["rectangle", "fanout"])));
+  const ends = scene.devices.filter(d => d.stageboxIdentity);
+  const [box, tails] = ends;
+  for (const end of ends) assert.equal(stageboxNodeDetailScale(end, 1), 1);
+  for (const zoom of [2, 1, .85, .5, .3]) {
+    assert.equal(stageboxNodeDetailScale(tails, zoom), legacyCanvasDetailScale(zoom));
+  }
+  assert.ok(stageboxNodeDetailScale(box, .5) > 1);
+  assert.ok(stageboxNodeDetailScale(box, .5) < legacyCanvasDetailScale(.5));
+  const dense = new SceneGraph();
+  dense.setData(normalizeAvDesignerProject(stageboxNodeOnlyFixture(100, ["rectangle", "circular"])));
+  const ring = dense.devices.find(d => d.stageboxIdentity?.endId === "end-b");
+  const points = ring.connectors.map(c => dense.connectorWorldPoint(ring, c));
+  const scale = stageboxNodeDetailScale(ring, .2);
+  assert.ok(scale > 1 && scale < legacyCanvasDetailScale(.2));
+  const visibleDiameter = 2 * (7 - .625 + 1.25 * 1.2 + .55) * scale;
+  assert.ok(points.every((p, i) => points.slice(i + 1).every(q => Math.hypot(p.x - q.x, p.y - q.y) > visibleDiameter)));
+  assert.deepEqual(ring.connectors.map(c => dense.connectorWorldPoint(ring, c)), points);
+  const node = scene.connectorWorldPoint(tails, tails.connectors[0]);
+  const edge = { x: node.x + stageboxNodeHitRadius(tails, .5) - 1, y: node.y };
+  assert.equal(hitTestConnector(scene, edge, 30, 1).connector, null);
+  assert.equal(hitTestConnector(scene, edge, 30, .5).connector?.connector.id, tails.connectors[0].id);
 });
 
 test("both signal directions use only their mapped channel and preserve every join through movement and export", async () => {

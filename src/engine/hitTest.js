@@ -1,4 +1,5 @@
 import {layerEditable,layerVisible} from './projectLayers.js';
+import { stageboxNodeHitRadius } from "./stageboxNodeGeometry.js";
 const layerHitAllowed=(scene,item)=>scene.readOnly ? Boolean(item) && layerVisible(item) : layerEditable(item);
 
 export function screenToWorld(camera, point) {
@@ -47,7 +48,7 @@ export function hitTestRack(scene, worldPoint) {
   };
 }
 
-export function hitTestConnector(scene, worldPoint, tolerance = 10) {
+export function hitTestConnector(scene, worldPoint, tolerance = 10, zoom = 1) {
   const start = performance.now();
   const candidates = scene.connectorIndex.queryRect(toleranceRect(worldPoint, tolerance));
   let best = null;
@@ -61,7 +62,7 @@ export function hitTestConnector(scene, worldPoint, tolerance = 10) {
     if (scene.meta?.projectLayers?.length && (hitTestDevice(scene,worldPoint).device?.layerOrder || 0) > (device.layerOrder || 0)) return;
     const distance = Math.hypot(point.x - worldPoint.x, point.y - worldPoint.y);
     const radius = device.kind === "jump" ? Math.max(tolerance * 1.9, device.visual?.jumpLoomId || device.visual?.jumpMultiCoreId ? 22 : 0)
-      : device.visual?.stageboxNodeOnly ? Math.min(tolerance, 11) : tolerance;
+      : device.visual?.stageboxNodeOnly ? Math.min(tolerance, stageboxNodeHitRadius(device, zoom)) : tolerance;
     if (distance <= radius && distance < bestDistance) {
       bestDistance = distance;
       const anchor = payload.anchor || null;

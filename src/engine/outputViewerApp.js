@@ -249,7 +249,7 @@ export class EngineOutputViewer {
     if (!this.hoverPoint || this.pointers.size) return;
     const world = screenToWorld(this.camera, this.hoverPoint), tolerance = 9 / this.camera.zoom;
     this.hoveredJumpId = this.jumpAt(world)?.id || null;
-    const hit = hitTestConnector(this.scene, world, tolerance).connector;
+    const hit = hitTestConnector(this.scene, world, tolerance, this.camera.zoom).connector;
     if (hit?.device.stageboxIdentity) this.hoveredStageboxConnector = hit;
     if (this.hoveredJumpId || hit) return;
     if (this.visibleJumpLinkOverlays().some(link => distanceToPolyline(link.points, world).distance < tolerance)) return;
@@ -275,7 +275,7 @@ export class EngineOutputViewer {
     const world = screenToWorld(this.camera, point), tolerance = 9 / this.camera.zoom;
     const jump = this.jumpAt(world);
     if (jump) return this.select({ type: "device", id: jump.id });
-    const connector = hitTestConnector(this.scene, world, tolerance).connector;
+    const connector = hitTestConnector(this.scene, world, tolerance, this.camera.zoom).connector;
     if (connector) return this.select({ type: "connector", deviceId: connector.device.id, id: connector.connector.id });
     const link = this.visibleJumpLinkOverlays().find(l => distanceToPolyline(l.points, world).distance < tolerance);
     if (link) return this.select({ type: "jump-link", id: link.id });

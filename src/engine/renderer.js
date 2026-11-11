@@ -83,7 +83,7 @@ import { wirePlaybackEase } from "./wirePlayback.js";
 import { isPhysicalJumpWire, wireCaption } from "./cableCaption.js";
 import { highlightedCableWireIds } from "./cableSelection.js";
 import { stageboxSignalPath } from "./stageboxSignalPath.js";
-import { STAGEBOX_NODE_RADIUS, STAGEBOX_NODE_RIM } from "./stageboxNodeGeometry.js";
+import { STAGEBOX_NODE_RADIUS, STAGEBOX_NODE_RIM, stageboxNodeDetailScale } from "./stageboxNodeGeometry.js";
 import { rackShellSlices, rackShellStyle, normalizeRackShell } from "./rackShell.js";
 
 export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-154-project-layers";
@@ -3307,12 +3307,12 @@ function pushSegmentedCircle(vertices, point, radius, colors, opacity = 1) {
 }
 
 function connectorVisualRadius(device = {}, camera = null) {
-  if (device.visual?.stageboxEndId) return STAGEBOX_NODE_RADIUS - STAGEBOX_NODE_RIM;
+  if (device.visual?.stageboxEndId) return (STAGEBOX_NODE_RADIUS - STAGEBOX_NODE_RIM) * stageboxNodeDetailScale(device, camera?.zoom);
   return device?.kind === "jump" ? JUMP_CONNECTOR_RADIUS : legacyConnectorRadius(camera?.zoom || 1, CONNECTOR_RADIUS);
 }
 
 function connectorVisualStrokeWidth(device = {}, camera = null) {
-  if (device.visual?.stageboxEndId) return STAGEBOX_NODE_RIM * 2;
+  if (device.visual?.stageboxEndId) return STAGEBOX_NODE_RIM * 2 * stageboxNodeDetailScale(device, camera?.zoom);
   return device?.kind === "jump" ? 2 : legacyConnectorStrokeWidth(camera?.zoom || 1);
 }
 
@@ -4041,6 +4041,7 @@ function matrixRouteConnectorColor(connector = {}, options = DEFAULT_RENDER_OPTI
 function drawStageboxNodeBadges(ctx, devices, camera, offsets = null) {
   for (const device of devices) {
     if (!device.visual?.stageboxEndId) continue;
+    const textScale = camera.zoom * stageboxNodeDetailScale(device, camera.zoom);
     const shift = offsets?.get(device.id);
     const displayLayout = createConnectorDisplayLayout(device);
     ctx.save();
@@ -4055,10 +4056,10 @@ function drawStageboxNodeBadges(ctx, devices, camera, offsets = null) {
       for (const anchor of connectorDisplayAnchors(device, connector, displayLayout)) {
         const x = (device.x + anchor.x + (shift?.dx || 0) - camera.x) * camera.zoom;
         const y = (device.y + anchor.y + (shift?.dy || 0) - camera.y) * camera.zoom;
-        ctx.font = `700 ${4.35 * camera.zoom}px system-ui, sans-serif`;
-        ctx.fillText(connector.direction === "input" ? "IN" : "OUT", x, y - 2.45 * camera.zoom);
-        ctx.font = `700 ${5 * camera.zoom}px system-ui, sans-serif`;
-        ctx.fillText(String(connector.stageboxNumber), x, y + 2.45 * camera.zoom);
+        ctx.font = `700 ${4.35 * textScale}px system-ui, sans-serif`;
+        ctx.fillText(connector.direction === "input" ? "IN" : "OUT", x, y - 2.45 * textScale);
+        ctx.font = `700 ${5 * textScale}px system-ui, sans-serif`;
+        ctx.fillText(String(connector.stageboxNumber), x, y + 2.45 * textScale);
       }
     }
     ctx.restore();
