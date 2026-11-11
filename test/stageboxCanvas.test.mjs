@@ -12,9 +12,9 @@ import { captureTopologyState, createTopologyCommand, createTopologyReplayState,
 import { stageboxNodeOnlyFixture } from "../fixtures/stagebox-node-only.mjs";
 import { createOutputViewerModel, outputCableTrace } from "../src/engine/outputViewerModel.js";
 import { continuousStageboxPoints, stageboxSignalPath } from "../src/engine/stageboxSignalPath.js";
-import { STAGEBOX_NODE_RIM, stageboxNodeDetailScale, stageboxNodeFillRadius, stageboxNodeHitRadius, stageboxPreviewBounds, stageboxTrunkArc } from "../src/engine/stageboxNodeGeometry.js";
+import { STAGEBOX_NODE_RIM, stageboxFanoutBranchPoints, stageboxNodeDetailScale, stageboxNodeFillRadius, stageboxNodeHitRadius, stageboxPreviewBounds, stageboxTrunkArc } from "../src/engine/stageboxNodeGeometry.js";
 import { legacyCanvasDetailScale, legacyConnectorRadius, legacyConnectorStrokeWidth } from "../src/engine/legacyZoomDetail.js";
-import { hitTestConnector } from "../src/engine/hitTest.js";
+import { hitTestConnector, hitTestStageboxFanoutBranch } from "../src/engine/hitTest.js";
 import { generatePdf } from "../src/engine/outputPdf.js";
 import { createPreviewDeviceFromDraft, EnginePreviewSurface, fitCameraToBounds } from "../src/engine/enginePreview.js";
 
@@ -120,6 +120,44 @@ test("output trunk is light blue and exactly three normal cable widths", () => {
   const widths = Object.fromEntries(engineOutputPrimitives(scene, contract).wires.map(({ id, vertices }) =>
     [id, Math.hypot(vertices[0] - vertices[30], vertices[1] - vertices[31])]));
   assert.ok(Math.abs(widths[trunk.id] - widths.entry * 3) < 1e-6);
+});
+
+test("fanout cable color is hit-tested and saved per branch without changing the node, trunk or patch cables", async () => {
+  const project = stageboxNodeOnlyFixture(4, ["rectangle", "fanout"]);
+  const before = normalizeAvDesignerProject(project);
+  const scene = new SceneGraph();
+  scene.setData(before);
+  const end = scene.devices.find(d => d.stageboxIdentity?.endId === "end-b");
+  const connector = scene.getConnector(end.id, "b-1");
+  const points = stageboxFanoutBranchPoints(end, connector);
+  assert.equal(hitTestStageboxFanoutBranch(scene, points[17], 4)?.connector.id, connector.id);
+  assert.equal(hitTestStageboxFanoutBranch(scene, points[0], 4), null);
+  end.layerLocked = true;
+  assert.equal(hitTestStageboxFanoutBranch(scene, points[17], 4), null);
+  end.layerLocked = false;
+  const adapter = new ProjectMutationAdapter(before);
+  assert.equal(adapter.updateStageboxFanoutColor(end, "b-1", "url(unsafe)"), null);
+  assert.equal(adapter.updateStageboxFanoutColor(scene.getDevice("snake"), "a-1", "#e84729"), null);
+  assert.notEqual(adapter.updateStageboxFanoutColor(end, "b-1", "#E84729"), null);
+  const saved = JSON.parse(adapter.exportJson());
+  assert.deepEqual(saved.devices[1].stageboxFanoutColors, { "b-1": "#e84729" });
+  assert.deepEqual(saved.devices[1].templateOverride, project.devices[1].templateOverride);
+  assert.deepEqual(saved.connections, project.connections);
+  const reopened = normalizeAvDesignerProject(saved);
+  const reopenedEnd = reopened.devices.find(d => d.id === end.id);
+  assert.deepEqual(reopenedEnd.visual.stageboxNodeOnly.branchColors, { "b-1": "#e84729" });
+  assert.deepEqual(reopenedEnd.connectors, before.devices.find(d => d.id === end.id).connectors);
+  assert.deepEqual(reopened.wires, before.wires);
+  const contract = buildEngineOutputScene(saved);
+  const { svg } = renderEngineOutputSvg(contract);
+  assert.match(svg, /<linearGradient[^>]*>\s*<stop[^>]*#80d4ff[^>]*>\s*<stop[^>]*#e84729/);
+  assert.equal((svg.match(/#e84729/g) || []).length, 1);
+  const replayState = createTopologyReplayState("fanout-color");
+  const command = await createTopologyCommand(project, saved, { state: replayState });
+  const replayed = await replayTopologyCommand(project, command, replayState);
+  assert.deepEqual(captureTopologyState(replayed.project), captureTopologyState(saved));
+  assert.notEqual(adapter.updateStageboxFanoutColor(end, "b-1", ""), null);
+  assert.equal(JSON.parse(adapter.exportJson()).devices[1].stageboxFanoutColors, undefined);
 });
 
 test("automatic rectangular and circular ends use compact live anchors without changing canonical definitions", () => {

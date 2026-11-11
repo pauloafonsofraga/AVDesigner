@@ -3,6 +3,10 @@ import "./stageboxSnakeCore.js";
 export const { STAGEBOX_SNAKE_CATEGORY, STAGEBOX_MAX_NODES, normalizeStageboxSnake, stageboxSnakeTogglePatch, stageboxEndDraft,
   commitStageboxEndDraft, assignStageboxConnector, setStageboxChannel } = globalThis.WireNexusStageboxSnake;
 
+export function normalizeStageboxFanoutColor(value) {
+  return typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value) ? value.toLowerCase() : "";
+}
+
 export function effectiveStageboxChannels(definition, connectors = []) {
   const channels = [...(definition?.channels || [])];
   if (!definition?.ends?.length) return channels;

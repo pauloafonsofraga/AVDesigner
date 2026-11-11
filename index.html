@@ -31443,6 +31443,7 @@
 
     function renderInspector() {
       renderProjectLayersPanel();
+      if (activeEngineBridge()?.renderStageboxFanoutInspector?.(inspectorBody)) return;
       if (state.selected?.type==='image-object' && projectLayersPanel?.renderReferenceInspector(inspectorBody,state.selected.id)) return;
       if (activeEngineBridge()?.renderMultiCoreInspector?.(inspectorBody)) return;
       const selection = state.selected;
@@ -37884,6 +37885,11 @@ document.addEventListener("click", function(event) {
     }
 
     function syncProductionSelectionFromEngine(selection = {}) {
+      if (selection.stageboxFanoutBranch) {
+        state.selected = null;
+        renderInspector();
+        return;
+      }
       const projected = [...(selection.devices || []), ...(selection.wires || [])].filter(item => item.multiCoreIdentity);
       if (projected.length) {
         state.selected = { type: "multi-core-selection", items: [

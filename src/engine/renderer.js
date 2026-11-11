@@ -1375,6 +1375,9 @@ export class WebglGraphRenderer {
           if (wire && renderOptions.wires) pushWireHover(liveVertices, scene, wire, null, renderOptions, this.cableHopMap);
         }
         if (renderOptions.wires) {
+          if (interaction.selectedStageboxFanout) {
+            pushPolyline(liveVertices, interaction.selectedStageboxFanout, 5.5, "rgba(251,121,4,.4)");
+          }
           for (const step of [...stageboxSelections.flat(), ...stageboxHover]) {
             if (step.type === "stagebox") pushPolyline(liveVertices, step.points, step.part === "trunk" ? WIRE_STATIC_WIDTH * 3 : 3.6, "#c4eaff");
             else if (stageboxHover.includes(step) && step.wireId !== hoveredWireId) {

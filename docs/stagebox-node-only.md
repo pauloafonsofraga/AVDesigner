@@ -15,6 +15,11 @@ The editor shows a red notice at the limit; existing slots can still be
 filled or removed. Older definitions above the cap keep their existing
 anchors rather than dropping nodes.
 
+Click an individual fanout branch on the project canvas to set or reset its
+color in the Inspector. The override belongs to the placed snake and follows
+the branch's connector ID. It changes only the branch's gradient endpoint,
+not the node, trunk or patch cables.
+
 Stored mappings take priority. Without an explicit mapping for either port,
 an unambiguous match requires the same authored channel name and connector
 type and opposite directions. The match is derived without rewriting the

@@ -1,5 +1,5 @@
 import {layerEditable,layerVisible} from './projectLayers.js';
-import { stageboxNodeHitRadius } from "./stageboxNodeGeometry.js";
+import { stageboxFanoutBranchPoints, stageboxNodeHitRadius } from "./stageboxNodeGeometry.js";
 const layerHitAllowed=(scene,item)=>scene.readOnly ? Boolean(item) && layerVisible(item) : layerEditable(item);
 
 export function screenToWorld(camera, point) {
@@ -135,6 +135,20 @@ export function hitTestWire(scene, worldPoint, tolerance = 8) {
     candidates: candidates.length,
     ms: performance.now() - start
   };
+}
+
+export function hitTestStageboxFanoutBranch(scene, worldPoint, tolerance = 8) {
+  const { device } = hitTestDevice(scene, worldPoint);
+  if (!device?.visual?.stageboxNodeOnly?.root) return null;
+  let best = null;
+  for (const connector of device.connectors) {
+    if (!scene.isConnectorVisibleOnCanvas(device, connector)) continue;
+    // The shared start is not a distinct branch hit target.
+    const points = stageboxFanoutBranchPoints(device, connector).slice(4);
+    const { distance } = distanceToPolyline(points, worldPoint);
+    if (distance <= tolerance && (!best || distance < best.distance)) best = { device, connector, distance };
+  }
+  return best;
 }
 
 export function hitTestLoom(scene, worldPoint, tolerance = 8) {

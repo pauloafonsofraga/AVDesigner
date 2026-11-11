@@ -1,5 +1,5 @@
 import { resolveProjectorLens } from "./projectorModel.js";
-import { effectiveStageboxChannels, normalizeStageboxSnake, stageboxEndDraft } from "./stageboxSnake.js";
+import { effectiveStageboxChannels, normalizeStageboxFanoutColor, normalizeStageboxSnake, stageboxEndDraft } from "./stageboxSnake.js";
 import { projectStageboxEndNodes } from "./stageboxNodeGeometry.js";
 import { projectWireRouting } from "./wireRoutingPolicy.js";
 import { reflowFaceImageLayout } from "./faceplateGeometry.js";
@@ -532,7 +532,7 @@ export function projectStageboxAssembly({ stageboxTemplate, ...device }, instanc
         x: anchor.x === device.width && !layout.anchors ? end.width : anchor.x }));
       return { ...c, ...layout, anchors, x: layout.x ?? (c.x === device.width ? end.width : c.x) };
     });
-    return projectStageboxEndNodes({ ...device, id, x: device.x + finiteNumber(position?.x, index ? definition.ends[0].width + 160 : 0),
+    const projected = projectStageboxEndNodes({ ...device, id, x: device.x + finiteNumber(position?.x, index ? definition.ends[0].width + 160 : 0),
       y: device.y + finiteNumber(position?.y, 0), width: end.width, height: end.height,
       label: `${device.label} / ${end.name}`, connectors, portCount: connectors.length,
       ...(!index ? { stageboxSource: { ...instance, templateOverride: instance.templateOverride || stageboxTemplate } } : {}),
@@ -542,6 +542,15 @@ export function projectStageboxAssembly({ stageboxTemplate, ...device }, instanc
       visual: { ...normalizeDeviceVisualMetadata(draft, {}, end.width, end.height, new Map()),
         enableInternalRouting: false, stageboxRepresentation: end.representation },
       matrixRoutes: {}, internalSignalRoutes: [] });
+    const fanout = projected.visual.stageboxNodeOnly;
+    if (fanout?.root && instance.stageboxFanoutColors) {
+      const colors = projected.connectors.flatMap(connector => {
+        const color = normalizeStageboxFanoutColor(instance.stageboxFanoutColors[connector.id]);
+        return color ? [[connector.id, color]] : [];
+      });
+      if (colors.length) fanout.branchColors = Object.fromEntries(colors);
+    }
+    return projected;
   });
   return { ends, trunk: { id: `stagebox-trunk:${secondId}`, stageboxAssemblyId: device.id,
     fromDeviceId: ends[0].id, toDeviceId: ends[1].id, fromSide: "right", toSide: "left",

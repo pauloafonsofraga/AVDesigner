@@ -214,6 +214,37 @@ try {
     loadProjectFile(new File([json], "Stagebox Node-Only.avd"), { onLoaded, onError })), saved);
   await page.waitForFunction(() => activeEngineBridge().scene.devices.filter(d => d.visual?.stageboxNodeOnly?.shape === "fanout").length === 2);
 
+  const branchDetails = () => page.evaluate(async () => {
+    const { stageboxFanoutBranchPoints } = await import("/src/engine/stageboxNodeGeometry.js");
+    const { scene } = activeEngineBridge();
+    const device = scene.devices.find(d => d.stageboxIdentity?.endId === "end-b");
+    const connector = scene.getConnector(device.id, "b-1");
+    return { point: stageboxFanoutBranchPoints(device, connector)[16], nodeColor: connector.color,
+      branchColor: device.visual.stageboxNodeOnly.branchColors?.["b-1"] || "" };
+  });
+  const clickBranch = async () => {
+    const position = await screen(page, (await branchDetails()).point);
+    await page.mouse.click(position.x, position.y);
+    await page.getByLabel("Fanout Cable Color", { exact: true }).waitFor();
+  };
+  await load(page, stageboxNodeOnlyFixture(4, ["fanout", "fanout"]));
+  const originalBranch = await branchDetails();
+  await clickBranch();
+  const picker = page.getByLabel("Fanout Cable Color", { exact: true });
+  await picker.fill("#ff6419");
+  assert.deepEqual(await branchDetails(), { ...originalBranch, branchColor: "#ff6419" });
+  await page.evaluate(() => activeEngineBridge().undoEngineCommand());
+  assert.deepEqual(await branchDetails(), originalBranch);
+  await page.evaluate(() => activeEngineBridge().redoEngineCommand());
+  assert.equal((await branchDetails()).branchColor, "#ff6419");
+  await page.screenshot({ path: join(artifacts, "fanout-color-inspector.png") });
+  const coloredProject = await page.evaluate(() => JSON.parse(activeEngineBridge().mutations.exportJson()));
+  await load(page, coloredProject);
+  await clickBranch();
+  assert.equal(await picker.inputValue(), "#ff6419");
+  await page.getByRole("button", { name: "Reset Color", exact: true }).click();
+  assert.deepEqual(await branchDetails(), originalBranch);
+
   const draftProject = stageboxNodeOnlyFixture(4, ["rectangle", "fanout"]);
   draftProject.connections = [];
   const draftSnake = draftProject.devices[1].templateOverride;

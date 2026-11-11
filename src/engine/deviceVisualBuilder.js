@@ -493,7 +493,7 @@ export function stageboxFaceplateLayout(connectors, representation, endId, width
 }
 
 function drawStageboxNodeOnly(ctx, device) {
-  const { shape, cx, cy, halfWidth, halfHeight, root, trunk } = device.visual.stageboxNodeOnly;
+  const { shape, cx, cy, halfWidth, halfHeight, root, trunk, branchColors } = device.visual.stageboxNodeOnly;
   ctx.save();
   ctx.lineCap = "round";
   ctx.strokeStyle = "#8da6b8";
@@ -517,7 +517,7 @@ function drawStageboxNodeOnly(ctx, device) {
       const dx = c.x - root.x;
       const gradient = ctx.createLinearGradient(root.x, root.y, c.x, root.y);
       gradient.addColorStop(0, "#80d4ff");
-      gradient.addColorStop(1, c.color || "#d4dce5");
+      gradient.addColorStop(1, (branchColors && Object.hasOwn(branchColors, c.id) ? branchColors[c.id] : c.color) || "#d4dce5");
       ctx.strokeStyle = gradient;
       ctx.beginPath();
       ctx.moveTo(root.x, root.y);

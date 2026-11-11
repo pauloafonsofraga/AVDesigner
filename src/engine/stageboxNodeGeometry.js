@@ -142,3 +142,10 @@ export function stageboxFanoutPath(root, tip) {
       y: root.y + (tip.y - root.y) * (3 * u * t * t + t ** 3) };
   });
 }
+
+export function stageboxFanoutBranchPoints(device, connector) {
+  const root = device?.visual?.stageboxNodeOnly?.root;
+  if (!root || !connector || connector.empty || connector.hiddenOnCanvas) return [];
+  return stageboxFanoutPath({ x: device.x + root.x, y: device.y + root.y },
+    { x: device.x + connector.x, y: device.y + connector.y });
+}
