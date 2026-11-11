@@ -214,36 +214,85 @@ try {
     loadProjectFile(new File([json], "Stagebox Node-Only.avd"), { onLoaded, onError })), saved);
   await page.waitForFunction(() => activeEngineBridge().scene.devices.filter(d => d.visual?.stageboxNodeOnly?.shape === "fanout").length === 2);
 
+  const pane = endId => page.locator(`[data-stagebox-pane="${endId}"]`);
+  const activateEnd = async endId => {
+    const active = await pane(endId).evaluate(el => el.classList.contains("active"));
+    if (active) return;
+    const button = pane(endId).locator("[data-stagebox-end]");
+    await (await button.count() ? button : pane(endId).locator(".stagebox-preview-slot")).click();
+  };
+  const openConnectors = async () => {
+    await page.evaluate(() => openDeviceEditorForInstance("snake"));
+    await page.locator('[data-editor-tab="connectors"]').click();
+    await activateEnd("end-b");
+  };
   const branchDetails = () => page.evaluate(async () => {
     const { stageboxFanoutBranchPoints } = await import("/src/engine/stageboxNodeGeometry.js");
-    const { scene } = activeEngineBridge();
+    const surface = editorEnginePreviewSurface;
+    const { scene } = surface;
     const device = scene.devices.find(d => d.stageboxIdentity?.endId === "end-b");
-    const connector = scene.getConnector(device.id, "b-1");
-    return { point: stageboxFanoutBranchPoints(device, connector)[16], nodeColor: connector.color,
-      branchColor: device.visual.stageboxNodeOnly.branchColors?.["b-1"] || "" };
+    const end = device || scene.devices[0];
+    const connector = scene.getConnector(end.id, "b-1");
+    const point = surface.worldToScreen(stageboxFanoutBranchPoints(end, connector)[15]);
+    const box = surface.dom.root.getBoundingClientRect();
+    return { point: { x: point.x + box.left, y: point.y + box.top }, nodeColor: connector.color,
+      badge: connector.stageboxNodeLabel || "",
+      branchColor: end.visual.stageboxNodeOnly.branchColors?.["b-1"] || "" };
   });
   const clickBranch = async () => {
-    const position = await screen(page, (await branchDetails()).point);
+    const position = (await branchDetails()).point;
     await page.mouse.click(position.x, position.y);
     await page.getByLabel("Fanout Cable Color", { exact: true }).waitFor();
   };
-  await load(page, stageboxNodeOnlyFixture(4, ["fanout", "fanout"]));
+  const appearance = stageboxNodeOnlyFixture(4, ["rectangle", "fanout"]);
+  appearance.devices[1].stageboxFanoutColors = { "b-1": "#b86c00" };
+  await load(page, appearance);
+  await openConnectors();
   const originalBranch = await branchDetails();
   await clickBranch();
   const picker = page.getByLabel("Fanout Cable Color", { exact: true });
+  assert.equal(await picker.inputValue(), "#b86c00");
+  const badge = page.getByLabel("Inside Node Label", { exact: true });
+  await badge.fill("MIC\nA1");
+  await badge.press("Tab");
   await picker.fill("#ff6419");
-  assert.deepEqual(await branchDetails(), { ...originalBranch, branchColor: "#ff6419" });
-  await page.evaluate(() => activeEngineBridge().undoEngineCommand());
-  assert.deepEqual(await branchDetails(), originalBranch);
-  await page.evaluate(() => activeEngineBridge().redoEngineCommand());
+  const editedBranch = await branchDetails();
+  assert.equal(editedBranch.badge, "MIC\nA1");
+  assert.equal(editedBranch.nodeColor, originalBranch.nodeColor);
+  assert.equal(editedBranch.branchColor, "#ff6419");
+  await page.evaluate(() => undoEditorConnectorMetadata());
+  assert.equal((await branchDetails()).branchColor, "#b86c00");
+  await page.evaluate(() => undoEditorConnectorMetadata(true));
   assert.equal((await branchDetails()).branchColor, "#ff6419");
-  await page.screenshot({ path: join(artifacts, "fanout-color-inspector.png") });
-  const coloredProject = await page.evaluate(() => JSON.parse(activeEngineBridge().mutations.exportJson()));
-  await load(page, coloredProject);
+  await clickBranch();
+  await page.screenshot({ path: join(artifacts, "stagebox-appearance-inspector.png") });
+  await activateEnd("end-a");
+  await pane("end-a").locator('[data-editor-node-id="a-1"] .editor-engine-hit').click();
+  await badge.waitFor();
+  assert.equal(await picker.count(), 0);
+  await page.locator("#applyDeviceEditor").click();
+  await page.locator("#deviceEditorModal").waitFor({ state: "hidden" });
+  const coloredProject = await page.evaluate(() => projectSnapshotData());
+  assert.ok(coloredProject.devices.find(d => d.instanceId === "snake").templateOverride.connectors
+    .some(c => c.id === "b-1" && c.stageboxNodeLabel === "MIC\nA1" && c.stageboxFanoutColor === "#ff6419"));
+  await page.evaluate(json => new Promise((onLoaded, onError) =>
+    loadProjectFile(new File([json], "Snake Appearance.avd"), { onLoaded, onError })), JSON.stringify(coloredProject));
+  await openConnectors();
   await clickBranch();
   assert.equal(await picker.inputValue(), "#ff6419");
-  await page.getByRole("button", { name: "Reset Color", exact: true }).click();
-  assert.deepEqual(await branchDetails(), originalBranch);
+  assert.equal(await badge.inputValue(), "MIC\nA1");
+  await page.getByRole("button", { name: "Reset Fanout Color", exact: true }).click();
+  await badge.fill("");
+  await badge.press("Tab");
+  assert.equal((await branchDetails()).branchColor, "");
+  assert.equal((await branchDetails()).badge, "");
+  await page.locator("#applyDeviceEditor").click();
+  await page.locator("#deviceEditorModal").waitFor({ state: "hidden" });
+  assert.ok(await page.evaluate(() => {
+    const { scene } = activeEngineBridge();
+    const end = scene.devices.find(d => d.stageboxIdentity?.endId === "end-b");
+    return !end.visual.stageboxNodeOnly.branchColors && !scene.getConnector(end.id, "b-1").stageboxNodeLabel;
+  }));
 
   const draftProject = stageboxNodeOnlyFixture(4, ["rectangle", "fanout"]);
   draftProject.connections = [];
@@ -255,13 +304,6 @@ try {
   await load(page, draftProject);
   await page.evaluate(() => openDeviceEditorForInstance("snake"));
   await page.locator('[data-editor-tab="connectors"]').click();
-  const pane = endId => page.locator(`[data-stagebox-pane="${endId}"]`);
-  const activateEnd = async endId => {
-    const active = await pane(endId).evaluate(el => el.classList.contains("active"));
-    if (active) return;
-    const button = pane(endId).locator("[data-stagebox-end]");
-    await (await button.count() ? button : pane(endId).locator(".stagebox-preview-slot")).click();
-  };
   await activateEnd("end-a");
   const shape = pane("end-a").locator('[data-stagebox-field="stageboxRepresentation"]');
   const slot = id => page.locator(`[data-editor-node-id="${id}"] .editor-slot-shape`);
@@ -303,6 +345,7 @@ try {
   const cameras = () => page.evaluate(() => ({
     active: { ...editorEnginePreviewSurface.camera }, peer: { ...editorStageboxPeerSurface.camera }
   }));
+  await pane("end-b").getByRole("button", { name: "Fit End B", exact: true }).click();
   const fitted = await cameras();
   await pane("end-b").getByRole("button", { name: "Zoom out End B", exact: true }).click();
   const zoomed = await cameras();

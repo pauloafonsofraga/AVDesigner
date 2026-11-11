@@ -10,7 +10,7 @@ import {
   legacyFaceHeight,
   legacyFaceImagePlacement
 } from "./faceplateGeometry.js";
-import { distanceToPolyline, hitTestConnector, hitTestDevice, hitTestWire, screenToWorld } from "./hitTest.js";
+import { distanceToPolyline, hitTestConnector, hitTestDevice, hitTestStageboxFanoutBranch, hitTestWire, screenToWorld } from "./hitTest.js";
 import { powerDistroDiagnostics } from "./powerDistroModel.js";
 import { normalizeAvDesignerDevice } from "./projectAdapter.js";
 import { projectStageboxEndNodes, stageboxPreviewBounds } from "./stageboxNodeGeometry.js";
@@ -503,6 +503,10 @@ export class EnginePreviewSurface {
 
   hitTestDevice(screenPoint, predicate = null) {
     return hitTestDevice(this.scene, this.screenToWorld(screenPoint), predicate);
+  }
+
+  hitTestStageboxFanoutBranch(screenPoint) {
+    return hitTestStageboxFanoutBranch(this.scene, this.screenToWorld(screenPoint), Math.min(12, 6 / this.camera.zoom));
   }
 
   hitTestWire(screenPoint, tolerancePx = 8, predicate = null) {

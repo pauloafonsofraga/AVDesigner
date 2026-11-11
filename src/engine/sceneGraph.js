@@ -2781,6 +2781,7 @@ function normalizeConnector(connector, index, deviceWidth = 0, options = {}) {
   return {
     ...cloneConnectorModuleMetadata(connector),
     ...(Number.isInteger(connector.stageboxNumber) ? { stageboxNumber: connector.stageboxNumber } : {}),
+    ...(connector.stageboxNodeLabel ? { stageboxNodeLabel: connector.stageboxNodeLabel } : {}),
     id: String(connector.id || `connector-${index}`),
     schemaVersion: topology.schemaVersion,
     type: connector.type || "",

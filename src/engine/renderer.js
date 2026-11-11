@@ -1375,9 +1375,6 @@ export class WebglGraphRenderer {
           if (wire && renderOptions.wires) pushWireHover(liveVertices, scene, wire, null, renderOptions, this.cableHopMap);
         }
         if (renderOptions.wires) {
-          if (interaction.selectedStageboxFanout) {
-            pushPolyline(liveVertices, interaction.selectedStageboxFanout, 5.5, "rgba(251,121,4,.4)");
-          }
           for (const step of [...stageboxSelections.flat(), ...stageboxHover]) {
             if (step.type === "stagebox") pushPolyline(liveVertices, step.points, step.part === "trunk" ? WIRE_STATIC_WIDTH * 3 : 3.6, "#c4eaff");
             else if (stageboxHover.includes(step) && step.wireId !== hoveredWireId) {
@@ -4051,7 +4048,7 @@ function drawStageboxNodeBadges(ctx, devices, camera, offsets = null) {
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     for (const connector of device.connectors) {
-      if (connector.hiddenOnCanvas || !connector.stageboxNumber) continue;
+      if (connector.hiddenOnCanvas || (!connector.stageboxNumber && !connector.stageboxNodeLabel)) continue;
       const luminance = parseColor(connector.color).slice(0, 3)
         .map(c => c <= .04045 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4)
         .reduce((sum, c, i) => sum + c * [.2126, .7152, .0722][i], 0);
@@ -4059,6 +4056,18 @@ function drawStageboxNodeBadges(ctx, devices, camera, offsets = null) {
       for (const anchor of connectorDisplayAnchors(device, connector, displayLayout)) {
         const x = (device.x + anchor.x + (shift?.dx || 0) - camera.x) * camera.zoom;
         const y = (device.y + anchor.y + (shift?.dy || 0) - camera.y) * camera.zoom;
+        if (connector.stageboxNodeLabel) {
+          const lines = connector.stageboxNodeLabel.split("\n");
+          const size = (lines.length === 1 ? 5 : 4.35) * textScale;
+          const maxWidth = stageboxNodeFillRadius(device) * 1.55 * textScale;
+          lines.forEach((line, index) => {
+            ctx.font = `700 ${size}px system-ui, sans-serif`;
+            const width = ctx.measureText(line).width;
+            if (width > maxWidth) ctx.font = `700 ${size * maxWidth / width}px system-ui, sans-serif`;
+            ctx.fillText(line, x, y + (index - (lines.length - 1) / 2) * 4.9 * textScale);
+          });
+          continue;
+        }
         ctx.font = `700 ${4.35 * textScale}px system-ui, sans-serif`;
         ctx.fillText(connector.direction === "input" ? "IN" : "OUT", x, y - 2.45 * textScale);
         ctx.font = `700 ${5 * textScale}px system-ui, sans-serif`;

@@ -2,6 +2,12 @@
 (() => {
   const STAGEBOX_SNAKE_CATEGORY = "Stageboxes & Snakes";
   const STAGEBOX_MAX_NODES = 1000;
+  const STAGEBOX_NODE_LABEL_MAX_LENGTH = 32;
+  const normalizeStageboxNodeLabel = value => typeof value === "string"
+    ? value.slice(0, STAGEBOX_NODE_LABEL_MAX_LENGTH).replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\uD800-\uDFFF]/gu, "")
+      .split(/\r\n?|\n/).map(line => line.trim()).filter(Boolean).slice(0, 2).join("\n")
+    : "";
+  const normalizeStageboxFanoutColor = value => typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value) ? value.toLowerCase() : "";
   const STAGEBOX_FACEPLATE_TOP = 34;
   // Keep authored connector lane origins stable; generated node layouts size themselves.
   const stageboxFaceplateHeight = (representation, connectorCount) =>
@@ -150,6 +156,7 @@
   }
 
   globalThis.WireNexusStageboxSnake = Object.freeze({ STAGEBOX_SNAKE_CATEGORY, normalizeStageboxSnake, stageboxSnakeTogglePatch,
-    STAGEBOX_MAX_NODES, STAGEBOX_FACEPLATE_TOP, stageboxFaceplateHeight,
+    STAGEBOX_MAX_NODES, STAGEBOX_NODE_LABEL_MAX_LENGTH, STAGEBOX_FACEPLATE_TOP, stageboxFaceplateHeight,
+    normalizeStageboxNodeLabel, normalizeStageboxFanoutColor,
     stageboxEndDraft, commitStageboxEndDraft, assignStageboxConnector, setStageboxChannel });
 })();

@@ -150,8 +150,6 @@ import {
   wirePlaybackDurationMs
 } from "./wirePlayback.js";
 import { continuousStageboxPoints, stageboxSignalPath } from "./stageboxSignalPath.js";
-import { normalizeStageboxFanoutColor } from "./stageboxSnake.js";
-import { stageboxFanoutBranchPoints } from "./stageboxNodeGeometry.js";
 
 const {
   hitTestConnector,
@@ -973,7 +971,6 @@ class ProductionEngineBridge {
       // points only. Pan, zoom, hover, and drag frames must keep using cached
       // engine buffers/textures and must not re-adapt the whole production app.
       this.scene.setData(normalized);
-      this.stageboxFanoutSelection = null;
       for (const loom of rawProject?.looms || []) {
         if (loom.sideA && loom.sideB) continue;
         const plan = this.scene.loomPlans.find(item => item.loomId === loom.id);
@@ -2320,7 +2317,6 @@ class ProductionEngineBridge {
       return;
     }
     if (event.button !== 0) return;
-    this.stageboxFanoutSelection = null;
     const world = screenToWorld(this.camera, point);
     if (this.wireCreate?.manual && !this.wireCreate.rewire) {
       event.preventDefault();
@@ -2552,17 +2548,6 @@ class ProductionEngineBridge {
       return;
     }
     const wireHit = hitTestWire(this.scene, world, tolerance);
-    const branch = !additiveSelection && this.renderOptions.wires
-      ? HitTest.hitTestStageboxFanoutBranch?.(this.scene, world, Math.min(tolerance, 12)) : null;
-    if (branch && (!wireHit.wire || branch.distance < wireHit.wire.distance)) {
-      const { device, connector } = branch;
-      this.clearHoverState("fanout-cable-select", { render: false });
-      this.scene.selectConnectorOnly(device.id, connector.id);
-      this.stageboxFanoutSelection = { deviceId: device.id, connectorId: connector.id };
-      this.updateSelectionHud();
-      this.scheduleRender();
-      return;
-    }
     if (wireHit.wire) {
       const assemblyId = wireHit.wire.wire.stageboxAssemblyId;
       if (assemblyId) {
@@ -5825,7 +5810,6 @@ class ProductionEngineBridge {
       snapDebugVisual: this.snapDebugVisualState(),
       hoverScreenPoint: this.hoverState.screenPoint,
       selectedConnectors: this.scene.selectedConnectorKeys,
-      selectedStageboxFanout: this.stageboxFanoutSelection ? this.stageboxFanoutSelectionPoints() : null,
       selectedRoutePoints: this.scene.selectedRoutePointKeys,
       suppressedWireIds: rewire ? new Set([rewire.wireId]) : new Set(),
       tempWire: multiTempWires[0] || tempWire,
@@ -6459,9 +6443,7 @@ class ProductionEngineBridge {
         sourceId: wire.sourceId || wire.id,
         sourceKind: wire.sourceKind || "connection"
       }));
-    if (this.stageboxFanoutSelection && !this.selectedStageboxFanoutBranch()) this.stageboxFanoutSelection = null;
     this.api.onEngineSelection?.({
-      stageboxFanoutBranch: Boolean(this.stageboxFanoutSelection),
       deviceIds: [...this.scene.selectedIds],
       rackIds: [...this.scene.selectedRackIds],
       wireIds: [...this.scene.selectedWireIds],
@@ -7818,76 +7800,6 @@ class ProductionEngineBridge {
   commitJumpLinkLabel(linkId, label) {
     const wires = sceneJumpLinkPhysicalWires(this.scene, this.scene.getJumpLink(linkId));
     return wires.length ? this.commitMultiWireInspectorFields(wires.map(wire => wire.id), { label }, { preserveSelection: true }) : false;
-  }
-
-  selectedStageboxFanoutBranch() {
-    const selection = this.stageboxFanoutSelection;
-    if (!selection || !this.scene.selectedConnectorKeys.has(`${selection.deviceId}:${selection.connectorId}`)) return null;
-    const device = this.scene.getDevice(selection.deviceId);
-    const connector = this.scene.getConnector(selection.deviceId, selection.connectorId);
-    if (!device?.visual?.stageboxNodeOnly?.root || !layerEditable(device)
-      || !connector || !this.scene.isConnectorVisibleOnCanvas(device, connector)) return null;
-    return { device, connector };
-  }
-
-  stageboxFanoutSelectionPoints() {
-    const branch = this.selectedStageboxFanoutBranch();
-    return branch ? stageboxFanoutBranchPoints(branch.device, branch.connector) : null;
-  }
-
-  renderStageboxFanoutInspector(panel) {
-    const branch = this.selectedStageboxFanoutBranch();
-    if (!branch) return false;
-    const { device, connector } = branch;
-    const colors = device.visual.stageboxNodeOnly.branchColors;
-    const custom = normalizeStageboxFanoutColor(colors?.[connector.id]);
-    const color = custom || normalizeStageboxFanoutColor(connector.color) || "#d4dce5";
-    panel.innerHTML = `
-      <dl class="details">
-        <dt>Type</dt><dd>Fanout cable</dd>
-        <dt>End</dt><dd>${escapeHtml(device.label)}</dd>
-        <dt>Connector</dt><dd>${escapeHtml(connector.label || connector.id)}</dd>
-      </dl>
-      <div class="field"><label for="stageboxFanoutColor">Fanout Cable Color</label><input type="color" id="stageboxFanoutColor" value="${color}"></div>
-      <button class="tool-button" type="button" data-reset-fanout-color ${custom ? "" : "disabled"}>Reset Color</button>`;
-    panel.querySelector("#stageboxFanoutColor").addEventListener("change", event => {
-      this.commitStageboxFanoutColor(device.id, connector.id, event.target.value);
-    });
-    panel.querySelector("[data-reset-fanout-color]").addEventListener("click", () => {
-      this.commitStageboxFanoutColor(device.id, connector.id, "");
-    });
-    return true;
-  }
-
-  commitStageboxFanoutColor(deviceId, connectorId, value) {
-    const selected = this.selectedStageboxFanoutBranch();
-    if (!this.ready || !selected || selected.device.id !== deviceId || selected.connector.id !== connectorId) return false;
-    const before = normalizeStageboxFanoutColor(selected.device.visual.stageboxNodeOnly.branchColors?.[connectorId]);
-    const after = normalizeStageboxFanoutColor(value);
-    if ((value !== "" && !after) || before === after) return false;
-    const label = "fanout cable color";
-    this.beginProductionCommit(label);
-    const result = this.applyStageboxFanoutColor(deviceId, connectorId, after);
-    this.recordCommand({ type: label,
-      undo: bridge => bridge.applyStageboxFanoutColor(deviceId, connectorId, before),
-      redo: bridge => bridge.applyStageboxFanoutColor(deviceId, connectorId, after) });
-    this.markCommitted(label, result.mutationMs);
-    return true;
-  }
-
-  applyStageboxFanoutColor(deviceId, connectorId, color) {
-    const device = this.scene.getDevice(deviceId);
-    const mutationMs = this.mutations.updateStageboxFanoutColor(device, connectorId, color);
-    if (mutationMs == null) return { mutationMs: 0 };
-    const layout = device.visual.stageboxNodeOnly;
-    const colors = { ...layout.branchColors, ...(color ? { [connectorId]: color } : {}) };
-    if (!color) delete colors[connectorId];
-    if (Object.keys(colors).length) layout.branchColors = colors;
-    else delete layout.branchColors;
-    this.renderer.updateDirty(this.scene, { deviceIds: [deviceId], wireIds: [], refreshCableHops: false });
-    this.updateSelectionHud();
-    this.scheduleRender();
-    return { mutationMs };
   }
 
   allowDacCableTypeEdit(wires, fields) {

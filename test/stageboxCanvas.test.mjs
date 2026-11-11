@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { normalizeStageboxSnake, assignStageboxConnector, setStageboxChannel, stageboxEndDraft } from "../src/engine/stageboxSnake.js";
+import { normalizeStageboxSnake, assignStageboxConnector, setStageboxChannel, stageboxEndDraft, commitStageboxEndDraft } from "../src/engine/stageboxSnake.js";
+import { collectDevicePackage, decodeDevicePackage, encodeDevicePackage } from "../src/devicePackage.js";
 import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
 import { ProjectMutationAdapter } from "../src/engine/projectMutations.js";
 import { SceneGraph } from "../src/engine/sceneGraph.js";
@@ -122,7 +123,7 @@ test("output trunk is light blue and exactly three normal cable widths", () => {
   assert.ok(Math.abs(widths[trunk.id] - widths.entry * 3) < 1e-6);
 });
 
-test("fanout cable color is hit-tested and saved per branch without changing the node, trunk or patch cables", async () => {
+test("Stagebox labels and fanout colors persist as device definitions without changing signal topology", async () => {
   const project = stageboxNodeOnlyFixture(4, ["rectangle", "fanout"]);
   const before = normalizeAvDesignerProject(project);
   const scene = new SceneGraph();
@@ -135,29 +136,54 @@ test("fanout cable color is hit-tested and saved per branch without changing the
   end.layerLocked = true;
   assert.equal(hitTestStageboxFanoutBranch(scene, points[17], 4), null);
   end.layerLocked = false;
-  const adapter = new ProjectMutationAdapter(before);
-  assert.equal(adapter.updateStageboxFanoutColor(end, "b-1", "url(unsafe)"), null);
-  assert.equal(adapter.updateStageboxFanoutColor(scene.getDevice("snake"), "a-1", "#e84729"), null);
-  assert.notEqual(adapter.updateStageboxFanoutColor(end, "b-1", "#E84729"), null);
-  const saved = JSON.parse(adapter.exportJson());
-  assert.deepEqual(saved.devices[1].stageboxFanoutColors, { "b-1": "#e84729" });
-  assert.deepEqual(saved.devices[1].templateOverride, project.devices[1].templateOverride);
+  const authored = structuredClone(project), instance = authored.devices[1];
+  const draft = stageboxEndDraft(instance.templateOverride, "end-b");
+  Object.assign(draft.connectors[0], { stageboxNodeLabel: "MIC\nA1", stageboxFanoutColor: "#E84729" });
+  draft.connectors[1].stageboxFanoutColor = "url(unsafe)";
+  instance.templateOverride = commitStageboxEndDraft(instance.templateOverride, "end-b", draft);
+  const preview = createPreviewDeviceFromDraft({ template: draft });
+  assert.equal(preview.connectors[0].stageboxNodeLabel, "MIC\nA1");
+  assert.equal(preview.connectors[0].color, connector.color);
+  assert.deepEqual(preview.visual.stageboxNodeOnly.branchColors, { "b-1": "#e84729" });
+  const saved = JSON.parse(new ProjectMutationAdapter(normalizeAvDesignerProject(authored)).exportJson());
+  assert.deepEqual(saved.devices[1].templateOverride.stageboxSnake.channels, normalizeStageboxSnake(project.devices[1].templateOverride).stageboxSnake.channels);
   assert.deepEqual(saved.connections, project.connections);
   const reopened = normalizeAvDesignerProject(saved);
   const reopenedEnd = reopened.devices.find(d => d.id === end.id);
   assert.deepEqual(reopenedEnd.visual.stageboxNodeOnly.branchColors, { "b-1": "#e84729" });
-  assert.deepEqual(reopenedEnd.connectors, before.devices.find(d => d.id === end.id).connectors);
+  assert.deepEqual(reopenedEnd.connectors.map(({ stageboxNodeLabel, ...c }) => c), before.devices.find(d => d.id === end.id).connectors);
   assert.deepEqual(reopened.wires, before.wires);
   const contract = buildEngineOutputScene(saved);
   const { svg } = renderEngineOutputSvg(contract);
   assert.match(svg, /<linearGradient[^>]*>\s*<stop[^>]*#80d4ff[^>]*>\s*<stop[^>]*#e84729/);
   assert.equal((svg.match(/#e84729/g) || []).length, 1);
+  assert.match(svg, />MIC<\/text>/);
+  assert.match(svg, />A1<\/text>/);
+  const nodes = [...new Set(draft.connectors.map(c => c.type))].map(type => ({ id: type, label: type }));
+  const packaged = await decodeDevicePackage(await encodeDevicePackage(await collectDevicePackage(instance.templateOverride, { nodes })));
+  assert.equal(stageboxEndDraft(packaged.devices[0], "end-b").connectors[0].stageboxNodeLabel, "MIC\nA1");
+  assert.equal(stageboxEndDraft(packaged.devices[0], "end-b").connectors[0].stageboxFanoutColor, "#E84729");
   const replayState = createTopologyReplayState("fanout-color");
   const command = await createTopologyCommand(project, saved, { state: replayState });
   const replayed = await replayTopologyCommand(project, command, replayState);
   assert.deepEqual(captureTopologyState(replayed.project), captureTopologyState(saved));
-  assert.notEqual(adapter.updateStageboxFanoutColor(end, "b-1", ""), null);
-  assert.equal(JSON.parse(adapter.exportJson()).devices[1].stageboxFanoutColors, undefined);
+});
+
+test("older instance fanout overrides are still rendered until the connector is customized or reset in the editor", () => {
+  const project = stageboxNodeOnlyFixture(4, ["circular", "fanout"]);
+  const instance = project.devices[1];
+  instance.stageboxFanoutColors = { "b-1": "#ffffff" };
+  const end = () => normalizeAvDesignerProject(project).devices.find(d => d.stageboxIdentity?.endId === "end-b");
+  assert.deepEqual(end().visual.stageboxNodeOnly.branchColors, { "b-1": "#ffffff" });
+  const port = instance.templateOverride.connectors.find(c => c.id === "b-1");
+  port.stageboxFanoutColor = "#654321";
+  assert.deepEqual(end().visual.stageboxNodeOnly.branchColors, { "b-1": "#654321" });
+  port.stageboxFanoutColor = "";
+  assert.equal(end().visual.stageboxNodeOnly.branchColors, undefined);
+  const a = instance.templateOverride.connectors.find(c => c.id === "a-1");
+  a.stageboxNodeLabel = "Custom A";
+  const circular = normalizeAvDesignerProject(project).devices.find(d => d.stageboxIdentity?.endId === "end-a");
+  assert.equal(circular.connectors[0].stageboxNodeLabel, "Custom A");
 });
 
 test("automatic rectangular and circular ends use compact live anchors without changing canonical definitions", () => {

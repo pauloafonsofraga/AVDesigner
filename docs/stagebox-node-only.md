@@ -15,10 +15,12 @@ The editor shows a red notice at the limit; existing slots can still be
 filled or removed. Older definitions above the cap keep their existing
 anchors rather than dropping nodes.
 
-Click an individual fanout branch on the project canvas to set or reset its
-color in the Inspector. The override belongs to the placed snake and follows
-the branch's connector ID. It changes only the branch's gradient endpoint,
-not the node, trunk or patch cables.
+In the Device Editor's Connectors tab, select a node or its fanout branch.
+The Inspector can set a one- or two-line inside node label; clearing it
+restores the automatic direction and number. For fanouts it can also set or
+reset the branch's gradient endpoint without changing the node, trunk or
+patch cables. Both settings are stored on the connector definition. Older
+project-instance branch colors are preserved and can be edited here.
 
 Stored mappings take priority. Without an explicit mapping for either port,
 an unambiguous match requires the same authored channel name and connector

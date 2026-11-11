@@ -14,7 +14,6 @@ import { validateMultiCoreEdit } from "./multiCoreEditValidation.js";
 import { replaceMultiCoreSectionPoints } from "./multiCoreJumpRouting.js";
 import { multiCorePortReference } from "./multiCoreProjection.js";
 import { eligibleDeviceForJump, reconcileJumpAttachment, jumpAttachmentSnapshot } from "./jumpAttachment.js";
-import { normalizeStageboxFanoutColor } from "./stageboxSnake.js";
 
 const ENGINE_EXPORT_FORMAT = "av-designer-engine-prototype";
 const CONNECTOR_MODULE_FIELDS = [
@@ -430,20 +429,6 @@ export class ProjectMutationAdapter {
     const result = validateMultiCoreEdit(before, after, { project: this.root });
     if (!result.valid) throw new Error(result.blockingDiagnostics.map(d => d.message).join(" "));
     this.root.multiCores[index] = after.multiCores[index];
-  }
-
-  updateStageboxFanoutColor(device, connectorId, value) {
-    const start = performance.now();
-    const entry = this.deviceById.get(device?.stageboxIdentity?.assemblyId);
-    if (!entry || !device.visual?.stageboxNodeOnly?.root || !device.connectors.some(c => c.id === connectorId && !c.empty)) return null;
-    const color = normalizeStageboxFanoutColor(value);
-    if (value !== "" && !color) return null;
-    const colors = { ...entry.item.stageboxFanoutColors, ...(color ? { [connectorId]: color } : {}) };
-    if (!color) delete colors[connectorId];
-    if (Object.keys(colors).length) entry.item.stageboxFanoutColors = colors;
-    else delete entry.item.stageboxFanoutColors;
-    this.record("fanout cable color", performance.now() - start, `devices[${entry.index}].stageboxFanoutColors`, { connectorId });
-    return this.lastMutation.durationMs;
   }
 
   writeDevicePosition(device) {

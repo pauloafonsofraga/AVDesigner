@@ -1,6 +1,6 @@
 import { stageboxFaceplateLayout } from "./deviceVisualBuilder.js";
 import { connectorVisualAnchors } from "./deviceDefinitionV2.js";
-import { STAGEBOX_MAX_NODES } from "./stageboxSnake.js";
+import { STAGEBOX_MAX_NODES, normalizeStageboxFanoutColor, normalizeStageboxNodeLabel } from "./stageboxSnake.js";
 import {
   LEGACY_CANVAS_DETAIL_MAX_SCALE, legacyCanvasDetailScale, legacyConnectorRadius, legacyConnectorStrokeWidth
 } from "./legacyZoomDetail.js";
@@ -52,13 +52,19 @@ function compactScale({ nodes, panel }, shape) {
   return { x: scale, y: scale, spacing: GRID_PITCH };
 }
 
-export function projectStageboxEndNodes(device, { keepFrame = false, editorConnectors } = {}) {
+export function projectStageboxEndNodes(device, { keepFrame = false, editorConnectors, authoredConnectors = editorConnectors,
+  legacyFanoutColors } = {}) {
   const { visual, connectors } = device;
   const { stageboxRepresentation: shape, stageboxEndId: endId } = visual || {};
   if (!shape || !endId) return device;
   const counts = { input: 0, output: 0 };
-  const ports = connectors.map(c => Object.hasOwn(counts, c.direction) && !c.hiddenOnCanvas && !c.empty
-    ? { ...c, stageboxNumber: ++counts[c.direction] } : c);
+  const authored = new Map((authoredConnectors || connectors).map(c => [c.id, c]));
+  const ports = connectors.map(c => {
+    if (c.hiddenOnCanvas || c.empty) return c;
+    const label = normalizeStageboxNodeLabel(authored.get(c.id)?.stageboxNodeLabel);
+    return { ...c, ...(Object.hasOwn(counts, c.direction) ? { stageboxNumber: ++counts[c.direction] } : {}),
+      ...(label ? { stageboxNodeLabel: label } : {}) };
+  });
   const live = ports.filter(c => !c.hiddenOnCanvas && !c.empty);
   const liveById = new Map(live.map(c => [c.id, c]));
   const emptySlots = (editorConnectors || []).filter(c => c.empty && !c.hiddenOnCanvas);
@@ -90,10 +96,16 @@ export function projectStageboxEndNodes(device, { keepFrame = false, editorConne
   const cx = width / 2, cy = height / 2;
   const points = new Map(offsets.map(p => [p.id, { x: cx + p.x, y: cy + p.y }]));
   const trunk = { x: cx + (stem ? stemOffset : endId === "end-a" ? halfWidth : -halfWidth), y: cy };
+  const branchColors = stem ? live.flatMap(c => {
+    const value = authored.get(c.id)?.stageboxFanoutColor;
+    const color = value === "" ? "" : normalizeStageboxFanoutColor(value) || normalizeStageboxFanoutColor(legacyFanoutColors?.[c.id]);
+    return color ? [[c.id, color]] : [];
+  }) : [];
   return { ...device, width, height,
     visual: { ...visual, stageboxNodeOnly: { shape, cx, cy, halfWidth, halfHeight, trunk,
       ...(scale.spacing ? { nodeSpacing: scale.spacing } : {}),
       ...(stem ? { root: { x: cx + rootOffset, y: cy } } : {}),
+      ...(branchColors.length ? { branchColors: Object.fromEntries(branchColors) } : {}),
       ...(emptySlots.length ? { emptySlots: emptySlots.map(slot => ({
         id: slot.id, direction: slot.direction, anchors: connectorVisualAnchors(slot, device).map(anchor => ({
           ...anchor, ...points.get(slot.id)

@@ -5489,6 +5489,7 @@
     .stagebox-end-controls { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; padding:8px; background:#202b36; }
     .stagebox-end-controls > button { grid-column:1/-1; justify-self:start; }
     .stagebox-node-limit { grid-column:1/-1; padding:6px 8px; border:1px solid #df525d; border-radius:4px; background:#681e28; color:#fff; }
+    #selectedStageboxNodeLabel { height:56px; min-height:56px; padding:7px 9px; font:inherit; line-height:1.35; }
     .stagebox-end-controls input, .stagebox-end-controls select { width:100%; }
     .stagebox-preview-tools { grid-column:1/-1; }
     .stagebox-preview-slot { position:relative; min-height:240px; min-width:0; background:#10161c; }
@@ -13726,6 +13727,15 @@
       editorInstanceId = instanceId;
       editorDraft = [structuredClone(template)];
       hydrateEditorDraftFromInstanceConnectorOverrides(editorDraft[0], instance);
+      if (template.isStageboxSnake && instance.stageboxFanoutColors) {
+        const normalize = WireNexusStageboxSnake.normalizeStageboxFanoutColor;
+        for (const connector of editorDraft[0].connectors || []) {
+          const legacy = normalize(instance.stageboxFanoutColors[connector.id]);
+          if (legacy && connector.stageboxFanoutColor !== "" && !normalize(connector.stageboxFanoutColor)) {
+            connector.stageboxFanoutColor = legacy;
+          }
+        }
+      }
       if (Number.isFinite(Number(instance.powerWatts))) editorDraft[0].powerWatts = normalizedPowerWatts(instance.powerWatts);
       if (instance.powerUnit) editorDraft[0].powerUnit = normalizePowerUnit(instance.powerUnit);
       editorIndex = 0;
@@ -18041,6 +18051,22 @@
         </div>
       ` : "";
       const powerSection = "";
+      const stageboxAppearance = !installedSelection && template.stageboxEndDraftId && !connector.empty && Boolean(connector.type);
+      const stageboxFanout = stageboxAppearance && template.stageboxRepresentation === "fanout";
+      const stageboxBadge = stageboxAppearance ? WireNexusStageboxSnake.normalizeStageboxNodeLabel(connector.stageboxNodeLabel) : "";
+      const stageboxBranchColor = stageboxFanout ? WireNexusStageboxSnake.normalizeStageboxFanoutColor(connector.stageboxFanoutColor) : "";
+      const stageboxAppearanceSection = stageboxAppearance ? `
+        <div class="connector-inspector-section">
+          <h4 class="connector-inspector-heading">Stagebox Appearance</h4>
+          <div class="field"><label for="selectedStageboxNodeLabel">Inside Node Label</label>
+            <textarea id="selectedStageboxNodeLabel" rows="2" maxlength="${WireNexusStageboxSnake.STAGEBOX_NODE_LABEL_MAX_LENGTH}" placeholder="Automatic">${escapeHtml(stageboxBadge)}</textarea>
+          </div>
+          ${stageboxFanout ? `<label class="field"><span>Fanout Cable Color</span>
+            <input id="selectedStageboxFanoutColor" type="color" value="${escapeAttr(stageboxBranchColor || normalizeColor(colorForConnector(connector)))}">
+          </label>
+          <button class="tool-button" id="selectedStageboxResetFanoutColor" type="button" ${stageboxBranchColor ? "" : "disabled"}>Reset Fanout Color</button>` : ""}
+        </div>
+      ` : "";
       selectedConnectorSettings.innerHTML = `
         <div class="connector-inspector-section">
           <h4 class="connector-inspector-heading">${installedSelection ? "Installed Card Connector" : "Selected Connector"}</h4>
@@ -18089,6 +18115,7 @@
             </div>
           </div>
         </div>
+        ${stageboxAppearanceSection}
         ${statusSection}
         ${fieldSection}
         ${moduleSection}
@@ -18283,6 +18310,32 @@
         renderDeviceEditorPreview();
         renderDeviceAuthoringDebugPanel();
       });
+      if (stageboxAppearance) {
+        const commitAppearance = (field, value) => {
+          if ((connector[field] || "") === value) return;
+          const before = structuredClone(template);
+          connector[field] = value;
+          recordEditorPlacementHistory(template, before);
+          renderDeviceEditorPreview();
+        };
+        selectedConnectorSettings.querySelector("#selectedStageboxNodeLabel").addEventListener("change", event => {
+          const value = WireNexusStageboxSnake.normalizeStageboxNodeLabel(event.target.value);
+          event.target.value = value;
+          commitAppearance("stageboxNodeLabel", value);
+        });
+        const picker = selectedConnectorSettings.querySelector("#selectedStageboxFanoutColor");
+        const reset = selectedConnectorSettings.querySelector("#selectedStageboxResetFanoutColor");
+        picker?.addEventListener("change", () => {
+          const color = WireNexusStageboxSnake.normalizeStageboxFanoutColor(picker.value);
+          commitAppearance("stageboxFanoutColor", color);
+          reset.disabled = !color;
+        });
+        reset?.addEventListener("click", () => {
+          commitAppearance("stageboxFanoutColor", "");
+          picker.value = normalizeColor(colorForConnector(connector));
+          reset.disabled = true;
+        });
+      }
       const checkbox = selectedConnectorSettings.querySelector("#selectedConnectorMatrixPort");
       checkbox?.addEventListener("change", event => {
         setSelectedConnectorValue("includeInMatrix", event.target.checked);
@@ -25098,6 +25151,19 @@
         return;
       }
       if (startEditorCardSlotDrag(event)) return;
+      if (template?.stageboxEndDraftId && template.stageboxRepresentation === "fanout" && editorNodeTargetIndexFromEvent(event) < 0) {
+        const point = deviceEditorEnginePreviewScreenPoint(event);
+        const branch = point ? editorEnginePreviewSurface?.hitTestStageboxFanoutBranch?.(point) : null;
+        const branchIndex = template.connectors.findIndex(connector => connector.id === branch?.connector.id);
+        if (branchIndex >= 0) {
+          event.preventDefault();
+          event.stopPropagation();
+          setEditorNodeSelection(template, branchIndex);
+          renderSelectedConnectorSettings();
+          renderDeviceEditorPreview({ refreshTexture: false });
+          return;
+        }
+      }
       if (startEditorNodeMarquee(event)) return;
       const index = editorNodeTargetIndexFromEvent(event);
       const connector = template?.connectors[index];
@@ -31443,7 +31509,6 @@
 
     function renderInspector() {
       renderProjectLayersPanel();
-      if (activeEngineBridge()?.renderStageboxFanoutInspector?.(inspectorBody)) return;
       if (state.selected?.type==='image-object' && projectLayersPanel?.renderReferenceInspector(inspectorBody,state.selected.id)) return;
       if (activeEngineBridge()?.renderMultiCoreInspector?.(inspectorBody)) return;
       const selection = state.selected;
@@ -37885,11 +37950,6 @@ document.addEventListener("click", function(event) {
     }
 
     function syncProductionSelectionFromEngine(selection = {}) {
-      if (selection.stageboxFanoutBranch) {
-        state.selected = null;
-        renderInspector();
-        return;
-      }
       const projected = [...(selection.devices || []), ...(selection.wires || [])].filter(item => item.multiCoreIdentity);
       if (projected.length) {
         state.selected = { type: "multi-core-selection", items: [
