@@ -1,7 +1,9 @@
 // Shared metadata model; it does not project ends onto the canvas or route signals.
 (() => {
   const STAGEBOX_SNAKE_CATEGORY = "Stageboxes & Snakes";
+  const STAGEBOX_MAX_NODES = 1000;
   const STAGEBOX_FACEPLATE_TOP = 34;
+  // Keep authored connector lane origins stable; generated node layouts size themselves.
   const stageboxFaceplateHeight = (representation, connectorCount) =>
     Math.max(150, Math.min(100, connectorCount) * (representation === "fanout" ? 6 : 2));
   const endIds = ["end-a", "end-b"];
@@ -89,6 +91,9 @@
     const end = data.ends.find(e => e.id === endId);
     if (!end) throw new Error("Stagebox / Snake end is unavailable.");
     const previousIds = new Set(editableEndIds(template, data, end));
+    if (draft.connectors.length > STAGEBOX_MAX_NODES && draft.connectors.length > previousIds.size) {
+      throw new Error("Maximum of 1,000 nodes reached for this Stagebox / Snake end.");
+    }
     const incoming = new Map(draft.connectors.map(c => [c.id, c]));
     if (incoming.size !== draft.connectors.length || data.ends.some(e => e.id !== endId && e.connectorIds.some(id => incoming.has(id)))) throw new Error("Stagebox / Snake connector identity belongs to another end.");
     const removed = new Set([...previousIds].filter(id => !incoming.has(id)));
@@ -145,6 +150,6 @@
   }
 
   globalThis.WireNexusStageboxSnake = Object.freeze({ STAGEBOX_SNAKE_CATEGORY, normalizeStageboxSnake, stageboxSnakeTogglePatch,
-    STAGEBOX_FACEPLATE_TOP, stageboxFaceplateHeight,
+    STAGEBOX_MAX_NODES, STAGEBOX_FACEPLATE_TOP, stageboxFaceplateHeight,
     stageboxEndDraft, commitStageboxEndDraft, assignStageboxConnector, setStageboxChannel });
 })();

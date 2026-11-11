@@ -5488,6 +5488,7 @@
     .stagebox-end-pane.active { border-color:#32b6ff; }
     .stagebox-end-controls { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; padding:8px; background:#202b36; }
     .stagebox-end-controls > button { grid-column:1/-1; justify-self:start; }
+    .stagebox-node-limit { grid-column:1/-1; padding:6px 8px; border:1px solid #df525d; border-radius:4px; background:#681e28; color:#fff; }
     .stagebox-end-controls input, .stagebox-end-controls select { width:100%; }
     .stagebox-preview-tools { grid-column:1/-1; }
     .stagebox-preview-slot { position:relative; min-height:240px; min-width:0; background:#10161c; }
@@ -20244,6 +20245,11 @@
     let editorStageboxPeerKey = "";
     let editorStageboxPeerCameraOnSwap = null;
 
+    function updateStageboxNodeLimitNotice(view) {
+      const notice = document.querySelector(`[data-stagebox-pane="${view.stageboxEndDraftId}"] .stagebox-node-limit`);
+      if (notice) notice.hidden = view.connectors.length < WireNexusStageboxSnake.STAGEBOX_MAX_NODES;
+    }
+
     function renderStageboxEndControls() {
       const panel = document.getElementById("stageboxEndEditor"), root = editorDraft[editorIndex];
       const grid = document.getElementById("editorPreviewGrid");
@@ -20267,6 +20273,7 @@
               <label class="field"><span>Representation</span><select data-stagebox-field="stageboxRepresentation"><option value="rectangle">Rectangular box</option><option value="circular">Circular breakout</option><option value="fanout">Cable tails / fanout</option></select></label>
               <label class="field"><span>Width</span><input data-stagebox-field="width" type="number" min="120" step="1"></label>
               <label class="field"><span>Height</span><input data-stagebox-field="manualHeight" type="number" min="80" step="1"></label>
+              <div class="stagebox-node-limit" role="status" hidden>Maximum number of nodes reached (${WireNexusStageboxSnake.STAGEBOX_MAX_NODES.toLocaleString("en-US")}).</div>
               <div class="slot-actions stagebox-preview-tools" role="group" aria-label="End ${index ? "B" : "A"} preview zoom">
                 <button class="tool-button" type="button" data-stagebox-zoom="out" title="Zoom out" aria-label="Zoom out End ${index ? "B" : "A"}">−</button>
                 <button class="tool-button" type="button" data-stagebox-zoom="in" title="Zoom in" aria-label="Zoom in End ${index ? "B" : "A"}">+</button>
@@ -20280,6 +20287,7 @@
       for (const pane of panes.children) {
         const id = pane.dataset.stageboxPane;
         const view = stageboxEditorEndDraft(root, id), selected = id === editorStageboxEndId;
+        updateStageboxNodeLimitNotice(view);
         pane.classList.toggle("active", selected);
         const button = pane.querySelector("[data-stagebox-end]");
         button.setAttribute("aria-pressed", String(selected));
@@ -23424,6 +23432,7 @@
       }
       setDeviceEditorCardAuthoringMode(false);
 	      if (deviceEditorActivePreviewUsesEngine()) {
+        if (template.stageboxEndDraftId && options.motionFrame !== true) updateStageboxNodeLimitNotice(template);
         renderDeviceEditorEnginePreview(template, options);
         if (template.stageboxEndDraftId && options.motionFrame !== true) renderStageboxPeerPreview();
         return;
@@ -25755,13 +25764,16 @@
       const width = deviceTemplateWidth(template);
       if (!isAdapterTemplate(template) && (point.x < -20 || point.x > width + 20 || point.y < connectorStartYForTemplate(template) || point.y > template.height)) return false;
       const direction = point.x <= width / 2 ? "input" : "output";
-      addEditorNode(direction, { type, y: point.y });
-      return true;
+      return addEditorNode(direction, { type, y: point.y });
     }
 
     function addEditorNode(direction, options = {}) {
       syncEditorFieldsToDraft();
       const template = currentEditorTemplate();
+      if (template?.stageboxEndDraftId && template.connectors.length >= WireNexusStageboxSnake.STAGEBOX_MAX_NODES) {
+        updateStageboxNodeLimitNotice(template);
+        return false;
+      }
       const requestedType = String(options.type || "");
       const requestedTypeLabel = requestedType ? (editorNodeType(requestedType)?.label || requestedType) : "";
       if (requestedType && template?.isPowerDistro && direction === "input" && !powerPlugCanExistOnSide(requestedType, "input")) {
@@ -25852,7 +25864,7 @@
           renderConnectorRelationshipsPanel();
         }
       });
-      if (!transaction) return;
+      return Boolean(transaction);
     }
 
     function defaultConnectorNameFor(connectors, connector) {
@@ -36126,7 +36138,9 @@ document.addEventListener("click", function(event) {
         surface.fitToContent({ padding: 34 });
         surface.render();
       } else {
-        zoomEnginePreviewSurfaceAt(surface, action === "in" ? 1.2 : 1 / 1.2);
+        const minZoom = surface.scene.devices[0]?.visual?.stageboxNodeOnly
+          ? editorEnginePreviewModule.STAGEBOX_PREVIEW_MIN_ZOOM : undefined;
+        zoomEnginePreviewSurfaceAt(surface, action === "in" ? 1.2 : 1 / 1.2, null, { minZoom });
       }
       if (active) syncDeviceEditorEngineOverlayViewBox();
     });
@@ -37044,7 +37058,9 @@ document.addEventListener("click", function(event) {
 
     function zoomDeviceEditorEnginePreview(factor, event = null) {
       const surface = ensureDeviceEditorEnginePreviewSurface();
-      if (!zoomEnginePreviewSurfaceAt(surface, factor, event)) return;
+      const minZoom = surface?.scene.devices[0]?.visual?.stageboxNodeOnly
+        ? editorEnginePreviewModule.STAGEBOX_PREVIEW_MIN_ZOOM : undefined;
+      if (!zoomEnginePreviewSurfaceAt(surface, factor, event, { minZoom })) return;
       syncDeviceEditorEngineOverlayViewBox();
     }
     document.getElementById("editorZoomOut").addEventListener("click", () => {

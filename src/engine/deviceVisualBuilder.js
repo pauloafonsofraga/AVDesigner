@@ -461,8 +461,8 @@ function circularStageboxNodes(ports, cx, cy, radius) {
 }
 
 export function stageboxFaceplateLayout(connectors, representation, endId, width, height) {
-  const { STAGEBOX_FACEPLATE_TOP, stageboxFaceplateHeight } = globalThis.WireNexusStageboxSnake;
-  const ports = connectors.filter(c => !c.empty && !c.hiddenOnCanvas).slice(0, 100);
+  const { STAGEBOX_FACEPLATE_TOP, STAGEBOX_MAX_NODES, stageboxFaceplateHeight } = globalThis.WireNexusStageboxSnake;
+  const ports = connectors.filter(c => !c.empty && !c.hiddenOnCanvas).slice(0, STAGEBOX_MAX_NODES);
   const count = ports.length;
   const panelWidth = Math.max(0, Math.min(width - 24, 380 * 1.5));
   const panelHeight = Math.max(0, Math.min(height - 48, stageboxFaceplateHeight(representation, connectors.length)));

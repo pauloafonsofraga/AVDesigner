@@ -304,6 +304,47 @@ try {
     "The split previews should fill the column after replacing the shared toolbar");
   await page.screenshot({ path: join(artifacts, "editor-empty-slots.png") });
 
+  const denseProject = stageboxNodeOnlyFixture(999, ["circular", "fanout"]);
+  const denseSnake = denseProject.devices[1];
+  const denseTemplate = denseSnake.templateOverride;
+  denseTemplate.stageboxSnake.channels = [];
+  denseTemplate.stageboxSnake.ends[1].connectorIds = [];
+  denseTemplate.connectors = denseTemplate.connectors.filter(c => c.id.startsWith("a-")).map(c => ({ ...c, type: "", empty: true }));
+  denseProject.devices = [denseSnake];
+  denseProject.connections = [];
+  await page.evaluate(project => {
+    editorCloseGuard.dispose();
+    restoreSnapshot(project);
+    openDeviceEditorForInstance("snake");
+  }, denseProject);
+  await page.locator('[data-editor-tab="connectors"]').click();
+  await activateEnd("end-a");
+  const notice = pane("end-a").getByRole("status");
+  const denseCount = () => page.evaluate(() => currentEditorTemplate().connectors.length);
+  assert.equal(await denseCount(), 999);
+  assert.ok(await notice.isHidden());
+  await page.locator("#addInputNode").click();
+  await notice.waitFor({ state: "visible" });
+  assert.match(await notice.textContent(), /Maximum number of nodes reached \(1,000\)/);
+  assert.equal(await notice.evaluate(el => getComputedStyle(el).backgroundColor), "rgb(104, 30, 40)");
+  assert.equal(await denseCount(), 1000);
+  for (const representation of ["circular", "rectangle", "fanout"]) {
+    await shape.selectOption(representation);
+    await page.waitForFunction(expected => {
+      const layout = editorEnginePreviewSurface.scene.devices[0]?.visual?.stageboxNodeOnly;
+      return layout?.shape === expected && layout.emptySlots?.length === 1000;
+    }, representation);
+    await page.locator("#addOutputNode").click();
+    assert.equal(await denseCount(), 1000);
+    assert.ok(await notice.isVisible());
+    await pane("end-a").getByRole("button", { name: "Fit End A", exact: true }).click();
+    assert.ok(await page.evaluate(() => {
+      const { camera, scene, renderer } = editorEnginePreviewSurface;
+      return scene.devices[0].visual.stageboxNodeOnly.halfHeight * 2 * camera.zoom <= renderer.resolution.height;
+    }));
+    if (representation === "circular") await page.screenshot({ path: join(artifacts, "editor-1000-circular-slots.png") });
+  }
+
   await writeFile(join(artifacts, "stagebox-node-only.avd"), JSON.stringify(project, null, 2));
   const bundle = JSON.parse(await readFile(new URL("../src/engine/generated/outputViewerBundle.json", import.meta.url), "utf8"));
   const html = buildEngineViewerHtml({ engineScene: buildEngineOutputScene(project) }, { bundle });

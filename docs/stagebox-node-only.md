@@ -9,9 +9,11 @@ Stagebox ends.
 The projection keeps stored connector and anchor IDs, channel mappings, end
 offsets and artwork. Generated coordinates are not written to project or
 device definitions. Uploaded faceplates and layouts with multiple authored
-anchors per connector keep their authored geometry. Definitions beyond 100
-visible connectors also keep their existing anchor geometry rather than
-dropping nodes.
+anchors per connector keep their authored geometry. All three generated
+layouts support up to 1,000 nodes per end, including empty editor slots.
+The editor shows a red notice at the limit; existing slots can still be
+filled or removed. Older definitions above the cap keep their existing
+anchors rather than dropping nodes.
 
 Stored mappings take priority. Without an explicit mapping for either port,
 an unambiguous match requires the same authored channel name and connector

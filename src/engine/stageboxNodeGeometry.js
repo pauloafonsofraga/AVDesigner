@@ -1,5 +1,6 @@
 import { stageboxFaceplateLayout } from "./deviceVisualBuilder.js";
 import { connectorVisualAnchors } from "./deviceDefinitionV2.js";
+import { STAGEBOX_MAX_NODES } from "./stageboxSnake.js";
 import {
   LEGACY_CANVAS_DETAIL_MAX_SCALE, legacyCanvasDetailScale, legacyConnectorRadius, legacyConnectorStrokeWidth
 } from "./legacyZoomDetail.js";
@@ -42,11 +43,13 @@ function compactScale({ nodes, panel }, shape) {
     const columns = Math.ceil(Math.sqrt(nodes.length)), rows = Math.ceil(nodes.length / columns);
     return { x: GRID_PITCH * (columns + 1) / panel.width, y: GRID_PITCH * (rows + 1) / panel.height, spacing: GRID_PITCH };
   }
-  let nearest = Infinity;
-  for (const [i, a] of nodes.entries()) for (const b of nodes.slice(i + 1)) {
-    nearest = Math.min(nearest, Math.hypot(a.x - b.x, a.y - b.y));
+  let nearestSquared = Infinity;
+  for (let i = 0; i < nodes.length; i++) for (let j = i + 1; j < nodes.length; j++) {
+    const dx = nodes[i].x - nodes[j].x, dy = nodes[i].y - nodes[j].y;
+    nearestSquared = Math.min(nearestSquared, dx * dx + dy * dy);
   }
-  return { x: GRID_PITCH / nearest, y: GRID_PITCH / nearest, spacing: GRID_PITCH };
+  const scale = GRID_PITCH / Math.sqrt(nearestSquared);
+  return { x: scale, y: scale, spacing: GRID_PITCH };
 }
 
 export function projectStageboxEndNodes(device, { keepFrame = false, editorConnectors } = {}) {
@@ -66,7 +69,7 @@ export function projectStageboxEndNodes(device, { keepFrame = false, editorConne
     return livePort ? [livePort] : emptyIds.has(c.id) ? [{ id: c.id }] : [];
   }) : live;
   // Authored artwork and distinct visual anchors still use their authored geometry.
-  if (visual.hasFaceImage || visual.faceImage || layoutPorts.length > 100 || live.some(c => c.anchors?.length > 1)) {
+  if (visual.hasFaceImage || visual.faceImage || layoutPorts.length > STAGEBOX_MAX_NODES || live.some(c => c.anchors?.length > 1)) {
     return { ...device, connectors: ports };
   }
   const layout = stageboxFaceplateLayout(layoutPorts, shape, endId, Math.max(120, device.width), Math.max(80, device.height));

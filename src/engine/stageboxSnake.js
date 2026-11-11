@@ -1,6 +1,6 @@
 import "./stageboxSnakeCore.js";
 
-export const { STAGEBOX_SNAKE_CATEGORY, normalizeStageboxSnake, stageboxSnakeTogglePatch, stageboxEndDraft,
+export const { STAGEBOX_SNAKE_CATEGORY, STAGEBOX_MAX_NODES, normalizeStageboxSnake, stageboxSnakeTogglePatch, stageboxEndDraft,
   commitStageboxEndDraft, assignStageboxConnector, setStageboxChannel } = globalThis.WireNexusStageboxSnake;
 
 export function effectiveStageboxChannels(definition, connectors = []) {

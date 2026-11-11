@@ -18,6 +18,7 @@ import { DEFAULT_RENDER_OPTIONS, WebglGraphRenderer } from "./renderer.js";
 import { SceneGraph } from "./sceneGraph.js";
 import { fitCameraToBounds } from "./cameraFit.js";
 export { fitCameraToBounds } from "./cameraFit.js";
+export const STAGEBOX_PREVIEW_MIN_ZOOM = .005;
 
 export const ENGINE_PREVIEW_BUILD_ID = "iteration53-4-3-compact-rack-projection";
 
@@ -393,7 +394,7 @@ export class EnginePreviewSurface {
       this.renderer.resolution.width,
       this.renderer.resolution.height,
       padding,
-      stagebox ? { maxZoom: 3 } : undefined
+      stagebox ? { minZoom: STAGEBOX_PREVIEW_MIN_ZOOM, maxZoom: 3 } : undefined
     );
     return this.camera;
   }

@@ -176,6 +176,41 @@ test("editor-only empty slots share every Stagebox layout and stay put when fill
   }
 });
 
+test("all Stagebox layouts grow past 100 and fit 1,000 live nodes and empty slots", () => {
+  const fixture = stageboxNodeOnlyFixture(1000).devices[1].templateOverride;
+  const connectors = fixture.connectors.filter(c => c.id.startsWith("a-")).map((c, i) => ({ ...c, empty: i % 2 !== 0 }));
+  for (const shape of ["rectangle", "circular", "fanout"]) {
+    const template = { ...stageboxEndDraft(fixture, "end-a"), stageboxRepresentation: shape };
+    const preview = count => createPreviewDeviceFromDraft({ template: { ...template, connectors: connectors.slice(0, count) } });
+    const dense = preview(1000), small = preview(102);
+    const layout = dense.visual.stageboxNodeOnly;
+    assert.equal(small.visual.stageboxNodeOnly.shape, shape);
+    assert.equal(layout.shape, shape);
+    assert.equal(dense.connectors.length, 500);
+    assert.equal(layout.emptySlots.length, 500);
+    assert.ok(layout.halfHeight > small.visual.stageboxNodeOnly.halfHeight);
+    const points = [...dense.connectors, ...layout.emptySlots].map(c => c.anchors[0]);
+    if (shape === "fanout") {
+      assert.equal(new Set(points.map(p => p.x)).size, 1);
+      assert.equal(layout.nodeSpacing, 21);
+      const scene = new SceneGraph();
+      scene.setData({ devices: [dense] });
+      const surface = Object.assign(Object.create(EnginePreviewSurface.prototype), {
+        scene, renderer: { resolution: { width: 500, height: 400 }, resize() {} }
+      });
+      assert.ok(surface.fitToContent({ padding: 34 }).zoom * layout.halfHeight * 2 <= 332 + 1e-8);
+    } else {
+      assert.equal(stageboxNodeFillRadius(dense) + STAGEBOX_NODE_RIM * 2, legacyConnectorRadius(1) + legacyConnectorStrokeWidth(1));
+      assert.equal(stageboxNodeDetailScale(dense, .05), legacyCanvasDetailScale(.05));
+      const extent = stageboxNodeHitRadius(dense, .05), required = (2 * extent + 1) ** 2;
+      for (let i = 0; i < points.length; i++) for (let j = i + 1; j < points.length; j++) {
+        const dx = points[i].x - points[j].x, dy = points[i].y - points[j].y;
+        assert.ok(dx * dx + dy * dy >= required - 1e-6, `${shape}: nodes ${i} and ${j} overlap`);
+      }
+    }
+  }
+});
+
 test("Enclosed Stagebox nodes match device zoom compensation without overlap, while fanout is unchanged", () => {
   const scene = new SceneGraph();
   scene.setData(normalizeAvDesignerProject(stageboxNodeOnlyFixture(4, ["rectangle", "fanout"])));
