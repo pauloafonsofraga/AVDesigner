@@ -3331,6 +3331,8 @@
       letter-spacing: .02em;
     }
 
+    #openDeviceEditorMultiCores { margin-left: auto; }
+
     #deviceEditorModal .editor-panel .tool-button,
     #deviceEditorModal .editor-panel .primary-button,
     #deviceEditorModal .editor-panel .danger-button,
@@ -5458,7 +5460,6 @@
     .topbar .toolbar #zoomOut,
     .topbar .toolbar #commentTool,
     .topbar .toolbar #cableScheduleButton { width: 48px; min-width: 48px; }
-    .topbar .toolbar #createMultiCore { width: 54px; min-width: 54px; }
     .topbar .toolbar #saveCloudProject, .topbar .toolbar #openCloudProject { width: 54px; min-width: 54px; }
     .topbar .toolbar .zoom-readout { min-width: 31px; font-size: 10.8px; }
     .topbar .toolbar .wire-placement-select { min-width: 71px; height: 26px; padding: 0 6px; font-size: 10.8px; }
@@ -5555,7 +5556,6 @@
         </button>
         <select class="wire-placement-select" id="wirePlacementSelect" title="Cable placement" aria-label="Cable placement"><option value="auto">Auto</option><option value="manual">Manual</option></select>
         <button class="tool-button" id="createCableLoom" type="button" aria-pressed="false">Create Cable Loom</button>
-        <button class="tool-button" id="createMultiCore" type="button">Place Multi-Core</button>
         <button class="theme-switch has-icon" id="cableHopsToggle" type="button" aria-pressed="true" title="Toggle cable crossing hops" aria-label="Toggle cable crossing hops">
           <span>HOPS</span>
         </button>
@@ -5766,6 +5766,7 @@
             <button class="editor-tab" data-editor-tab="connectors" type="button">Connectors</button>
             <button class="editor-tab" data-editor-tab="cards" type="button">Cards</button>
             <button class="editor-tab" data-editor-tab="defaults" type="button">Defaults</button>
+            <button class="tool-button hidden" id="openDeviceEditorMultiCores" type="button">Multi-Core Library</button>
           </div>
 
           <div class="editor-panels">
@@ -16968,6 +16969,7 @@
 
     function renderEditorTabs() {
       const template = currentEditorTemplate();
+      document.getElementById("openDeviceEditorMultiCores")?.classList.toggle("hidden", !engineRendererRequested());
       const disabledTabs = new Set();
       if (isAdapterTemplate(template)) {
         disabledTabs.add("faceplate");
@@ -35802,7 +35804,6 @@ document.addEventListener("click", function(event) {
       const active = activeEngineBridge()?.toggleLoomCreation?.();
       createCableLoomButton.setAttribute("aria-pressed", String(Boolean(active)));
     });
-    document.getElementById("createMultiCore").addEventListener("click", () => activeEngineBridge()?.openMultiCorePicker());
     cableHopsToggle.addEventListener("click", editorActions.toggleCableHops);
     voltageToggle.addEventListener("click", editorActions.toggleVoltage);
     document.getElementById("deviceEditorButton").addEventListener("click", editorActions.openDeviceEditor);
@@ -35973,6 +35974,10 @@ document.addEventListener("click", function(event) {
       await importDevicePackageFile(file);
     });
     document.getElementById("applyDeviceEditor").addEventListener("click", applyDeviceEditor);
+    document.getElementById("openDeviceEditorMultiCores").addEventListener("click", async () => {
+      if (!activeEngineBridge()?.ready || !await closeDeviceEditor()) return;
+      activeEngineBridge()?.openMultiCorePicker();
+    });
     editorTabs.addEventListener("click", event => {
       const tab = event.target.closest("[data-editor-tab]");
       if (!tab) return;

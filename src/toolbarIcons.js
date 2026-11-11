@@ -18,8 +18,6 @@
     chassis: [['rect',{x:2,y:5,width:20,height:14,rx:2}],['path',{d:'M2 10h20'}],
       ['rect',{x:5,y:13,width:3,height:3,rx:.5}],['rect',{x:11,y:13,width:3,height:3,rx:.5}],['circle',{cx:18,cy:14.5,r:1}]],
     loom: [['path',{d:'M2 6h20M2 12h20M2 18h20M7 3l2 18M16 3l2 18'}]],
-    'multi-core': [['rect',{x:2,y:3,width:8,height:18,rx:2}],['path',{d:'M10 7l12-4M10 12h12M10 17l12 4'}],
-      ['path',{d:'M6 7h.01M6 12h.01M6 17h.01'}]],
     jump: [['circle',{cx:5,cy:12,r:4}],['circle',{cx:19,cy:12,r:4}],['path',{d:'M9 12h6','stroke-dasharray':'1 3'}]],
     hops: [['path',{d:'M12 2v5m0 10v5M2 12h5a5 5 0 0 1 10 0h5'}]],
     'hops-off': [['path',{d:'M12 2v20M2 12h20'}]],
@@ -32,7 +30,7 @@
   const buttons = {
     zoomOut:'minus',zoomIn:'plus',zoomFit:'scan',undoAction:'undo-2',redoAction:'redo-2',
     darkModeToggle:'moon',gridToggle:'grid-3x3',objectSnappingToggle:'magnet',wireModeToggle:'spline',
-    createCableLoom:'loom',createMultiCore:'multi-core',cableHopsToggle:'hops',deviceEditorButton:'chassis',
+    createCableLoom:'loom',cableHopsToggle:'hops',deviceEditorButton:'chassis',
     nodeBuilderButton:'plug',rackBuilderButton:'server',importLedGrid:'grid-2x2-plus',commentTool:'message-square',
     areaTool:'square-dashed',jumpNodeTool:'jump',titleBlockButton:'title-block',newProject:'file-plus',loadProject:'folder-open',
     saveProject:'save',saveProjectAs:'save-copy',projectRevisionsButton:'history',saveCloudProject:'cloud-upload',openCloudProject:'folder-open',exportHtml:'file-code',publishProjectButton:'cloud-upload',
@@ -46,7 +44,7 @@
   const labels = {
     zoomOut:'Zoom out',zoomIn:'Zoom in',zoomFit:'Fit',undoAction:'Undo',redoAction:'Redo',
     darkModeToggle:'Theme',gridToggle:'Grid',objectSnappingToggle:'Snap',wireModeToggle:'Curve',
-    createCableLoom:'Loom',createMultiCore:'Multi-Core',cableHopsToggle:'Hops',deviceEditorButton:'Devices',
+    createCableLoom:'Loom',cableHopsToggle:'Hops',deviceEditorButton:'Devices',
     nodeBuilderButton:'Nodes',rackBuilderButton:'Racks',importLedGrid:'LED grid',commentTool:'Comment',
     areaTool:'Area',jumpNodeTool:'Jump',titleBlockButton:'Title',newProject:'New',loadProject:'Open',
     saveProject:'Save',saveProjectAs:'Save As',projectRevisionsButton:'Revisions',saveCloudProject:'Cloud Save',openCloudProject:'Cloud Open',exportHtml:'HTML',publishProjectButton:'Publish',

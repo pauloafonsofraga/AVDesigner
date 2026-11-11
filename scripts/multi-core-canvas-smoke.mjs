@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { openMultiCorePicker } from "./multi-core-test-ui.mjs";
 import { createRequire } from "node:module";
 import { mkdir, readFile } from "node:fs/promises";
 import { connectedMultiCoreProject } from "../fixtures/multi-core-connectivity.mjs";
@@ -26,7 +27,19 @@ try {
   const canvas = page.locator(".engine-bridge-canvas");
   const bounds = await canvas.boundingBox();
   const click = async (x, y) => page.mouse.click(bounds.x + x, bounds.y + y);
-  await page.locator("#createMultiCore").click();
+  assert.equal(await page.locator("#createMultiCore").count(), 0);
+  await page.locator("#deviceEditorButton").click();
+  await page.locator("#editorDeviceName").fill("Unsaved picker handoff test");
+  const library = page.locator("#openDeviceEditorMultiCores");
+  const picker = page.locator("dialog.multi-core-picker");
+  await library.click();
+  await page.getByRole("button", { name: "Keep Editing", exact: true }).click();
+  assert.equal(await picker.count(), 0);
+  assert.equal(await page.locator("#editorDeviceName").inputValue(), "Unsaved picker handoff test");
+  await library.click();
+  await page.locator('.editor-unsaved-modal [data-choice="discard"]').click();
+  await picker.waitFor();
+  assert.ok(await page.locator("#deviceEditorModal").isHidden());
   assert.deepEqual(await page.locator(".multi-core-picker select option").allTextContents(), ["Hybrid Multi-Core (14 circuits)"]);
   await page.locator("dialog button[value=place]").click();
   await page.waitForFunction(() => activeEngineBridge().multiCorePlacement);
@@ -36,7 +49,7 @@ try {
   await page.screenshot({ path: `${dir}/placement-preview.png` });
   await page.keyboard.press("Escape");
   assert.equal(await page.evaluate(() => state.multiCores.length), 0);
-  await page.locator("#createMultiCore").click(); await page.locator("dialog button[value=place]").click();
+  await openMultiCorePicker(page); await page.locator("dialog button[value=place]").click();
   await page.waitForFunction(() => activeEngineBridge().multiCorePlacement);
   await click(400, 200);
   await click(750, 300);

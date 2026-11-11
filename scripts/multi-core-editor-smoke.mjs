@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { openMultiCorePicker } from "./multi-core-test-ui.mjs";
 import { chromium } from "playwright";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { connectedMultiCoreProject } from "../fixtures/multi-core-connectivity.mjs";
@@ -105,7 +106,7 @@ try {
   checks.push("existing editor visual reference, light theme and narrow-viewport controls");
 
   // Personal create/duplicate/reopen use the actual picker and existing storage owner.
-  await page.locator("#createMultiCore").click(); await page.locator("[data-definition-create]").click();
+  await openMultiCorePicker(page); await page.locator("[data-definition-create]").click();
   await editField("name", "Personal Hybrid Test"); await tab("Trunk");
   await page.getByLabel("Group media", { exact: true }).selectOption("coax");
   await page.getByLabel("Group connector", { exact: true }).selectOption("sdi");
@@ -139,13 +140,13 @@ try {
   checks.push("marquee multi-selection, group movement, Escape drag cancellation, shared snap guides, transparent PNG and artwork replacement");
   await tab("End B"); await page.locator('[data-path="ends.B.style"]').selectOption("stage-box");
   const personalId = (await draft()).id; await action("save"); await page.locator(".mc-editor").waitFor({ state: "detached" });
-  await page.locator("#createMultiCore").click(); await page.getByLabel("Multi-Core definition", { exact: true }).selectOption({ label: "Personal Hybrid Test (8 circuits)" });
+  await openMultiCorePicker(page); await page.getByLabel("Multi-Core definition", { exact: true }).selectOption({ label: "Personal Hybrid Test (8 circuits)" });
   await page.locator("[data-definition-copy]").click(); const copyId = (await draft()).id; assert.notEqual(copyId, personalId);
   await editField("name", "Personal Hybrid Copy"); await action("save"); await page.locator(".mc-editor").waitFor({ state: "detached" });
-  await page.locator("#createMultiCore").click(); await page.getByLabel("Multi-Core definition", { exact: true }).selectOption({ label: "Personal Hybrid Copy (8 circuits)" });
+  await openMultiCorePicker(page); await page.getByLabel("Multi-Core definition", { exact: true }).selectOption({ label: "Personal Hybrid Copy (8 circuits)" });
   await page.locator("[data-definition-edit]").click(); await editField("description", "Unsaved stale draft");
   const other = await context.newPage(); await other.goto(base); await other.waitForFunction(() => window.wireNexusReady); await other.evaluate(() => wireNexusReady);
-  await other.locator("#createMultiCore").click(); await other.getByLabel("Multi-Core definition", { exact: true }).selectOption({ label: "Personal Hybrid Copy (8 circuits)" });
+  await openMultiCorePicker(other); await other.getByLabel("Multi-Core definition", { exact: true }).selectOption({ label: "Personal Hybrid Copy (8 circuits)" });
   await other.locator("[data-definition-edit]").click(); await other.locator('[data-path="description"]').fill("Newer tab revision"); await other.locator('[data-path="description"]').press("Tab");
   await other.locator('[data-action="save"]').click(); await other.locator(".mc-editor").waitFor({ state: "detached" });
   await action("save"); await page.waitForFunction(() => document.querySelector(".mc-diagnostics")?.textContent.includes("changed in another tab"));
@@ -157,11 +158,11 @@ try {
   assert.equal((await draft()).description, "Unsaved stale draft");
   await tab("Defaults"); await action("reload-definition");
   await page.getByRole("button", { name: "Discard Changes", exact: true }).click();
-  await page.waitForFunction(() => activeEngineBridge().multiCoreEditor.session.value.description === "Newer tab revision");
+  await page.waitForFunction(() => activeEngineBridge().multiCoreEditor?.session.value.description === "Newer tab revision");
   assert.equal((await draft()).description, "Newer tab revision");
   await action("cancel"); await other.close();
   checks.push("personal create, explicit group mapping, independent ends, save/reopen/duplicate, real cross-tab revision conflict, Defaults reload and safe Cancel");
-  await page.locator("#createMultiCore").click(); await page.getByLabel("Multi-Core definition", { exact: true }).selectOption({ label: "Personal Hybrid Copy (8 circuits)" });
+  await openMultiCorePicker(page); await page.getByLabel("Multi-Core definition", { exact: true }).selectOption({ label: "Personal Hybrid Copy (8 circuits)" });
   await page.locator('button[value="place"]').click();
   for (const world of [{ x: 400, y: 100 }, { x: 400, y: 620 }]) {
     const p = await page.evaluate(world => { const b = activeEngineBridge(), r = b.canvas.getBoundingClientRect(); return { x: r.x + (world.x - b.camera.x) * b.camera.zoom, y: r.y + (world.y - b.camera.y) * b.camera.zoom }; }, world);
@@ -174,12 +175,12 @@ try {
   // Measured UI operations include browser event/render time. Fixture setup only
   // is programmatic; timed edits use mouse/keyboard controls.
   for (const count of [8, 16, 32, 64]) {
-    await page.locator("#createMultiCore").click(); await page.locator("[data-definition-create]").click(); await editField("name", `Performance ${count}`);
+    await openMultiCorePicker(page); await page.locator("[data-definition-create]").click(); await editField("name", `Performance ${count}`);
     const measured = { circuits: count };
     await tab("Trunk"); await page.getByLabel("Group connector", { exact: true }).selectOption("sdi"); await page.getByLabel("Group media", { exact: true }).selectOption("coax");
     await page.getByLabel("Group quantity", { exact: true }).fill(String(count)); await action("add-group");
     await action("save"); await page.locator(".mc-editor").waitFor({ state: "detached" });
-    await page.locator("#createMultiCore").click(); await page.getByLabel("Multi-Core definition", { exact: true }).selectOption({ label: `Performance ${count} (${count} circuits)` });
+    await openMultiCorePicker(page); await page.getByLabel("Multi-Core definition", { exact: true }).selectOption({ label: `Performance ${count} (${count} circuits)` });
     const started = performance.now(); await page.locator("[data-definition-edit]").click(); measured.openMs = performance.now() - started;
     let t = performance.now(); await tab("End A"); measured.tabMs = performance.now() - t;
     const p = (await draft()).ends.A.connectors[0].id;
@@ -191,7 +192,7 @@ try {
     await page.locator('[data-path="circuits.0.endBPortId"]').selectOption((await draft()).ends.B.connectors[0].id);
     measured.validationMs = await page.evaluate(() => { const e = activeEngineBridge().multiCoreEditor, start = performance.now(); e.validate(); return performance.now() - start; });
     t = performance.now(); await action("save"); await page.locator(".mc-editor").waitFor({ state: "detached" }); measured.saveAndCloseMs = performance.now() - t;
-    await page.locator("#createMultiCore").click(); await page.getByLabel("Multi-Core definition", { exact: true }).selectOption({ label: `Performance ${count} (${count} circuits)` }); await page.locator("[data-definition-edit]").click();
+    await openMultiCorePicker(page); await page.getByLabel("Multi-Core definition", { exact: true }).selectOption({ label: `Performance ${count} (${count} circuits)` }); await page.locator("[data-definition-edit]").click();
     t = performance.now(); await action("cancel"); measured.closeMs = performance.now() - t;
     timings.push(measured);
   }
@@ -215,7 +216,7 @@ try {
     multiCoreDefinitions: [null, { schemaVersion: 99, id: "future-definition", name: "Future definition", opaque: { retain: true } }], connections: [] };
   await page.locator("#fileInput").setInputFiles({ name: "future.avd", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(future)) });
   await page.waitForFunction(() => state.projectName === "Future schema inspection" && activeEngineBridge()?.ready);
-  await page.locator("#createMultiCore").click();
+  await openMultiCorePicker(page);
   await page.getByLabel("Multi-Core definition", { exact: true }).selectOption({ label: "Future definition (0 circuits)" });
   assert(await page.locator('button[value="place"]').isDisabled()); assert(await page.locator("[data-definition-copy]").isDisabled());
   await page.locator("[data-assembly-edit]").click();

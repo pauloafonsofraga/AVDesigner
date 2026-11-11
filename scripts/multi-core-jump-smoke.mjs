@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { openMultiCorePicker } from "./multi-core-test-ui.mjs";
 import { createRequire } from "node:module";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { connectedMultiCoreProject } from "../fixtures/multi-core-connectivity.mjs";
@@ -41,7 +42,7 @@ try {
   };
   const read = () => page.evaluate(() => ({ mc: structuredClone(state.multiCores[0]), nodes: structuredClone(state.jumpNodes), cables: structuredClone(state.connections), history: activeEngineBridge().commandHistory.length, index: activeEngineBridge().commandIndex }));
   const shot = name => page.screenshot({ path: `${dir}/${name}.png` });
-  await page.locator("#createMultiCore").click(); await page.locator('dialog button[value="place"]').click();
+  await openMultiCorePicker(page); await page.locator('dialog button[value="place"]').click();
   await page.waitForFunction(() => activeEngineBridge().multiCorePlacement);
   await click({ x: rect.x + 350, y: rect.y + 160 }); await click({ x: rect.x + 850, y: rect.y + 180 });
   await page.waitForFunction(() => state.multiCores.length === 1);

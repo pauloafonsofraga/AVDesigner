@@ -90,7 +90,6 @@ export const multiCoreCanvasMethods = {
         await inlineProjectArtwork(definition, source => inlineImage(source, { cache }));
         if (!dialog.open) return;
         this.multiCorePlacement = { definition };
-        document.getElementById("createMultiCore")?.classList.add("active");
         this.updateCanvasCursor();
         dialog.close();
         } catch (error) { event.submitter.disabled = false; this.showError?.(error.message); }
@@ -198,7 +197,6 @@ export const multiCoreCanvasMethods = {
 
   cancelMultiCorePlacement() {
     this.multiCorePlacement = null;
-    document.getElementById("createMultiCore")?.classList.remove("active");
     this.updateCanvasCursor(); this.scheduleRender();
   },
 

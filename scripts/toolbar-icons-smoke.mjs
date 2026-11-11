@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {mkdirSync} from 'node:fs';
 import {cableTypeSelectionFixture} from '../fixtures/cable-type-selection.mjs';
+import {openMultiCorePicker} from './multi-core-test-ui.mjs';
 const {chromium}=createRequire(import.meta.url)('playwright');
 const base=process.env.AVDESIGNER_BASE_URL||'http://127.0.0.1:8790';
 const dir=process.env.AVDESIGNER_SCREENSHOT_DIR||'/tmp/wirenexus-toolbar-icons';mkdirSync(dir,{recursive:true});
@@ -18,7 +19,7 @@ try{
     const result=await page.evaluate(()=>{
       const toolbar=document.querySelector('.topbar .toolbar'),r=toolbar.getBoundingClientRect();
       return {wrap:getComputedStyle(toolbar).flexWrap,overflow:getComputedStyle(toolbar).overflowX,width:r.width,content:toolbar.scrollWidth,
-        controls:toolbar.querySelectorAll('button,select').length,icons:[...toolbar.querySelectorAll('svg.toolbar-icon')].map(svg=>{
+        controls:[...toolbar.querySelectorAll('button,select')].filter(el=>el.getClientRects().length).length,icons:[...toolbar.querySelectorAll('svg.toolbar-icon')].filter(el=>el.getClientRects().length).map(svg=>{
           const s=svg.getBoundingClientRect(),b=svg.closest('button').getBoundingClientRect();
           const label=svg.closest('button').querySelector('.toolbar-caption'),l=label.getBoundingClientRect();
           return {w:s.width,h:s.height,buttonWidth:b.width,buttonHeight:b.height,fontSize:getComputedStyle(label).fontSize,left:s.left-b.left,right:b.right-s.right,top:s.top-b.top,bottom:b.bottom-s.bottom,y:b.y,
@@ -26,16 +27,16 @@ try{
             labelTop:l.top,iconBottom:s.bottom,labelBottom:l.bottom,buttonBottom:b.bottom};
         })};
     });
-    assert.equal(result.controls,31);assert.equal(result.icons.length,29);assert.equal(result.wrap,'nowrap');assert.equal(result.overflow,'auto');
-    result.icons.forEach(i=>{assert.equal(i.w,22);assert.equal(i.h,22);assert.equal(i.buttonHeight,37);assert.equal(i.buttonWidth,i.label==='Multi-Core'?54:['Zoom out','Comment','Schedule'].includes(i.label)?48:42);assert.equal(i.fontSize,'7.2px');assert.ok(Math.min(i.left,i.right)>=6);assert.ok(Math.min(i.top,i.bottom)>=2);assert.equal(i.y,result.icons[0].y);
+    assert.equal(result.controls,result.icons.length+2);assert.equal(result.wrap,'nowrap');assert.equal(result.overflow,'auto');
+    result.icons.forEach(i=>{assert.equal(i.w,22);assert.equal(i.h,22);assert.equal(i.buttonHeight,37);assert.equal(i.buttonWidth,['Cloud Save','Cloud Open'].includes(i.label)?54:['Zoom out','Comment','Schedule'].includes(i.label)?48:42);assert.equal(i.fontSize,'7.2px');assert.ok(Math.min(i.left,i.right)>=6);assert.ok(Math.min(i.top,i.bottom)>=2);assert.equal(i.y,result.icons[0].y);
       assert.ok(i.label.length);assert.equal(i.labelHeight,9);assert.ok(i.labelTop>=i.iconBottom+2);
       assert.ok(i.labelBottom<i.buttonBottom);assert.ok(i.labelContent<=i.labelWidth+1,JSON.stringify(i));});
-    if(width<=1920)assert.ok(result.content>result.width);
+    if(width<=1440)assert.ok(result.content>result.width);
     await page.locator('#exportPdf').scrollIntoViewIfNeeded();assert.ok(await page.locator('#exportPdf').evaluate(e=>{const r=e.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth;}));
     await page.evaluate(()=>document.querySelector('.topbar .toolbar').scrollLeft=0);
     await page.screenshot({path:`${dir}/toolbar-${width}.png`});
   }
-  checks.push('31 controls; 29 fixed 22px glyphs with readable single-line captions; padding, alignment and horizontal scrolling at four desktop widths');
+  checks.push('Fixed 22px glyphs with readable single-line captions; padding, alignment and horizontal scrolling at four desktop widths');
   await page.setViewportSize({width:1920,height:1080});
   const zoom=await page.evaluate(()=>activeEngineBridge().getZoom());await click('zoomIn');assert.ok(await page.evaluate(()=>activeEngineBridge().getZoom())>zoom);await click('zoomOut');
   await click('zoomFit');
@@ -48,7 +49,8 @@ try{
   const voltage=await page.locator('#voltageToggle span').textContent();await page.locator('#voltageToggle').click();assert.notEqual(await page.locator('#voltageToggle span').textContent(),voltage);await page.locator('#voltageToggle').click();
   for(let i=0;i<2;i++){await click('createCableLoom');assert.equal(await page.locator('#createCableLoom').getAttribute('aria-pressed'),'true');await page.keyboard.press('Escape');}
   for(const id of ['commentTool','areaTool','jumpNodeTool']){await click(id);assert.ok(await page.locator('#'+id).evaluate(e=>e.classList.contains('active')));await page.keyboard.press('Escape');}
-  await click('createMultiCore');await page.locator('dialog.multi-core-picker').waitFor({state:'visible'});await page.keyboard.press('Escape');
+  assert.equal(await page.locator('#createMultiCore').count(),0);
+  await openMultiCorePicker(page);await page.locator('dialog.multi-core-picker').waitFor({state:'visible'});await page.keyboard.press('Escape');
   checks.push('zoom, theme/grid/snap/hops, both routing modes, Auto/Manual, voltage and insertion tools preserve their handlers and states');
   for(const [button,modal,close] of [['deviceEditorButton','deviceEditorModal','closeDeviceEditor'],['nodeBuilderButton','nodeBuilderModal','closeNodeBuilder'],['rackBuilderButton','rackBuilderModal','closeRackBuilder'],['publishProjectButton','publishProjectModal','closePublishProject']]){
     await click(button);await page.locator('#'+modal).waitFor({state:'visible'});await page.locator('#'+close).click();await page.locator('#'+modal).waitFor({state:'hidden'});

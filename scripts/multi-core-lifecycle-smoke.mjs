@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { openMultiCorePicker } from "./multi-core-test-ui.mjs";
 import { chromium } from "playwright";
 import { mkdir, writeFile } from "node:fs/promises";
 import { largeMultiCoreProject } from "../fixtures/multi-core.mjs";
@@ -23,7 +24,7 @@ await page.addInitScript(() => {
 const tab = name => page.locator(`.mc-editor [data-tab="${name}"]`).click();
 const close = () => page.locator('.mc-editor [data-action="cancel"]').click();
 const open = async () => {
-  await page.locator("#createMultiCore").click(); await page.locator("[data-assembly-edit]").click(); await page.locator(".mc-editor").waitFor();
+  await openMultiCorePicker(page); await page.locator("[data-assembly-edit]").click(); await page.locator(".mc-editor").waitFor();
 };
 const time = async (channels, operation, fn) => { const t = performance.now(); await fn(); timings.push({ channels, operation, ms: performance.now() - t }); };
 const load = async p => {

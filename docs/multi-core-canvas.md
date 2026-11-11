@@ -36,8 +36,9 @@ length. Canvas distances never replace physical length metadata.
 
 ## Placement and interaction
 
-`Place Multi-Core` opens a minimal selector containing valid saved definitions
-and the Phase 2 Hybrid 14 reference definition. The first click places a
+**Device Editor → Multi-Core Library** opens the selector for saved definitions
+and the Hybrid 14 reference definition. Choose **Place**, then click the canvas
+twice. The first click places a
 transient End A; movement previews End B and the trunk; the second click commits
 one aggregate. Escape discards all placement state without a history entry.
 Undo removes the insertion; redo restores the exact IDs and geometry.

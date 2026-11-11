@@ -5284,7 +5284,6 @@ class ProductionEngineBridge {
   cancelActiveInteraction(reason = "cancelled", { updateHud = true } = {}) {
     this.multiCorePlacement = null;
     this.multiCoreRoutePlacement = null;
-    globalThis.document?.getElementById("createMultiCore")?.classList.remove("active");
     if (this.rotationDrag) {
       const drag = this.rotationDrag;
       this.rotationDrag = null;

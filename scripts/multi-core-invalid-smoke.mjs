@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { openMultiCorePicker } from "./multi-core-test-ui.mjs";
 import { chromium } from "playwright";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { multiCoreInvalidCases } from "../fixtures/multi-core-invalid.mjs";
@@ -32,7 +33,7 @@ try {
     await page.locator("#closeCableSchedule").click();
     assert.equal(await page.evaluate(() => JSON.stringify([projectSnapshotData({ forEngine: true }), activeEngineBridge().engineHistoryState()])), stamp);
     if (input.multiCores.length) {
-      await page.locator("#createMultiCore").click(); await page.locator("[data-assembly-edit]").first().click();
+      await openMultiCorePicker(page); await page.locator("[data-assembly-edit]").first().click();
       await page.locator(".mc-editor").waitFor(); await page.keyboard.press("Escape");
       assert.equal(await page.locator(".mc-editor").count(), 0); assert.deepEqual(await read(), loaded);
     }
