@@ -86,21 +86,24 @@ try {
   await before.close();
 
   const zoomProject = stageboxNodeOnlyFixture(4, ["rectangle", "fanout"]);
-  const zoomNode = () => page.evaluate(() => {
+  const zoomNodes = () => page.evaluate(() => {
     const { scene } = activeEngineBridge();
-    const end = scene.devices.find(d => d.stageboxIdentity?.endId === "end-b");
-    const connector = scene.getConnector(end.id, "b-4");
-    return scene.connectorWorldPoint(end, connector);
+    return ["a-4", "b-4"].map((id, i) => {
+      const end = scene.devices.find(d => d.stageboxIdentity?.endId === (i ? "end-b" : "end-a"));
+      return { id, point: scene.connectorWorldPoint(end, scene.getConnector(end.id, id)) };
+    });
   });
   await load(page, zoomProject, { x: -30, y: -5, zoom: 1 });
-  const zoomAnchor = await zoomNode();
+  const zoomAnchors = await zoomNodes();
   await grab(page, "snake-zoom-100.png");
   await load(page, zoomProject, { x: -30, y: -5, zoom: .5 });
-  assert.deepEqual(await zoomNode(), zoomAnchor);
+  assert.deepEqual(await zoomNodes(), zoomAnchors);
   await grab(page, "snake-zoom-50.png");
-  const zoomedRim = await screen(page, { ...zoomAnchor, x: zoomAnchor.x + 14 });
-  await page.mouse.move(zoomedRim.x, zoomedRim.y);
-  await page.waitForFunction(() => activeEngineBridge().hoverState.connector?.connector.id === "b-4");
+  for (const { id, point } of zoomAnchors) {
+    const zoomedRim = await screen(page, { ...point, x: point.x + 14 });
+    await page.mouse.move(zoomedRim.x, zoomedRim.y);
+    await page.waitForFunction(id => activeEngineBridge().hoverState.connector?.connector.id === id, id);
+  }
 
   await load(page, project);
   for (const [id, wireIds, channel] of [["left-1", ["left-1", "right-1"], "ch-1"], ["right-2", ["right-2", "left-2"], "ch-2"]]) {

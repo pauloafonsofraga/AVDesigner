@@ -83,7 +83,7 @@ import { wirePlaybackEase } from "./wirePlayback.js";
 import { isPhysicalJumpWire, wireCaption } from "./cableCaption.js";
 import { highlightedCableWireIds } from "./cableSelection.js";
 import { stageboxSignalPath } from "./stageboxSignalPath.js";
-import { STAGEBOX_NODE_RADIUS, STAGEBOX_NODE_RIM, stageboxNodeDetailScale } from "./stageboxNodeGeometry.js";
+import { STAGEBOX_NODE_RIM, stageboxNodeDetailScale, stageboxNodeFillRadius } from "./stageboxNodeGeometry.js";
 import { rackShellSlices, rackShellStyle, normalizeRackShell } from "./rackShell.js";
 
 export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-154-project-layers";
@@ -3307,7 +3307,7 @@ function pushSegmentedCircle(vertices, point, radius, colors, opacity = 1) {
 }
 
 function connectorVisualRadius(device = {}, camera = null) {
-  if (device.visual?.stageboxEndId) return (STAGEBOX_NODE_RADIUS - STAGEBOX_NODE_RIM) * stageboxNodeDetailScale(device, camera?.zoom);
+  if (device.visual?.stageboxEndId) return stageboxNodeFillRadius(device) * stageboxNodeDetailScale(device, camera?.zoom);
   return device?.kind === "jump" ? JUMP_CONNECTOR_RADIUS : legacyConnectorRadius(camera?.zoom || 1, CONNECTOR_RADIUS);
 }
 

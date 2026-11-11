@@ -1,22 +1,34 @@
 import { stageboxFaceplateLayout } from "./deviceVisualBuilder.js";
 import { connectorVisualAnchors } from "./deviceDefinitionV2.js";
-import { legacyCanvasDetailScale } from "./legacyZoomDetail.js";
+import {
+  LEGACY_CANVAS_DETAIL_MAX_SCALE, legacyCanvasDetailScale, legacyConnectorRadius, legacyConnectorStrokeWidth
+} from "./legacyZoomDetail.js";
 
 export const STAGEBOX_TRUNK_COLOR = "#80d4ff";
 export const STAGEBOX_NODE_RADIUS = 7;
 export const STAGEBOX_NODE_RIM = .625;
-const PAD = 13, GRID_PITCH = 26, RING_CLEARANCE = 21;
-// Allow for the thin white rim and the outer dark outline.
-const STAGEBOX_MARKER_EXTENT = STAGEBOX_NODE_RADIUS - STAGEBOX_NODE_RIM + STAGEBOX_NODE_RIM * 2.4 + .55;
+const PAD = 13, RING_CLEARANCE = 21;
+const BOX_NODE_OUTER_RADIUS = legacyConnectorRadius(1) + legacyConnectorStrokeWidth(1);
+const isBox = device => device?.visual?.stageboxNodeOnly?.shape === "rectangle";
+
+export function stageboxNodeFillRadius(device) {
+  return isBox(device) ? BOX_NODE_OUTER_RADIUS - STAGEBOX_NODE_RIM * 2 : STAGEBOX_NODE_RADIUS - STAGEBOX_NODE_RIM;
+}
+
+// Include the thin white rim and the outer dark outline when budgeting space.
+const markerExtent = fillRadius => fillRadius + STAGEBOX_NODE_RIM * 2.4 + .55;
+const BOX_MAX_EXTENT = markerExtent(BOX_NODE_OUTER_RADIUS - STAGEBOX_NODE_RIM * 2) * LEGACY_CANVAS_DETAIL_MAX_SCALE;
+const GRID_PITCH = Math.ceil(BOX_MAX_EXTENT * 2 + 1);
+const BOX_PAD = Math.ceil(BOX_MAX_EXTENT + 1);
 
 export function stageboxNodeDetailScale(device, zoom = 1) {
   const spacing = device?.visual?.stageboxNodeOnly?.nodeSpacing;
-  const limit = spacing ? Math.max(1, (spacing - 1) / (2 * STAGEBOX_MARKER_EXTENT)) : Infinity;
+  const limit = spacing ? Math.max(1, (spacing - 1) / (2 * markerExtent(stageboxNodeFillRadius(device)))) : Infinity;
   return Math.min(legacyCanvasDetailScale(zoom), limit);
 }
 
 export function stageboxNodeHitRadius(device, zoom) {
-  return Math.max(11, STAGEBOX_MARKER_EXTENT * stageboxNodeDetailScale(device, zoom));
+  return Math.max(11, markerExtent(stageboxNodeFillRadius(device)) * stageboxNodeDetailScale(device, zoom));
 }
 
 function compactScale({ nodes, panel }, shape) {
@@ -61,8 +73,9 @@ export function projectStageboxEndNodes(device, { keepFrame = false, editorConne
   const offsets = layout.nodes.map(node => ({ id: node.port.id,
     x: (node.x - (layout.panel.x + layout.panel.width / 2)) * scale.x,
     y: (node.y - (layout.panel.y + layout.panel.height / 2)) * scale.y }));
-  const halfWidth = PAD + Math.max(0, ...offsets.map(p => shape === "circular" ? Math.hypot(p.x, p.y) : Math.abs(p.x)));
-  const halfHeight = shape === "circular" ? halfWidth : PAD + Math.max(0, ...offsets.map(p => Math.abs(p.y)));
+  const padding = shape === "rectangle" ? BOX_PAD : PAD;
+  const halfWidth = padding + Math.max(0, ...offsets.map(p => shape === "circular" ? Math.hypot(p.x, p.y) : Math.abs(p.x)));
+  const halfHeight = shape === "circular" ? halfWidth : padding + Math.max(0, ...offsets.map(p => Math.abs(p.y)));
   const stem = layout.stem;
   const designWidth = layout.panel.x * 2 + layout.panel.width;
   const stemOffset = stem ? stem.x - designWidth / 2 : 0;

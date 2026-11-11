@@ -2,6 +2,7 @@ export const INFO_BOX_COMPACT_SCALE = 1.18;
 export const INFO_BOX_MAGNIFY_ZOOM = 1.18;
 export const INFO_BOX_HIDE_ZOOM = 0.20;
 export const INFO_BOX_MAGNIFIED_ZOOM = 2.5;
+export const LEGACY_CANVAS_DETAIL_MAX_SCALE = 2.25;
 
 export function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -9,8 +10,8 @@ export function clamp(value, min, max) {
 
 export function legacyCanvasDetailScale(zoom) {
   const value = Number(zoom);
-  if (!Number.isFinite(value) || value <= 0) return 2.25;
-  return clamp(1 / value, 1, 2.25);
+  if (!Number.isFinite(value) || value <= 0) return LEGACY_CANVAS_DETAIL_MAX_SCALE;
+  return clamp(1 / value, 1, LEGACY_CANVAS_DETAIL_MAX_SCALE);
 }
 
 export function legacyConnectorRadius(zoom, baseRadius = 7) {

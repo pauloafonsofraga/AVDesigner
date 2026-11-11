@@ -12,8 +12,8 @@ import { captureTopologyState, createTopologyCommand, createTopologyReplayState,
 import { stageboxNodeOnlyFixture } from "../fixtures/stagebox-node-only.mjs";
 import { createOutputViewerModel, outputCableTrace } from "../src/engine/outputViewerModel.js";
 import { continuousStageboxPoints, stageboxSignalPath } from "../src/engine/stageboxSignalPath.js";
-import { stageboxNodeDetailScale, stageboxNodeHitRadius, stageboxTrunkArc } from "../src/engine/stageboxNodeGeometry.js";
-import { legacyCanvasDetailScale } from "../src/engine/legacyZoomDetail.js";
+import { STAGEBOX_NODE_RIM, stageboxNodeDetailScale, stageboxNodeFillRadius, stageboxNodeHitRadius, stageboxTrunkArc } from "../src/engine/stageboxNodeGeometry.js";
+import { legacyCanvasDetailScale, legacyConnectorRadius, legacyConnectorStrokeWidth } from "../src/engine/legacyZoomDetail.js";
 import { hitTestConnector } from "../src/engine/hitTest.js";
 import { generatePdf } from "../src/engine/outputPdf.js";
 import { createPreviewDeviceFromDraft } from "../src/engine/enginePreview.js";
@@ -131,7 +131,7 @@ test("automatic rectangular and circular ends use compact live anchors without c
     const ends = scene.devices.filter(d => d.stageboxIdentity);
     const dimensions = ends.map(d => [d.width, d.height]);
     if (count === 4) {
-      assert.ok(dimensions[0].every(n => n <= 53));
+      assert.ok(dimensions[0].every(n => n <= 96));
       assert.ok(dimensions[1].every(n => n < 60));
     }
     for (const end of ends) {
@@ -184,11 +184,19 @@ test("Stagebox markers use device zoom compensation where there is room without 
   for (const end of ends) assert.equal(stageboxNodeDetailScale(end, 1), 1);
   for (const zoom of [2, 1, .85, .5, .3]) {
     assert.equal(stageboxNodeDetailScale(tails, zoom), legacyCanvasDetailScale(zoom));
+    const boxRadius = (stageboxNodeFillRadius(box) + STAGEBOX_NODE_RIM * 2) * stageboxNodeDetailScale(box, zoom);
+    assert.ok(Math.abs(boxRadius - (legacyConnectorRadius(zoom) + legacyConnectorStrokeWidth(zoom))) < 1e-9);
   }
-  assert.ok(stageboxNodeDetailScale(box, .5) > 1);
-  assert.ok(stageboxNodeDetailScale(box, .5) < legacyCanvasDetailScale(.5));
   const dense = new SceneGraph();
   dense.setData(normalizeAvDesignerProject(stageboxNodeOnlyFixture(100, ["rectangle", "circular"])));
+  const grid = dense.devices.find(d => d.stageboxIdentity?.endId === "end-a");
+  assert.equal(stageboxNodeDetailScale(grid, .2), legacyCanvasDetailScale(.2));
+  const gridPoints = grid.connectors.map(c => dense.connectorWorldPoint(grid, c));
+  const gridExtent = stageboxNodeHitRadius(grid, .2);
+  assert.ok(gridPoints.every((p, i) =>
+    gridPoints.slice(i + 1).every(q => Math.hypot(p.x - q.x, p.y - q.y) > 2 * gridExtent)));
+  const gap = Math.hypot(gridPoints[0].x - gridPoints[1].x, gridPoints[0].y - gridPoints[1].y) - 2 * gridExtent;
+  assert.ok(gap >= 1 && gap < 2, "Grid should only reserve the required marker clearance");
   const ring = dense.devices.find(d => d.stageboxIdentity?.endId === "end-b");
   const points = ring.connectors.map(c => dense.connectorWorldPoint(ring, c));
   const scale = stageboxNodeDetailScale(ring, .2);
