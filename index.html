@@ -17648,7 +17648,7 @@
     function renderConnectorRelationshipsPanel() {
       if (!connectorRelationshipsPanel) return;
       const template = currentEditorTemplate();
-      if (!template || editorActiveTab !== "connectors") {
+      if (!template || editorActiveTab !== "connectors" || template.stageboxEndDraftId) {
         connectorRelationshipsPanel.innerHTML = "";
         return;
       }
@@ -17995,9 +17995,10 @@
         return;
       }
       if (!installedSelection) ensureConnectorV2Defaults(template, connector, connectorIndex);
+      const isStageboxEnd = Boolean(template.stageboxEndDraftId);
       const displaySide = normalizeEditorDisplaySide(connector.displaySide, connector.direction, connector.x, deviceTemplateWidth(template));
       const signalDirection = normalizeEditorSignalDirection(connector.signalDirection, connector.direction);
-      const fields = connector.empty || !connector.type ? [] : connectorInfoFields(connector);
+      const fields = isStageboxEnd || connector.empty || !connector.type ? [] : connectorInfoFields(connector);
       const statusSection = connector.empty || !connector.type ? "" : `
         <div class="connector-inspector-section">
           <h4 class="connector-inspector-heading">Status</h4>
@@ -18058,7 +18059,7 @@
         </div>
       ` : "";
       const powerSection = "";
-      const stageboxAppearance = !installedSelection && template.stageboxEndDraftId && !connector.empty && Boolean(connector.type);
+      const stageboxAppearance = !installedSelection && isStageboxEnd && !connector.empty && Boolean(connector.type);
       const stageboxFanout = stageboxAppearance && template.stageboxRepresentation === "fanout";
       const stageboxBadge = stageboxAppearance ? WireNexusStageboxSnake.normalizeStageboxNodeLabel(connector.stageboxNodeLabel) : "";
       const stageboxBranchColor = stageboxFanout ? WireNexusStageboxSnake.normalizeStageboxFanoutColor(connector.stageboxFanoutColor) : "";
@@ -18077,7 +18078,7 @@
       selectedConnectorSettings.innerHTML = `
         <div class="connector-inspector-section">
           <h4 class="connector-inspector-heading">${installedSelection ? "Installed Card Connector" : "Selected Connector"}</h4>
-          ${sharedBusInspectorDetails(installedSelection ? template.cardTypes.find(c=>c.id===installedSelection.slot.installedCardTypeId) : template,
+          ${isStageboxEnd ? "" : sharedBusInspectorDetails(installedSelection ? template.cardTypes.find(c=>c.id===installedSelection.slot.installedCardTypeId) : template,
             installedSelection?.sourceConnector || connector)}
           ${groupedCoaxControls(connector, "device")}
           ${sfpCapabilityControls(connector, "device")}
@@ -36004,10 +36005,10 @@ document.addEventListener("click", function(event) {
       renderDeviceAuthoringDebugPanel();
     });
     connectorRelationshipsPanel?.addEventListener("click", event => {
+      const template = currentEditorTemplate();
+      if (!template || template.stageboxEndDraftId) return;
       const reverseButton = event.target.closest("[data-relationship-reverse]");
       if (reverseButton) {
-        const template = currentEditorTemplate();
-        if (!template) return;
         reverseEditorThroughRelationship(template, reverseButton.dataset.relationshipReverse || "");
         commitConnectorRelationshipChanges(template);
         return;
@@ -36019,8 +36020,6 @@ document.addEventListener("click", function(event) {
       }
       const deleteButton = event.target.closest("[data-delete-relationship]");
       if (!deleteButton) return;
-      const template = currentEditorTemplate();
-      if (!template) return;
       const id = deleteButton.dataset.deleteRelationship || "";
       const relationship = template.connectorRelationships?.find(item => item.id === id);
       if (normalizeEditorRelationshipType(relationship?.type) === "exclusive") commitEditorSharedBusRelationshipEdit(template, draft => removeEditorRelationship(draft, id));
@@ -36031,7 +36030,8 @@ document.addEventListener("click", function(event) {
       const labelInput = event.target.closest("[data-relationship-label]");
       if (!labelInput) return;
       const template = currentEditorTemplate();
-      const relationship = (template?.connectorRelationships || []).find(item => item.id === labelInput.dataset.relationshipLabel);
+      if (!template || template.stageboxEndDraftId) return;
+      const relationship = (template.connectorRelationships || []).find(item => item.id === labelInput.dataset.relationshipLabel);
       if (!relationship) return;
       relationship.label = labelInput.value;
       normalizeEditorConnectorRelationships(template);
@@ -36041,7 +36041,7 @@ document.addEventListener("click", function(event) {
     });
     connectorRelationshipsPanel?.addEventListener("change", event => {
       const template = currentEditorTemplate();
-      if (!template) return;
+      if (!template || template.stageboxEndDraftId) return;
       const outputCopy = event.target.closest("[data-relationship-output-copy]");
       if (outputCopy) {
         const relationship = (template.connectorRelationships || []).find(item => item.id === outputCopy.dataset.relationshipOutputCopy);

@@ -251,6 +251,13 @@ try {
   const originalBranch = await branchDetails();
   await clickBranch();
   const picker = page.getByLabel("Fanout Cable Color", { exact: true });
+  const relationshipPanel = page.locator("#connectorRelationshipsPanel");
+  const connectorFields = page.locator("#selectedConnectorSettings [data-selected-connector-field], #selectedConnectorSettings [data-selected-connector-caption]");
+  assert.equal(await connectorFields.count(), 0);
+  await pane("end-b").locator('[data-editor-node-id="b-2"] .editor-engine-hit').click({ modifiers: ["Shift"] });
+  await page.locator("#selectedConnectorSettings").getByRole("heading", { name: "2 Connectors Selected", exact: true }).waitFor();
+  assert.equal(await relationshipPanel.textContent(), "");
+  await clickBranch();
   assert.equal(await picker.inputValue(), "#b86c00");
   const badge = page.getByLabel("Inside Node Label", { exact: true });
   await badge.fill("MIC\nA1");
@@ -305,6 +312,7 @@ try {
   await pane("end-a").locator('[data-editor-node-id="a-1"] .editor-engine-hit').click();
   await badge.waitFor();
   assert.equal(await picker.count(), 0);
+  assert.equal(await connectorFields.count(), 0);
   await page.locator("#applyDeviceEditor").click();
   await page.locator("#deviceEditorModal").waitFor({ state: "hidden" });
   const coloredProject = await page.evaluate(() => projectSnapshotData());
@@ -330,6 +338,15 @@ try {
     const end = scene.devices.find(d => d.stageboxIdentity?.endId === "end-b");
     return !end.visual.stageboxNodeOnly.branchColors && !scene.getConnector(end.id, "b-1").stageboxNodeLabel;
   }));
+  await page.evaluate(() => openDeviceEditorForInstance("left"));
+  await page.locator('[data-editor-tab="connectors"]').click();
+  await page.locator('[data-editor-node-id="l-1"] .editor-engine-hit').click();
+  assert.ok(await connectorFields.count() > 0);
+  assert.equal(await badge.count(), 0);
+  await page.locator('[data-editor-node-id="l-2"] .editor-engine-hit').click({ modifiers: ["Shift"] });
+  await relationshipPanel.locator('[data-relationship-toggle="exclusive"]').waitFor();
+  await relationshipPanel.locator('[data-relationship-toggle="through"]').waitFor();
+  await page.evaluate(() => closeDeviceEditor());
 
   const draftProject = stageboxNodeOnlyFixture(4, ["rectangle", "fanout"]);
   draftProject.connections = [];
