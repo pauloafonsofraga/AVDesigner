@@ -47,7 +47,7 @@ import {
   endpointSurfaceId
 } from "./ledSurfaceModel.js";
 import {
-  connectorIncludedInMatrixForEngine,
+  matrixPortConfiguration,
   normalizeInternalSignalRoutes,
   normalizeMatrixRoutesForDevice
 } from "./matrixRouting.js?v=iteration54-4-0-matrix-routing-internal-routes";
@@ -858,9 +858,9 @@ function normalizeVisualCards(
         operationalStatus: normalizeConnectorOperationalStatus(merged.operationalStatus),
         fiberMode: String(merged.fiberMode || ""),
         installedModuleType: String(merged.installedModuleType || ""),
-        installedModuleId: String(merged.installedModuleId || merged.installedModule?.id || merged.installedModule?.value || ""),
-        installedModuleName: String(merged.installedModuleName || merged.installedModule?.name || merged.installedModule?.label || ""),
-        installedModuleActiveType: String(merged.installedModuleActiveType || merged.installedModule?.activeType || merged.installedModule?.effectiveType || merged.installedModule?.connectorType || "")
+        installedModuleId: String(merged.installedModuleId || ""),
+        installedModuleName: String(merged.installedModuleName || ""),
+        installedModuleActiveType: String(merged.installedModuleActiveType || "")
       };
     });
     const connectorCount = connectors.length;
@@ -1019,9 +1019,9 @@ function normalizeConnector(connector, index, deviceWidth, nodeColorByType, opti
     powerPlugSize,
     powerDistroRole: isPowerPlugConnector(connector) ? "power-plug" : "",
     installedModuleType: String(connector.installedModuleType || ""),
-    installedModuleId: String(connector.installedModuleId || connector.installedModule?.id || connector.installedModule?.value || ""),
-    installedModuleName: String(connector.installedModuleName || connector.installedModule?.name || connector.installedModule?.label || ""),
-    installedModuleActiveType: String(connector.installedModuleActiveType || connector.installedModule?.activeType || connector.installedModule?.effectiveType || connector.installedModule?.connectorType || ""),
+    installedModuleId: String(connector.installedModuleId || ""),
+    installedModuleName: String(connector.installedModuleName || ""),
+    installedModuleActiveType: String(connector.installedModuleActiveType || ""),
     fiberMode: visualConnector.fiberMode || String(connector.fiberMode || ""),
     customColor: String(connector.customColor || ""),
     nameText: String(connector.nameText || ""),
@@ -1030,8 +1030,7 @@ function normalizeConnector(connector, index, deviceWidth, nodeColorByType, opti
     nameTextCaption: String(connector.nameTextCaption || ""),
     resolutionFrameRateCaption: String(connector.resolutionFrameRateCaption || ""),
     customTextCaption: String(connector.customTextCaption || ""),
-    includeInMatrix: connectorIncludedInMatrixForEngine(connector),
-    matrixPortTouched: connector.matrixPortTouched === true,
+    ...matrixPortConfiguration(connector),
     x: Number.isFinite(Number(primaryAnchor?.x)) ? Number(primaryAnchor.x) : localX,
     y: Number.isFinite(Number(primaryAnchor?.y)) ? Number(primaryAnchor.y) : localY,
     color: visualConnector.color,
@@ -1049,8 +1048,8 @@ function normalizeConnectorVisualMetadata(connector = {}, nodeColorByType = NODE
     labelSource: engineConnectorLabelSource(connector),
     color: engineConnectorColor(connector, nodeColorByType),
     colorSegments: engineConnectorColorSegments(connector),
-    installedModuleEffectiveType: String(moduleDetails.effectiveType || ""),
-    installedModuleFiberMode: String(moduleDetails.fiberMode || ""),
+    installedModuleEffectiveType: String(connector.installedModuleEffectiveType || ""),
+    installedModuleFiberMode: String(connector.installedModuleFiberMode || ""),
     installedModuleFiberFamily: String(moduleDetails.fiberFamily || ""),
     installedModuleLabel: displayLabel,
     fiberMode: engineConnectorFiberMode(connector) || String(connector.fiberMode || ""),

@@ -22,6 +22,7 @@ import { rackPatchPanelVisualHeight } from "./rackPatchPanels.js";
 import { normalizeRackShell } from "./rackShell.js";
 import { createRackCompactLayout, compactConnectorSide } from "./rackCompactLayout.js?v=iteration54-38-76-rack-styles";
 import { buildCableSchedule, groupedCables } from "./cableSchedule.js";
+import { isTransceiverCage } from "./transceiverModules.js";
 import { adapterMappingForDevice } from "./adapterMapping.js";
 import { adapterRotationBounds, adapterWorldPoint, normalizeAdapterRotation } from "./adapterRotation.js";
 import {
@@ -40,7 +41,7 @@ import {
   rackExposedPortKey
 } from "./rackPorts.js";
 import {
-  connectorIncludedInMatrixForEngine,
+  matrixPortConfiguration,
   normalizeInternalSignalRoutes,
   normalizeMatrixRoutesForDevice
 } from "./matrixRouting.js?v=iteration54-4-0-matrix-routing-internal-routes";
@@ -1967,7 +1968,9 @@ export class SceneGraph {
     // connector records hold references to this object, so replacing it would
     // leave stale SFP/module state in the interaction path.
     const typeChanged = Object.hasOwn(patch, "type") && patch.type !== connector.type;
+    const cageChanged = typeChanged && (isTransceiverCage(connector) || isTransceiverCage({ type: patch.type }));
     const merged = normalizeConnector({ ...connector, ...(typeChanged ? { compatibilityType: "" } : {}),
+      ...(cageChanged ? { physicalType: patch.type, connectorType: patch.type } : {}),
       ...patch, id: connector.id }, 0, device.width, {
       forceV2: deviceDefinitionVersion(device) >= DEVICE_DEFINITION_SCHEMA_VERSION
     });
@@ -2834,8 +2837,7 @@ function normalizeConnector(connector, index, deviceWidth = 0, options = {}) {
     nameTextCaption: connector.nameTextCaption || "",
     resolutionFrameRateCaption: connector.resolutionFrameRateCaption || "",
     customTextCaption: connector.customTextCaption || "",
-    includeInMatrix: connectorIncludedInMatrixForEngine(connector),
-    matrixPortTouched: connector.matrixPortTouched === true,
+    ...matrixPortConfiguration(connector),
     signalIndex: Number(connector.signalIndex) || 0,
     faceplateSide: Boolean(connector.faceplateSide),
     adapterRole: String(connector.adapterRole || ""),

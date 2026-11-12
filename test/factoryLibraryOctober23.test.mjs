@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { factoryPromotionNodes, promotionDevice, promotionFingerprint } from "../src/factoryPromotion.js";
 import { inlineProjectArtwork, imageDataUrl, imageMime } from "../src/imageAssets.js";
+import { beforeTransceiverCorrections } from "./helpers/factoryImportHistory.mjs";
 
 const json = async path => JSON.parse(await readFile(new URL(path, import.meta.url)));
 const catalogue = await json("../data/factory-catalogue.json");
@@ -23,8 +24,9 @@ test("October 23 library update preserves all 128 IDs and ordering, without dupl
 });
 
 test("October 23 device definitions match reviewed source, including geometry, cards and original artwork", async () => {
+  const historical = beforeTransceiverCorrections(catalogue);
   for (const expected of inventory.devices) {
-    const definition = promotionDevice(catalogue.devices.find(d => d.id === expected.id));
+    const definition = promotionDevice(historical.devices.find(d => d.id === expected.id));
     assert.equal(await promotionFingerprint(definition, catalogue), expected.fingerprint, expected.id);
     const artwork = {};
     await inlineProjectArtwork(definition, async source => {

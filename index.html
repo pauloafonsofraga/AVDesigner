@@ -6419,7 +6419,7 @@
       "installedModuleType", "installedModuleId", "installedModuleName",
       "installedModuleActiveType", "installedModuleEffectiveType",
       "installedModuleFiberMode", "installedModuleFiberFamily",
-      "installedModule", "module", "transceiverModule", "moduleCapabilities", "cageCapabilities",
+      "installedModule", "module", "transceiverModule", "moduleCapabilities", "cageCapabilities", "supportedRates",
       "moduleId", "moduleName", "moduleType", "moduleActiveType", "moduleEffectiveType", "moduleFiberMode",
       "transceiverModuleId", "transceiverModuleName", "transceiverModuleType",
       "transceiverModuleActiveType", "transceiverModuleEffectiveType", "transceiverModuleFiberMode"
@@ -8122,7 +8122,9 @@
       const sourceValue = field === "includeInMatrix"
         ? connectorIncludedInMatrix(source)
         : (source[field] ?? (typeof normalized === "boolean" ? false : ""));
-      if (normalized === sourceValue) {
+      if (field === "includeInMatrix" && engineTransceiverApi()?.isTransceiverCage?.(source)) {
+        override[field] = normalized;
+      } else if (normalized === sourceValue) {
         delete override[field];
       } else {
         override[field] = normalized;
@@ -11499,7 +11501,7 @@
       if (api) {
         if (transceiverModuleSelectionUnchanged(connector, value)) return;
         Object.assign(connector, api.transceiverModulePatch(connector, value));
-        resetMatrixPortDefault(connector);
+        normalizeMatrixPortFlag(connector);
         return;
       }
       const option = transceiverModuleOptionsForConnector(connector).find(item => item.value === (value || "")) || TRANSCEIVER_MODULE_OPTIONS[0];
@@ -12198,6 +12200,10 @@
     }
 
     function defaultMatrixPortForConnector(connector) {
+      const api = engineTransceiverApi();
+      if (api?.isTransceiverCage?.(connector) && api.defaultMatrixPortForEngineConnector) {
+        return api.defaultMatrixPortForEngineConnector(connector);
+      }
       if (!connector || connector.empty || !connector.type || isDeadCageConnector(connector)) return false;
       if (matrixExcludedCableTypes.has(connector.type) || isLedGridPowerType(connector.type)) return false;
       const text = matrixConnectorText(connector);
@@ -12208,6 +12214,12 @@
 
     function normalizeMatrixPortFlag(connector) {
       if (!connector) return;
+      if (engineTransceiverApi()?.isTransceiverCage?.(connector)) {
+        const explicit = connector.matrixPortTouched !== false && typeof connector.includeInMatrix === "boolean";
+        connector.matrixPortTouched = explicit;
+        if (!explicit) connector.includeInMatrix = defaultMatrixPortForConnector(connector);
+        return;
+      }
       connector.matrixPortTouched = connector.matrixPortTouched === true;
       if (connector.empty || !connector.type || isDeadCageConnector(connector)) {
         connector.includeInMatrix = false;
@@ -12225,6 +12237,10 @@
     }
 
     function connectorIncludedInMatrix(connector) {
+      const api = engineTransceiverApi();
+      if (api?.isTransceiverCage?.(connector) && api.connectorIncludedInMatrixForEngine) {
+        return api.connectorIncludedInMatrixForEngine(connector);
+      }
       if (!connector || connector.empty || !connector.type || isDeadCageConnector(connector)) return false;
       if (typeof connector.includeInMatrix === "boolean") return connector.includeInMatrix;
       return defaultMatrixPortForConnector(connector);

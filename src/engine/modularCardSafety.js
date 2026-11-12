@@ -1,6 +1,6 @@
 import { normalizeAvDesignerDevice } from "./projectAdapter.js";
 import { engineCompatibilitySummary, engineConnectorCompatibilityType, ENGINE_CONNECTOR_TYPE_COLORS,
-  isEngineCageConnector, installedModuleDetailsForEngine } from "./connectorCompatibility.js";
+  isEngineCageConnector, installedModuleDetailsForEngine, engineSyntheticCableEndDirection } from "./connectorCompatibility.js";
 import { dacWireValidation, isDacCableType, transceiverConnectionValidation, installedModuleCapabilities } from "./transceiverModules.js";
 import { cardFitsPhysicalSlot } from "./modularDeviceLayout.js";
 import { exclusiveConnectionRejectionReason } from "./deviceDefinitionV2.js";
@@ -160,7 +160,8 @@ export function validateModularCardChanges(beforeValue, afterValue, { includeCon
       if (exclusiveReason) { fail(exclusiveReason); continue; }
       const node = after.nodeLibrary?.find(node => node.id === wire.cableType);
       const cablePort = { id: "cable-end", type: wire.cableType, compatibilityType: node?.compatibilityType,
-        direction: end === "from" ? "input" : "output", fiberMode: wire.fiberMode || "" };
+        direction: engineSyntheticCableEndDirection(newPort, end, wire.cableType === "sdi" || isEngineCageConnector(newPort) || isEngineCageConnector(peerPort)),
+        fiberMode: wire.fiberMode || "" };
       if (!isDacCableType(wire.cableType)) {
         const cableCheck = engineCompatibilitySummary(hit, { device: { id: `cable:${wire.id}` }, connector: cablePort });
         if (!cableCheck.valid) { fail(cableCheck.reason); continue; }

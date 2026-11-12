@@ -4,12 +4,13 @@ import {readFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {promotionDevice,promotionFingerprint} from '../src/factoryPromotion.js';
 import {inlineProjectArtwork,imageMime} from '../src/imageAssets.js';
+import {beforeTransceiverCorrections} from './helpers/factoryImportHistory.mjs';
 const catalogue=JSON.parse(await readFile(new URL('../data/factory-catalogue.json',import.meta.url)));
 const inventory=JSON.parse(await readFile(new URL('./fixtures/factory-library-2026-10-26.json',import.meta.url)));
 const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 
 test('October 26 adds the two finished devices without changing existing definitions or shared nodes',()=>{
-  assert.equal(hash(catalogue.devices.slice(0,inventory.beforeDevices)),inventory.existingDevicesSha256);
+  assert.equal(hash(beforeTransceiverCorrections(catalogue).devices.slice(0,inventory.beforeDevices)),inventory.existingDevicesSha256);
   assert.equal(hash({nodes:catalogue.nodes,nodeTypes:catalogue.nodeTypes,nodeTags:catalogue.nodeTags,nodeThumbnails:catalogue.nodeThumbnails}),inventory.nodesSha256);
   assert.ok(!catalogue.devices.some(d=>d.id===inventory.excludedDraft));
   const receipt=catalogue.promotions.find(p=>p.packageId===inventory.packageId);

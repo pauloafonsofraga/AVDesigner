@@ -172,13 +172,18 @@ test("empty rate overrides cannot erase a named SDI or DAC profile's known rate"
     const original = install(cage(), value);
     for (const supportedRates of [[], null, ""]) {
       const edited = { ...original, moduleCapabilities: { ...original.moduleCapabilities, supportedRates } };
-      assert.match(transceiverModuleValidation(edited).reason, /rates contradict/);
+      assert.equal(transceiverModuleValidation(edited).valid, true);
+      assert.deepEqual(installedModuleCapabilities(edited).supportedRates, original.moduleCapabilities.supportedRates);
       const target = value === "sfp-sdi-3g-tx"
         ? { ...sdiInput, supportedRates: ["12G-SDI"] }
         : install(cage(), value);
-      assert.equal(compare(edited, target).rule, "module-capability");
-      assert.equal(areEngineConnectorTypesCompatible(edited, target), false);
-      if (value === "dac-sfp-plus") assert.throws(() => dacAssemblyForConnectors(edited, target, value), /rates contradict/);
+      if (value === "dac-sfp-plus") {
+        assert.equal(areEngineConnectorTypesCompatible(edited, target), true);
+        assert.deepEqual(dacAssemblyForConnectors(edited, target, value).supportedRates, ["10G"]);
+      } else {
+        assert.equal(compare(edited, target).rule, "module-rate");
+        assert.equal(areEngineConnectorTypesCompatible(edited, target), false);
+      }
     }
   }
 });

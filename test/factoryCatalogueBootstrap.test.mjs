@@ -13,6 +13,7 @@ import * as multibandSignals from "../src/engine/multibandSignals.js";
 import * as wireRouting from "../src/engine/wireRoutingPolicy.js";
 import * as nodeReplacement from "../src/engine/nodeReplacement.js";
 import * as connectorCompatibility from "../src/engine/connectorCompatibility.js";
+import { connectorIncludedInMatrixForEngine, defaultMatrixPortForEngineConnector } from "../src/engine/matrixRouting.js";
 
 // Execute the actual bootstrap entry point with its DOM boundary substituted.
 // The production loader and the entire start/error/button sequence still run.
@@ -37,6 +38,7 @@ function harness({ fetchCatalogue = async () => Response.json(catalogue), initia
   };
   const context = { window, document, URL, Error, FACTORY_AUTHORING, MULTI_CORE_PROJECT_FIELDS, multiCoreProjectFields, isMultiCoreConnection, editorLifecycle,
     transceivers, modularCardSafety, multibandSignals, wireRouting, nodeReplacement, ...connectorCompatibility,
+    connectorIncludedInMatrixForEngine, defaultMatrixPortForEngineConnector,
     createFactoryCatalogueLoader: options => createFactoryCatalogueLoader({ ...options, fetchCatalogue: (...args) => { calls.fetch++; return fetchCatalogue(...args); } }),
     imageAssets: {}, portableProjectData() {}, observeLibraryArtwork() { calls.observers++; },
     localStorage: { setItem() { assert.fail("bootstrap must not write storage"); }, clear() { assert.fail("bootstrap must not clear storage"); } }

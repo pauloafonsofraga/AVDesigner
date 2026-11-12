@@ -83,7 +83,7 @@ try {
   await selectNode(vx[0].id);
   report.vx = { nodes: vx.map(c => ({ id: c.id, type: c.type, physicalType: c.physicalType,
     installedModuleType: c.installedModuleType, signalDirection: c.signalDirection })), options: await choices("#selectedConnectorModule") };
-  assert.deepEqual(report.vx.options.map(o => o.value), ["", "lc-singlemode", "lc-multimode", "mpo-fiber", "dac-qsfp"]);
+  assert.deepEqual(report.vx.options.map(o => o.value), ["", "lc-singlemode", "lc-multimode", "mpo-fiber", "mpo-multimode", "dac-qsfp"]);
   assert(vx.every(c => c.physicalType === "qsfp-cage"));
   await selectShot("#selectedConnectorModule", "vx-qsfp-filtered", 5);
   check("Factory VX 2+ QSFP identity and compatible module list reproduced through UI");

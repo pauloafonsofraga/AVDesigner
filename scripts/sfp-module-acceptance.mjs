@@ -323,17 +323,32 @@ try {
     for (const [type, included, excluded] of [
       ["sfp-cage", ["lc-singlemode", "lc-multimode", "rj45-ethernet", "sfp-sdi-3g-rx", "sfp-sdi-3g-tx"],
         ["dac-sfp-plus", "dac-sfp28", "sfp-sdi-12g-tx", "mpo-fiber"]],
-      ["qsfp-cage", ["lc-singlemode", "lc-multimode", "mpo-fiber", "dac-qsfp"],
+      ["qsfp-cage", ["lc-singlemode", "lc-multimode", "mpo-fiber", "mpo-multimode", "dac-qsfp"],
         ["dac-sfp-plus", "dac-sfp28", "sfp-sdi-tx", "rj45-ethernet"]]
     ]) {
       const id = await addCage(type); await directionControl("bidirectional").click();
       const options = await page.locator("#selectedConnectorModule option:not([disabled])").evaluateAll(nodes => nodes.map(n => n.value));
       assert(options.includes("")); included.forEach(value => assert(options.includes(value), `${type} exposes ${value}`));
       excluded.forEach(value => assert(!options.includes(value), `${type} excludes incompatible ${value}`));
-      if (type === "qsfp-cage") { await setModule(id, "mpo-fiber"); await setModule(id, ""); }
+      if (type === "qsfp-cage") { await setModule(id, "mpo-fiber"); await setModule(id, "mpo-multimode"); await setModule(id, ""); }
       await moduleShot(`${type}-options`); check(`${type} filters module families without removing valid optical choices`, options);
     }
     await closeEditor();
+  });
+
+  await phase("matrix-module-eligibility", async () => {
+    const matrix = template("sfp-matrix", [node("rx", "sfp-plus-cage", "input")], { isMatrixRouter: true });
+    await upload(projectFor("SFP Matrix acceptance", [matrix]));
+    const inputs = () => page.evaluate(id => activeEngineBridge().matrixStateForDevice(id).inputs.map(port => port.id), matrix.id);
+    assert.deepEqual(await inputs(), []);
+    await clickPoint("connector", matrix.id, "rx");
+    for (const [value, expected] of [["sfp-sdi-3g-rx", ["rx"]], ["dac-sfp-plus", []], ["", []], ["sfp-sdi-3g-rx", ["rx"]]]) {
+      await page.locator("#connectorModule").selectOption(value);
+      assert.deepEqual(await inputs(), expected);
+    }
+    await saveReload("matrix-module-project");
+    assert.deepEqual(await inputs(), ["rx"]);
+    check("Canvas module changes immediately refresh Matrix eligibility and survive save/reopen");
   });
 
   await phase("sdi-canvas", async () => {
@@ -345,13 +360,15 @@ try {
     await upload(project);
     const id = source.connectors[0].id;
     await wireDrag([source.id, id], [sink.id, "hdmi-in"], false, "sdi-reject-hdmi");
-    await wireDrag([source.id, id], [sink.id, "sdi-in"], true, "sdi-accept-bnc");
+    await wireDrag([sink.id, "sdi-in"], [source.id, id], true, "sdi-accept-bnc-rx-first");
     assert.equal(await page.evaluate(() => state.connections[0].cableType), "sdi");
     await shot("sdi-connected");
     const saved = await saveReload("sdi-project"); sdiSnapshot = saved;
     const persisted = await page.evaluate(id => connectorById("sdi-source", id), id);
     assert.equal(persisted.installedModuleType, "sfp-sdi-12g-tx"); assert.equal(persisted.signalDirection, "output");
-    assert.equal(saved.connections.length, 1); check("SDI cable creation, module direction and project save/reload");
+    assert.equal(saved.connections.length, 1);
+    assert.equal(saved.connections[0].from.deviceId, sink.id);
+    check("RX-first SDI cable creation, module direction and project save/reload");
     await openInstance(source.id); await selectEditorNode(id);
     const connectedDraft = await draft(), cablesBefore = await page.evaluate(() => structuredClone(state.connections));
     await page.locator('[data-sfp-owner="device"] [data-sfp-enabled]').uncheck();

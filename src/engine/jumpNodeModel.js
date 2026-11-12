@@ -461,7 +461,8 @@ export function jumpCompatibleHitForDeviceWire(jumpHit, realHit) {
   for (const key of [
     "moduleId", "moduleName", "moduleType", "moduleActiveType", "moduleEffectiveType", "moduleFiberMode",
     "transceiverModuleId", "transceiverModuleName", "transceiverModuleType",
-    "transceiverModuleActiveType", "transceiverModuleEffectiveType", "transceiverModuleFiberMode"
+    "transceiverModuleActiveType", "transceiverModuleEffectiveType", "transceiverModuleFiberMode",
+    "installedModuleEffectiveType", "installedModuleFiberMode"
   ]) {
     if (realConnector[key] === undefined) delete jumpConnector[key];
     else jumpConnector[key] = String(realConnector[key] ?? "");

@@ -5,6 +5,27 @@ import { imageMime } from "../../src/imageAssets.js";
 
 const latest = JSON.parse(await readFile(new URL("../fixtures/factory-library-2026-10-23.json", import.meta.url)));
 
+export const transceiverCorrectionReceipt = "1f1947f38d8e4eb0ed93e16f765e0f8ff9a29c25b8c16e19ef11f4ed88d0e203";
+
+// Preserve historical import fingerprints without overlooking other edits to
+// those definitions. Only the four reviewed cage fields are reversed.
+export function beforeTransceiverCorrections(catalogue) {
+  const restore = (port, type, label) => {
+    for (const key of ["type", "physicalType", "connectorType"]) assert.equal(port[key], type, port.id);
+    assert.equal(port.label, label, port.id);
+    return { ...port, type: "qsfp-cage", physicalType: "qsfp-cage", connectorType: "qsfp-cage", label: "QSFP Cage" };
+  };
+  const devices = catalogue.devices.map(device => {
+    if (device.id === "prosafe-xs508m") return { ...device, connectors: device.connectors.map(port =>
+      port.id === "input-slot-1" ? restore(port, "sfp-plus-cage", "SFP+ Cage") : port) };
+    if (!/^Aquilon\b/.test(device.name)) return device;
+    return { ...device, cardTypes: device.cardTypes.map(card =>
+      card.name === "ST2110" && ["card-10", "st2110-copy"].includes(card.id)
+        ? { ...card, connectors: card.connectors.map(port => restore(port, "sfp28-cage", "SFP28 Cage")) } : card) };
+  });
+  return { ...catalogue, devices, promotions: catalogue.promotions.filter(p => p.packageId !== transceiverCorrectionReceipt) };
+}
+
 // Historical imports keep their original expectations. Later authorized updates
 // must form an unbroken receipt chain and preserve the original artwork bytes.
 export async function currentImportExpectation(catalogue, inventory, historical) {

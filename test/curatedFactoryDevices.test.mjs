@@ -4,12 +4,13 @@ import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { factoryPromotionNodes, reviewFactoryPromotion, createPromotionPackage, validatePromotionPackage, promotionDevice, promotionFingerprint } from "../src/factoryPromotion.js";
 import { imageDataUrl } from "../src/imageAssets.js";
-import { currentImportExpectation } from "./helpers/factoryImportHistory.mjs";
+import { beforeTransceiverCorrections, currentImportExpectation } from "./helpers/factoryImportHistory.mjs";
 
 const catalogue = JSON.parse(readFileSync(new URL("../data/factory-catalogue.json", import.meta.url), "utf8"));
 const byId = id => catalogue.devices.find(device => device.id === id);
 
 test("October library import preserves the reviewed authored definitions and image bytes", async () => {
+  const historical = beforeTransceiverCorrections(catalogue);
   // Fingerprints come from the portable user export, before repository import.
   const fingerprints = {
     "custom-device-mq84dpgn": "759e002b61cee54809d6ae1351a5b707f502f0f70ecb4752cad561d530e6eeaf",
@@ -20,8 +21,8 @@ test("October library import preserves the reviewed authored definitions and ima
   for (const [id, fingerprint] of Object.entries(fingerprints)) {
     const receipt = catalogue.promotions.find(p => p.records.some(r => r.kind === "device" && r.id === id && r.candidateFingerprint === fingerprint));
     assert.ok(receipt, `Original import receipt: ${id}`);
-    const expected = await currentImportExpectation(catalogue, receipt, { id, fingerprint, artwork: {} });
-    const definition = promotionDevice(byId(id));
+    const expected = await currentImportExpectation(historical, receipt, { id, fingerprint, artwork: {} });
+    const definition = promotionDevice(historical.devices.find(device => device.id === id));
     for (const key of ["faceImage", "thumbnailImage"]) {
       definition[key] = imageDataUrl(await readFile(new URL(`../${definition[key]}`, import.meta.url)));
     }

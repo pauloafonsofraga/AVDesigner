@@ -25,6 +25,8 @@ export const TRANSCEIVER_MODULE_OPTIONS = Object.freeze([
     { signalFamily: "ethernet", mediaType: "twisted-pair", direction: "bidirectional" }),
   option("mpo-fiber", "MPO Fiber", "fiber-mpo", ["qsfp-cage"],
     { formFactor: "qsfp", mediaType: "fiber" }, "single-mode"),
+  option("mpo-multimode", "MPO Multimode (OM4)", "fiber-mpo", ["qsfp-cage"],
+    { formFactor: "qsfp", mediaType: "fiber" }, "om4"),
   ...["", "3G", "6G", "12G"].flatMap(rate => [sdi(rate, "input"), sdi(rate, "output")]),
   ...[
     ["sfp-plus", "SFP+", "10G"], ["sfp28", "SFP28", "25G"], ["qsfp", "QSFP", ""]
@@ -35,8 +37,72 @@ export const TRANSCEIVER_MODULE_OPTIONS = Object.freeze([
 ].map(item => Object.freeze({ ...item, cages: Object.freeze(item.cages), capabilities: Object.freeze(item.capabilities) })));
 
 const key = value => String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
-const list = value => Array.isArray(value) ? value.map(String).filter(Boolean) : [];
+function activeTypeForModuleValue(value) {
+  return TRANSCEIVER_MODULE_ACTIVE_TYPES.get(key(value)) || transceiverModuleOption(value)?.activeType || "";
+}
+
+const TRANSCEIVER_MODULE_ACTIVE_TYPES = new Map([
+  ["", ""],
+  ["empty", ""],
+  ["none", ""],
+  ["nomodule", ""],
+  ["lc", "fiber-lc"],
+  ["fiberlc", "fiber-lc"],
+  ["lcsinglemode", "fiber-lc"],
+  ["lcsinglemodeos1", "fiber-lc"],
+  ["lcsinglemodeos2", "fiber-lc"],
+  ["lcmultimode", "fiber-lc"],
+  ["lcmultimodeom1", "fiber-lc"],
+  ["lcmultimodeom2", "fiber-lc"],
+  ["lcmultimodeom3", "fiber-lc"],
+  ["lcmultimodeom4", "fiber-lc"],
+  ["lcmultimodeom5", "fiber-lc"],
+  ["sfplc", "fiber-lc"],
+  ["sfplcsinglemode", "fiber-lc"],
+  ["sfplcmultimode", "fiber-lc"],
+  ["sfppluslc", "fiber-lc"],
+  ["sfppluslcsinglemode", "fiber-lc"],
+  ["sfppluslcmultimode", "fiber-lc"],
+  ["sfp28lc", "fiber-lc"],
+  ["sfp28lcsinglemode", "fiber-lc"],
+  ["sfp28lcmultimode", "fiber-lc"],
+  ["rj45", "cat6a"],
+  ["rj45ethernet", "cat6a"],
+  ["sfprj45", "cat6a"],
+  ["sfprj45ethernet", "cat6a"],
+  ["sfpplusrj45", "cat6a"],
+  ["sfpplusrj45ethernet", "cat6a"],
+  ["sfp28rj45", "cat6a"],
+  ["sfp28rj45ethernet", "cat6a"],
+  ["1grj45", "cat6a"],
+  ["10grj45", "cat6a"],
+  ["cat", "cat6a"],
+  ["cat6a", "cat6a"],
+  ["mpo", "fiber-mpo"],
+  ["fibermpo", "fiber-mpo"],
+  ["mpofiber", "fiber-mpo"],
+  ["qsfpmpo", "fiber-mpo"],
+  ["qsfpmpofiber", "fiber-mpo"],
+  ["bnc", "bnc"],
+  ["sdi", "sdi"],
+  ["sfpbnc", "bnc"],
+  ["sfpsdi", "sdi"]
+]);
+const list = value => Array.isArray(value) ? value.map(item => String(item ?? "").trim()).filter(Boolean) : [];
 const intersection = (a, b) => a.some(value => b.some(other => key(value) === key(other)));
+function rateKey(value) {
+  const text = String(value).toLowerCase().replace(/(?<=\d),(?=\d{3}\b)/g, "");
+  const rate = text.match(/^(\d+(?:\.\d+)?)\s*([kmgt])\s*(?:(?:bits?\s*\/\s*s|b\s*\/\s*s|bps|b)\s*)?(?:[- ]*(sdi|ethernet))?$/);
+  if (!rate) return text.replace(/[\s_-]+/g, "");
+  const [, amount, unit, family] = rate;
+  return `${Math.round(Number(amount) * { k: 1e3, m: 1e6, g: 1e9, t: 1e12 }[unit])}${family === "sdi" ? "-sdi" : ""}`;
+}
+const hasRate = (rates, rate) => rates.some(other => rateKey(other) === rateKey(rate));
+function commonRates(sets) {
+  const known = sets.map(list).filter(values => values.length);
+  return { constrained: known.length > 1,
+    rates: (known[0] || []).filter(rate => known.every(values => hasRate(values, rate))) };
+}
 const normalizeDirection = value => {
   const name = key(value);
   if (["input", "in", "rx", "receiver", "receive"].includes(name)) return "input";
@@ -45,14 +111,10 @@ const normalizeDirection = value => {
   return "";
 };
 export const isDacCableType = type => /^dac-(sfp-plus|sfp28|qsfp)$/.test(String(type || ""));
-export const isTransceiverCage = connector => Boolean(CAGE_FORM_FACTORS[connector?.physicalType || connector?.type]);
-const cageType = connector => connector?.physicalType || connector?.type || "";
-export function installedModuleValue(connector = {}) {
-  connector ??= {};
-  const module = connector.installedModule || connector.module || connector.transceiverModule || {};
-  return connector.installedModuleType || connector.moduleType || connector.transceiverModuleType
-    || module.type || module.value || connector.installedModuleId || module.id || "";
-}
+const cageType = connector => [connector?.type, connector?.physicalType, connector?.connectorType]
+  .find(type => Object.hasOwn(CAGE_FORM_FACTORS, type)) || "";
+export const isTransceiverCage = connector => Boolean(cageType(connector));
+export const installedModuleValue = connector => resolveInstalledModule(connector).rawValue;
 
 export function transceiverModuleOption(value, connector) {
   const profile = TRANSCEIVER_MODULE_OPTIONS.find(item => key(item.value) === key(value)) || null;
@@ -66,24 +128,47 @@ export function transceiverModuleOption(value, connector) {
   return result;
 }
 
-export function installedModuleCapabilities(connector = {}) {
+const firstText = (...values) => values.map(value => String(value ?? "").trim()).find(Boolean) || "";
+const object = value => value && typeof value === "object" && !Array.isArray(value) ? value : null;
+const emptyModule = value => ["", "empty", "none", "nomodule", "emptynomodule"].includes(key(value));
+
+export function resolveInstalledModule(connector = {}) {
   connector ??= {};
-  const module = connector.installedModule || connector.module || connector.transceiverModule || {};
-  const value = installedModuleValue(connector);
-  const profile = transceiverModuleOption(value, connector);
+  const module = object(connector.installedModule) || object(connector.module) || object(connector.transceiverModule) || {};
+  const id = firstText(connector.installedModuleId, connector.moduleId, connector.transceiverModuleId, module.id, module.value);
+  const name = firstText(connector.installedModuleName, connector.moduleName, connector.transceiverModuleName, module.name, module.label);
+  const type = firstText(connector.installedModuleType, connector.moduleType, connector.transceiverModuleType,
+    module.type, module.value, typeof connector.installedModule === "string" ? connector.installedModule : "",
+    typeof connector.module === "string" ? connector.module : "", typeof connector.transceiverModule === "string" ? connector.transceiverModule : "");
+  const activeType = firstText(connector.installedModuleActiveType, connector.installedModuleEffectiveType,
+    connector.moduleActiveType, connector.moduleEffectiveType, connector.transceiverModuleActiveType,
+    connector.transceiverModuleEffectiveType, module.activeType, module.effectiveType, module.connectorType);
+  const explicitFiberMode = firstText(connector.installedModuleFiberMode, connector.moduleFiberMode,
+    connector.transceiverModuleFiberMode, module.fiberMode);
+  const rawValue = firstText(type, id, name);
+  const profile = transceiverModuleOption(rawValue, connector);
+  const effectiveType = activeTypeForModuleValue(activeType) || activeTypeForModuleValue(rawValue);
   const explicit = connector.moduleCapabilities || {};
   const caps = { ...(profile?.capabilities || {}), ...(module.capabilities || {}),
     ...Object.fromEntries(["formFactor", "supportedRates", "signalFamily", "mediaType", "direction",
       "manufacturer", "model", "physicalConstraints", "platforms", "cableAssembly"].filter(field => module[field] !== undefined).map(field => [field, module[field]])),
     ...explicit };
   // Old SDI aliases have unknown rates/direction; never infer optical media or 12G.
-  if (!caps.signalFamily && ["sdi", "bnc", "sfpsdi", "sfpbnc"].includes(key(value))) {
+  if (!caps.signalFamily && ["sdi", "bnc", "sfpsdi", "sfpbnc"].includes(key(rawValue))) {
     caps.signalFamily = "sdi";
     caps.mediaType = "coax";
   }
+  if (!list(caps.supportedRates).length) {
+    const fallback = [module.supportedRates, module.capabilities?.supportedRates, profile?.capabilities.supportedRates]
+      .map(list).find(rates => rates.length);
+    if (fallback) caps.supportedRates = fallback;
+  }
   if (caps.direction) caps.direction = normalizeDirection(caps.direction);
-  return caps;
+  return { id, name, type, rawValue, activeType, effectiveType, profile, capabilities: caps, explicitFiberMode,
+    fiberHint: firstText(explicitFiberMode, rawValue, activeType), hasModule: Boolean(effectiveType || !emptyModule(rawValue)) };
 }
+
+export const installedModuleCapabilities = connector => resolveInstalledModule(connector).capabilities;
 
 export function transceiverModuleValidation(connector, capabilities = installedModuleCapabilities(connector),
   profile = transceiverModuleOption(installedModuleValue(connector), connector)) {
@@ -102,7 +187,7 @@ export function transceiverModuleValidation(connector, capabilities = installedM
     }
     const declared = list(profile.capabilities.supportedRates);
     const rates = list(capabilities.supportedRates);
-    if (declared.length && (!rates.length || rates.some(rate => !intersection([rate], declared)))) {
+    if (declared.length && (!rates.length || rates.some(rate => !hasRate(declared, rate)))) {
       return reject("Module rates contradict the selected profile.");
     }
   }
@@ -124,11 +209,12 @@ export function transceiverModuleValidation(connector, capabilities = installedM
   }
   const rates = list(capabilities.supportedRates);
   const hostRates = list(host.supportedRates);
-  if (rates.length && hostRates.length && !intersection(rates, hostRates)) return reject("Module and cage have no supported rate in common.");
+  const localRates = commonRates([rates, connector.supportedRates, hostRates]);
+  if (localRates.constrained && !localRates.rates.length) return reject("Module and cage have no supported rate in common.");
   if (list(host.platforms).length && list(capabilities.platforms).length && !intersection(host.platforms, capabilities.platforms)) {
     return reject("Module platform compatibility does not match this cage.");
   }
-  const nodeDirection = normalizeDirection(connector.signalDirection || connector.direction);
+  const nodeDirection = normalizeDirection(connector.signalDirection) || normalizeDirection(connector.direction);
   if (["input", "output"].includes(nodeDirection) && ["input", "output"].includes(capabilities.direction)
     && nodeDirection !== capabilities.direction) return reject("Module direction conflicts with the node direction.");
   const warnings = [];
@@ -186,13 +272,12 @@ export function nodeDefinitionConnectorPatch(definition = {}) {
 }
 
 export function transceiverModulePresentation(connector = {}) {
-  const module = connector.installedModule || connector.module || connector.transceiverModule || {};
-  const raw = installedModuleValue(connector);
-  const profile = transceiverModuleOption(raw, connector);
-  const label = connector.installedModuleName || module.name || module.label || profile?.label || raw || "Empty / No module";
-  if (!raw && !connector.installedModuleActiveType) return label;
-  const caps = installedModuleCapabilities(connector);
-  const check = transceiverModuleValidation(connector, caps, profile?.value ? profile : null);
+  const { rawValue, name, profile, capabilities: caps, hasModule, effectiveType } = resolveInstalledModule(connector);
+  if (!hasModule) return "Empty / No module";
+  const label = name || profile?.label || rawValue || "Historical module";
+  const check = profile?.value && effectiveType !== profile.activeType
+    ? { valid: false, reason: "Installed module identity and effective connector disagree." }
+    : transceiverModuleValidation(connector, caps, profile);
   return [label, list(caps.supportedRates).join(", "), caps.direction, caps.manufacturer, caps.model,
     caps.physicalConstraints && (typeof caps.physicalConstraints === "string" ? caps.physicalConstraints : JSON.stringify(caps.physicalConstraints)),
     !check.valid ? check.reason : check.warnings.join(" ")].filter(Boolean).join(" | ");
@@ -200,21 +285,20 @@ export function transceiverModulePresentation(connector = {}) {
 
 export function transceiverConnectionValidation(source, target, sourceType, targetType) {
   const warnings = [];
-  for (const [connector, activeType] of [[source, sourceType], [target, targetType]]) {
+  const first = resolveInstalledModule(source), second = resolveInstalledModule(target);
+  for (const [connector, activeType, { profile, capabilities }] of [[source, sourceType, first], [target, targetType, second]]) {
     if (!isTransceiverCage(connector)) continue;
     // A transient Jump hit is the complementary cable endpoint, not a second
     // installed receiver/transmitter. The real cage is validated separately.
     if (connector.jumpModuleCompatibilityProxy) continue;
-    const profile = transceiverModuleOption(installedModuleValue(connector), connector);
     if (profile?.value && activeType !== profile.activeType) {
       return { valid: false, rule: "module-effective-type", reason: "Installed module identity and effective connector disagree.", warnings: [] };
     }
-    const check = transceiverModuleValidation(connector, installedModuleCapabilities(connector), profile);
+    const check = transceiverModuleValidation(connector, capabilities, profile);
     if (!check.valid) return { ...check, rule: "module-capability" };
     warnings.push(...check.warnings);
   }
-  const a = installedModuleCapabilities(source);
-  const b = installedModuleCapabilities(target);
+  const a = first.capabilities, b = second.capabilities;
   if (isDacCableType(sourceType) || isDacCableType(targetType)) {
     if (sourceType !== targetType || !isTransceiverCage(source) || !isTransceiverCage(target)
       || !a.cableAssembly || !b.cableAssembly || a.formFactor !== b.formFactor) {
@@ -224,9 +308,14 @@ export function transceiverConnectionValidation(source, target, sourceType, targ
   if (a.signalFamily && b.signalFamily && a.signalFamily !== b.signalFamily) {
     return { valid: false, rule: "module-signal", reason: "Installed module signal families do not match.", warnings: [] };
   }
-  const rates = commonTransceiverRates(source, target);
+  const sourceRates = connectorRateSets(source, a), targetRates = connectorRateSets(target, b);
+  const rates = commonRates([...sourceRates, ...targetRates]);
   if (rates.constrained && !rates.rates.length) {
     return { valid: false, rule: "module-rate", reason: "Endpoints have no supported data rate in common.", warnings: [] };
+  }
+  if (isTransceiverCage(source) || isTransceiverCage(target)) {
+    if (!sourceRates.some(values => list(values).length)
+      || !targetRates.some(values => list(values).length)) warnings.push("An endpoint data rate is unverified.");
   }
   const from = effectiveTransceiverDirection(source);
   const to = effectiveTransceiverDirection(target);
@@ -238,31 +327,31 @@ export function transceiverConnectionValidation(source, target, sourceType, targ
 }
 
 export function effectiveTransceiverDirection(connector) {
-  const node = normalizeDirection(connector?.signalDirection || connector?.direction);
+  const node = normalizeDirection(connector?.signalDirection) || normalizeDirection(connector?.direction);
   const direction = isTransceiverCage(connector) && !connector.jumpModuleCompatibilityProxy ? installedModuleCapabilities(connector).direction : "";
   return ["input", "output"].includes(direction) ? direction : node;
 }
 
+function connectorRateSets(connector, caps = installedModuleCapabilities(connector)) {
+  return [caps.supportedRates, connector?.supportedRates, connector?.cageCapabilities?.supportedRates];
+}
+
 function commonTransceiverRates(source, target) {
-  const constraints = [source, target].flatMap(connector => [
-    list(installedModuleCapabilities(connector).supportedRates || connector?.supportedRates),
-    list(connector?.cageCapabilities?.supportedRates)
-  ]).filter(values => values.length);
-  const rates = constraints[0]?.filter(rate => constraints.every(values => intersection([rate], values))) || [];
-  return { constrained: constraints.length > 1, rates };
+  return commonRates([source, target].flatMap(connector => connectorRateSets(connector)));
 }
 
 export function dacAssemblyForConnectors(source, target, cableType) {
   if (!isDacCableType(cableType)) return null;
   for (const connector of [source, target]) {
-    const activeType = connector?.installedModuleActiveType || connector?.installedModuleEffectiveType || transceiverModuleOption(installedModuleValue(connector))?.activeType;
+    const { effectiveType: activeType } = resolveInstalledModule(connector);
     if (activeType !== cableType) throw new Error("DAC cable type does not match the installed cable end.");
   }
   const check = transceiverConnectionValidation(source, target, cableType, cableType);
   if (!check.valid) throw new Error(check.reason);
   const a = installedModuleCapabilities(source);
   const b = installedModuleCapabilities(target);
-  const rates = list(a.supportedRates).length && list(b.supportedRates).length ? commonTransceiverRates(source, target).rates : [];
+  const rates = connectorRateSets(source, a).some(values => list(values).length)
+    && connectorRateSets(target, b).some(values => list(values).length) ? commonTransceiverRates(source, target).rates : [];
   return {
     kind: "direct-attach-copper", version: 1, cableType,
     ends: {
@@ -279,11 +368,33 @@ export function dacWireValidation(wire, source, target) {
   try { expected = dacAssemblyForConnectors(source, target, wire.cableType); }
   catch (error) { return { valid: false, reason: error.message }; }
   const assembly = wire.cableAssembly;
-  if (!expected || !assembly || assembly.kind !== expected.kind || assembly.cableType !== wire.cableType
+  const invalid = reason => ({ valid: false, reason });
+  if (!expected || !object(assembly) || assembly.kind !== expected.kind || assembly.cableType !== wire.cableType
     || ["from", "to"].some(end => assembly.ends?.[end]?.formFactor !== expected.ends[end].formFactor
-      || assembly.ends?.[end]?.moduleType !== expected.ends[end].moduleType)
-    || list(assembly.supportedRates).some(rate => !expected.supportedRates.includes(rate))) {
-    return { valid: false, reason: "DAC cable assembly and installed cable ends are inconsistent. Disconnect/remap first." };
+      || key(assembly.ends[end].moduleType) !== key(expected.ends[end].moduleType))) {
+    return invalid("DAC cable assembly and installed cable ends are inconsistent. Disconnect/remap first.");
   }
-  return { valid: true, reason: "", warnings: expected.warnings };
+  if (assembly.version != null && assembly.version !== expected.version) return invalid("Unsupported DAC cable assembly version.");
+  const inconsistentRates = (saved, known) => saved != null && (!Array.isArray(saved)
+    || (list(known).length && list(saved).some(rate => !hasRate(known, rate))));
+  const knownRates = expected.supportedRates.length ? expected.supportedRates : commonTransceiverRates(source, target).rates;
+  if (inconsistentRates(assembly.supportedRates, knownRates)) return invalid("DAC assembly rates contradict the installed ends.");
+  const warnings = [...expected.warnings];
+  if (assembly.version == null || !list(assembly.supportedRates).length || !expected.supportedRates.length) {
+    warnings.push("Saved DAC assembly details are incomplete or unverified.");
+  }
+  for (const end of ["from", "to"]) {
+    const saved = assembly.ends[end].capabilities;
+    const known = expected.ends[end].capabilities;
+    if (saved == null) {
+      warnings.push("Saved DAC end capabilities are unverified.");
+      continue;
+    }
+    if (!object(saved) || ["formFactor", "signalFamily", "mediaType", "direction", "cableAssembly"].some(field =>
+      saved[field] != null && known[field] != null && (field === "direction" ? normalizeDirection(saved[field]) : saved[field]) !== known[field])
+      || inconsistentRates(saved.supportedRates, known.supportedRates)) {
+      return invalid("Saved DAC end capabilities contradict the installed module.");
+    }
+  }
+  return { valid: true, reason: "", warnings: [...new Set(warnings)] };
 }

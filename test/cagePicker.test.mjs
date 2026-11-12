@@ -110,6 +110,7 @@ test("actual shared dropdown preserves all rate, direction and cage restrictions
       assert.equal(rendered.includes(`value="sfp-sdi${rate}-${dir}"`), supported, `${type}/${rate}/${dir}`);
     }
     assert.equal(rendered.includes('value="mpo-fiber"'), type === "qsfp-cage");
+    assert.equal(rendered.includes('value="mpo-multimode"'), type === "qsfp-cage");
     assert.equal(rendered.includes('value="rj45-ethernet"'), type !== "qsfp-cage");
     assert.match(rendered, /value="lc-singlemode"/);
     assert.match(rendered, /value="lc-multimode"/);
@@ -126,7 +127,7 @@ test("VX 2+ factory Ethernet-style nodes are empty QSFP cages, not SFP SDI hosts
     assert.equal(connector.physicalType, "qsfp-cage");
     assert.equal(connector.installedModuleType, "");
     assert.deepEqual(transceivers.transceiverModuleOptionsForConnector(connector).map(o => o.value),
-      ["", "lc-singlemode", "lc-multimode", "mpo-fiber", "dac-qsfp"]);
+      ["", "lc-singlemode", "lc-multimode", "mpo-fiber", "mpo-multimode", "dac-qsfp"]);
   }
 });
 

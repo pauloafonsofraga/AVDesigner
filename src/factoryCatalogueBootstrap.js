@@ -6,6 +6,7 @@ import { MULTI_CORE_PROJECT_FIELDS, multiCoreProjectFields } from "./engine/mult
 import { isMultiCoreConnection } from "./engine/multiCoreConnectivity.js";
 import * as editorLifecycle from "./editorLifecycle.js";
 import * as transceivers from "./engine/transceiverModules.js";
+import { connectorIncludedInMatrixForEngine, defaultMatrixPortForEngineConnector } from "./engine/matrixRouting.js";
 import * as modularCardSafety from "./engine/modularCardSafety.js";
 import * as multibandSignals from "./engine/multibandSignals.js";
 import * as wireRouting from "./engine/wireRoutingPolicy.js";
@@ -50,7 +51,8 @@ function start() {
     Object.defineProperty(window, "WireNexusModularCardSafety", { value: Object.freeze({ ...modularCardSafety, ...nodeReplacement }) });
     Object.defineProperty(window, "WireNexusTransceivers", { value: Object.freeze({ ...transceivers,
       installedModuleDetailsForEngine, activeTypeForEngineCageConnector, isEngineCageConnector, isEngineDeadCageConnector,
-      engineConnectorTypeDisplayName, engineConnectorCanvasLabelLines }) });
+      engineConnectorTypeDisplayName, engineConnectorCanvasLabelLines,
+      connectorIncludedInMatrixForEngine, defaultMatrixPortForEngineConnector }) });
     observeLibraryArtwork();
     // Keep the existing classic-script globals used by the shell/bridge. No app
     // initialization or persistence can run against an absent catalogue.

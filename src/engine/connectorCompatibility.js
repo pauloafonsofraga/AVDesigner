@@ -7,10 +7,9 @@ import {
 import { isGeneratedScopedNodeId } from "./nodeCompatibilityIdentity.js";
 import {multibandSignal, multibandColors} from "./multibandSignals.js";
 import {
-  transceiverModuleOption, installedModuleCapabilities, transceiverConnectionValidation, isDacCableType
+  transceiverModuleOption, resolveInstalledModule, transceiverConnectionValidation, isDacCableType,
+  effectiveTransceiverDirection, isTransceiverCage
 } from "./transceiverModules.js";
-
-const CAGE_CONNECTOR_TYPES = new Set(["sfp-cage", "sfp-plus-cage", "sfp28-cage", "qsfp-cage"]);
 const ENGINE_CONNECTOR_COMPATIBILITY_ALIASES = new Map([
   ["speakon", "speakon-nl4"],
   ["displayport", "display-port"]
@@ -122,53 +121,6 @@ const ENGINE_RESOLUTION_FIELD_TYPES = new Set([
   "fiber-lc", "fiber-st", "fiber-sc", "fiber-mpo"
 ]);
 
-const TRANSCEIVER_MODULE_ACTIVE_TYPES = new Map([
-  ["", ""],
-  ["empty", ""],
-  ["none", ""],
-  ["nomodule", ""],
-  ["lc", "fiber-lc"],
-  ["fiberlc", "fiber-lc"],
-  ["lcsinglemode", "fiber-lc"],
-  ["lcsinglemodeos1", "fiber-lc"],
-  ["lcsinglemodeos2", "fiber-lc"],
-  ["lcmultimode", "fiber-lc"],
-  ["lcmultimodeom1", "fiber-lc"],
-  ["lcmultimodeom2", "fiber-lc"],
-  ["lcmultimodeom3", "fiber-lc"],
-  ["lcmultimodeom4", "fiber-lc"],
-  ["lcmultimodeom5", "fiber-lc"],
-  ["sfplc", "fiber-lc"],
-  ["sfplcsinglemode", "fiber-lc"],
-  ["sfplcmultimode", "fiber-lc"],
-  ["sfppluslc", "fiber-lc"],
-  ["sfppluslcsinglemode", "fiber-lc"],
-  ["sfppluslcmultimode", "fiber-lc"],
-  ["sfp28lc", "fiber-lc"],
-  ["sfp28lcsinglemode", "fiber-lc"],
-  ["sfp28lcmultimode", "fiber-lc"],
-  ["rj45", "cat6a"],
-  ["rj45ethernet", "cat6a"],
-  ["sfprj45", "cat6a"],
-  ["sfprj45ethernet", "cat6a"],
-  ["sfpplusrj45", "cat6a"],
-  ["sfpplusrj45ethernet", "cat6a"],
-  ["sfp28rj45", "cat6a"],
-  ["sfp28rj45ethernet", "cat6a"],
-  ["1grj45", "cat6a"],
-  ["10grj45", "cat6a"],
-  ["cat", "cat6a"],
-  ["cat6a", "cat6a"],
-  ["mpo", "fiber-mpo"],
-  ["fibermpo", "fiber-mpo"],
-  ["mpofiber", "fiber-mpo"],
-  ["qsfpmpo", "fiber-mpo"],
-  ["qsfpmpofiber", "fiber-mpo"],
-  ["bnc", "bnc"],
-  ["sdi", "sdi"],
-  ["sfpbnc", "bnc"],
-  ["sfpsdi", "sdi"]
-]);
 
 const TWO_WAY_TYPES = new Set([
   "ca-com",
@@ -283,16 +235,16 @@ const CONNECTOR_TYPE_SEGMENTS = new Map([
 ]);
 
 export function isEngineCageConnector(connector) {
-  return CAGE_CONNECTOR_TYPES.has(connectorType(connector));
+  return isTransceiverCage(connector);
 }
 
 export function isEngineDeadCageConnector(connector) {
-  return isEngineCageConnector(connector) && !installedModuleHasValue(connector);
+  return isEngineCageConnector(connector) && !resolveInstalledModule(connector).hasModule;
 }
 
 export function activeTypeForEngineCageConnector(connector) {
   if (!isEngineCageConnector(connector)) return connectorType(connector);
-  return installedModuleDetailsForEngine(connector).effectiveType;
+  return resolveInstalledModule(connector).effectiveType;
 }
 
 export function effectiveConnectorTypeForEngine(connector) {
@@ -312,60 +264,10 @@ export function engineConnectorCompatibilityType(connector) {
 }
 
 export function installedModuleDetailsForEngine(connector) {
-  const module = objectValue(connector?.installedModule) || objectValue(connector?.module) || objectValue(connector?.transceiverModule);
-  const id = firstText(
-    connector?.installedModuleId,
-    connector?.moduleId,
-    connector?.transceiverModuleId,
-    module?.id,
-    module?.value
-  );
-  const name = firstText(
-    connector?.installedModuleName,
-    connector?.moduleName,
-    connector?.transceiverModuleName,
-    module?.name,
-    module?.label
-  );
-  const type = firstText(
-    connector?.installedModuleType,
-    connector?.moduleType,
-    connector?.transceiverModuleType,
-    module?.type,
-    module?.value
-  );
-  const directActiveType = firstText(
-    connector?.installedModuleActiveType,
-    connector?.installedModuleEffectiveType,
-    connector?.moduleActiveType,
-    connector?.moduleEffectiveType,
-    connector?.transceiverModuleActiveType,
-    connector?.transceiverModuleEffectiveType,
-    module?.activeType,
-    module?.effectiveType,
-    module?.connectorType
-  );
-  const directFiberMode = firstText(
-    connector?.installedModuleFiberMode,
-    connector?.moduleFiberMode,
-    connector?.transceiverModuleFiberMode,
-    module?.fiberMode
-  );
-  const rawValue = firstText(type, id, name);
-  const effectiveType = activeTypeForModuleValue(directActiveType) || activeTypeForModuleValue(rawValue);
-  const fiberMode = normalizeEngineFiberMode(directFiberMode)
-    || inferFiberModeFromModuleValue(firstText(directFiberMode, type, id, name, directActiveType));
-  return {
-    id,
-    name,
-    type,
-    rawValue,
-    activeType: directActiveType,
-    effectiveType,
-    fiberMode,
-    fiberFamily: engineFiberModeFamily(fiberMode),
-    capabilities: installedModuleCapabilities(connector)
-  };
+  const { id, name, type, rawValue, activeType, effectiveType, explicitFiberMode, fiberHint, capabilities } = resolveInstalledModule(connector);
+  const fiberMode = normalizeEngineFiberMode(explicitFiberMode) || inferFiberModeFromModuleValue(fiberHint);
+  return { id, name, type, rawValue, activeType, effectiveType, fiberMode,
+    fiberFamily: engineFiberModeFamily(fiberMode), capabilities };
 }
 
 export function areEngineConnectorTypesCompatible(source, target) {
@@ -439,13 +341,25 @@ export function engineCompatibilitySummary(sourceHit, targetHit) {
   if (isTwoWayConnector(source) && isTwoWayConnector(target)) {
     return result(true, "two-way", "", sourceType, targetType, source, target);
   }
-  if (source.direction === "output" && target.direction === "output") {
+  const transceiverLink = isEngineCageConnector(source) || isEngineCageConnector(target);
+  const direction = port => transceiverLink ? effectiveTransceiverDirection(port) || port.direction : port.direction;
+  const from = direction(source), to = direction(target);
+  if (from === "output" && to === "output") {
     return result(false, "output-output", "Output nodes cannot connect to output nodes.", sourceType, targetType, source, target);
   }
-  if (source.direction === "input" && target.direction === "input") {
+  if (from === "input" && to === "input") {
     return result(false, "input-input", "Input nodes cannot connect to input nodes.", sourceType, targetType, source, target);
   }
   return result(true, "directional", "", sourceType, targetType, source, target);
+}
+
+// A patch lead is passive; its modeled end must complement the equipment port,
+// regardless of drag order. Keep the historical ordering for other cable types.
+export function engineSyntheticCableEndDirection(port, end, transceiverLink) {
+  const direction = transceiverLink ? effectiveTransceiverDirection(port) : "";
+  if (direction === "input") return "output";
+  if (direction === "output") return "input";
+  return end === "from" ? "input" : "output";
 }
 
 export function engineCompatibilityHitForWireEndpoint(hit, wire, end) {
@@ -795,16 +709,6 @@ function typeDisplayName(type) {
   return CONNECTOR_LABELS.get(type) || type || "Unknown";
 }
 
-function installedModuleHasValue(connector) {
-  const details = installedModuleDetailsForEngine(connector);
-  return Boolean(details.effectiveType || (details.rawValue && !isEmptyModuleValue(details.rawValue)));
-}
-
-function activeTypeForModuleValue(value) {
-  const key = moduleKey(value);
-  return TRANSCEIVER_MODULE_ACTIVE_TYPES.get(key) || transceiverModuleOption(value)?.activeType || "";
-}
-
 function inferFiberModeFromModuleValue(value) {
   const key = moduleKey(value);
   if (!key) return "";
@@ -827,17 +731,8 @@ function engineFiberModesCompatible(source, target, sourceType, targetType) {
   return sourceFamily === targetFamily;
 }
 
-function isEmptyModuleValue(value) {
-  const key = moduleKey(value);
-  return !key || key === "empty" || key === "none" || key === "nomodule";
-}
-
 function moduleKey(value) {
   return String(value || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
-}
-
-function objectValue(value) {
-  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
 }
 
 function firstText(...values) {

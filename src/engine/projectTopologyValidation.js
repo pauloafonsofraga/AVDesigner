@@ -1,6 +1,6 @@
 import {normalizeAvDesignerProject} from './projectAdapter.js';
 import {SceneGraph} from './sceneGraph.js';
-import {engineCompatibilitySummary} from './connectorCompatibility.js';
+import {engineCompatibilitySummary, engineSyntheticCableEndDirection, isEngineCageConnector} from './connectorCompatibility.js';
 import {validateConnectorTopology, normalizeConnectorRelationships, exclusiveConnectionRejectionReason, connectorVisualAnchors} from './deviceDefinitionV2.js';
 import {validateJumpLinks, jumpCompatibleHitForDeviceWire} from './jumpNodeModel.js';
 import {validateModularCardChanges} from './modularCardSafety.js';
@@ -95,15 +95,16 @@ export function projectTopologyDiagnostics(input) {
     const check = engineCompatibilitySummary(a,b);
     if (!check.valid) add('cables',raw.id,'compatibility',check.reason);
     if (raw.cableType && !isDacCableType(raw.cableType) && hits.every(h=>h.device.kind!=='jump')) {
+      const transceiverLink = raw.cableType==='sdi' || hits.some(hit=>isEngineCageConnector(hit.connector));
       for (const [index,hit] of hits.entries()) {
         const node = nodeDefinitions.get(raw.cableType);
         const cable = {device:{id:`cable:${raw.id}`},connector:{id:'cable-end',type:raw.cableType,compatibilityType:node?.compatibilityType,
-          direction:index?'output':'input',fiberMode:raw.fiberMode || ''}};
+          direction:engineSyntheticCableEndDirection(hit.connector,index?'to':'from',transceiverLink),fiberMode:raw.fiberMode || ''}};
         const saved = engineCompatibilitySummary(hit,cable);
         if (!saved.valid) add('cables',raw.id,'cable-type',saved.reason);
       }
     }
-    if (isDacCableType(raw.cableType)) {
+    if (isDacCableType(raw.cableType) || raw.cableAssembly) {
       const dac = dacWireValidation(raw,a.connector,b.connector);
       if (!dac.valid) add('cables',raw.id,'dac',dac.reason);
     }

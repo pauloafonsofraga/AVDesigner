@@ -87,8 +87,19 @@ export function matrixConnectorNameForEngine(connector, fallbackPrefix, index) {
 
 export function connectorIncludedInMatrixForEngine(connector) {
   if (!connector || connector.empty || !connector.type || isEngineDeadCageConnector(connector)) return false;
-  if (typeof connector.includeInMatrix === "boolean") return connector.includeInMatrix;
+  if (isTransceiverCage(connector) && !effectiveConnectorTypeForEngine(connector)) return false;
+  if (typeof connector.includeInMatrix === "boolean"
+    && (!isTransceiverCage(connector) || connector.matrixPortTouched !== false)) return connector.includeInMatrix;
   return defaultMatrixPortForEngineConnector(connector);
+}
+
+export function matrixPortConfiguration(connector) {
+  // Keep the authored preference separate from the current module's eligibility.
+  if (isTransceiverCage(connector)) return {
+    includeInMatrix: connector.includeInMatrix,
+    matrixPortTouched: connector.matrixPortTouched ?? (typeof connector.includeInMatrix === "boolean")
+  };
+  return { includeInMatrix: connectorIncludedInMatrixForEngine(connector), matrixPortTouched: connector.matrixPortTouched === true };
 }
 
 export function defaultMatrixPortForEngineConnector(connector) {
