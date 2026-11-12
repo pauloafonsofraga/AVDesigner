@@ -1,4 +1,5 @@
 import { engineWireColorSegmentsForCable } from "./connectorCompatibility.js";
+import { isIntegratedCableType } from "./transceiverModules.js";
 import {assignNewObjectsToLayer, layerObjects} from './projectLayers.js';
 import { projectWireRouting } from "./wireRoutingPolicy.js";
 import { CONNECTOR_RELATIONSHIP_FIELDS, applyConnectorRelationshipFieldPatch } from "./connectorRelationshipMetadata.js";
@@ -555,8 +556,12 @@ export class ProjectMutationAdapter {
     } else {
       // A normal endpoint rewire changes only from/to. Cable type, length,
       // fiber mode, notes, labels, custom colors, and route arrays stay intact.
+      // Integrated cables may also refresh their derived compatibility warnings.
       entry.item.from = endpointToProject(scene, wire, "from");
       entry.item.to = endpointToProject(scene, wire, "to");
+      if (isIntegratedCableType(wire.cableType) && entry.item.cableAssembly && wire.cableAssembly) {
+        entry.item.cableAssembly = deepClone(wire.cableAssembly);
+      }
       const signalIndex = Number(wire.signalIndex) || 0;
       if (signalIndex > 0) entry.item.signalIndex = signalIndex;
       else delete entry.item.signalIndex;

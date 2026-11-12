@@ -33305,42 +33305,38 @@
 
     function wireAssemblyDetailsHtml(connection) {
       const api = engineTransceiverApi();
-      const assembly = connection?.cableAssembly;
-      if (!api || !assembly || typeof assembly !== "object" || Array.isArray(assembly)) return "";
-      if (!api.isDacCableType(connection.cableType) && assembly.kind !== "direct-attach-copper") return "";
+      const profile = api?.integratedCableProfile(connection?.cableType);
+      if (!profile) return "";
+      const assembly = connection.cableAssembly || {};
       const formFactor = end => {
         const form = assembly.ends?.[end]?.formFactor;
-        return ({ sfp: "SFP", "sfp-plus": "SFP+", sfp28: "SFP28", qsfp: "QSFP" })[form] || form || "Unverified";
+        return ({ sfp: "SFP", "sfp-plus": "SFP+", sfp28: "SFP28", qsfp: "QSFP", "qsfp-plus": "QSFP+", qsfp28: "QSFP28" })[form] || form || "Unverified";
       };
       const rates = Array.isArray(assembly.supportedRates) ? assembly.supportedRates.map(String).filter(Boolean) : [];
-      const warnings = Array.isArray(assembly.warnings) ? [...new Set(assembly.warnings.map(String).filter(Boolean))] : [];
       return `
-        <dt>Assembly</dt><dd data-wire-assembly-kind>${escapeHtml(assembly.kind === "direct-attach-copper" ? "Direct-attach copper (DAC)" : assembly.kind || "Unverified")}</dd>
+        <dt>Assembly</dt><dd data-wire-assembly-kind>${api.isDacCableType(profile.value) ? "Direct-attach copper (DAC)" : "Active optical cable (AOC)"}</dd>
         <dt>From end</dt><dd data-wire-assembly-from>${escapeHtml(formFactor("from"))}</dd>
         <dt>To end</dt><dd data-wire-assembly-to>${escapeHtml(formFactor("to"))}</dd>
         <dt>Data rate</dt><dd data-wire-assembly-rate>${escapeHtml(rates.join(", ") || "Unverified")}</dd>
-        ${warnings.length ? `<dt>Warnings</dt><dd data-wire-assembly-warnings style="overflow-wrap:anywhere">${warnings.map(escapeHtml).join("<br>")}</dd>` : ""}
       `;
     }
 
     function transceiverWireDetailsHtml(connection, bridge) {
       const api = engineTransceiverApi();
-      if (!api?.engineCompatibilitySummary || !bridge?.scene || !connection.from?.deviceId || !connection.to?.deviceId) return "";
+      if (!api?.engineCompatibilitySummary || !bridge?.scene) return "";
+      const integrated = api.isIntegratedCableType(connection.cableType) || Boolean(connection.cableAssembly);
       const hit = endpoint => ({
-        device: { id: endpoint.deviceId }, connector: bridge.scene.getConnector(endpoint.deviceId, endpoint.connectorId)
+        device: { id: endpoint?.deviceId }, connector: endpoint?.deviceId && bridge.scene.getConnector(endpoint.deviceId, endpoint.connectorId)
       });
       const from = hit(connection.from), to = hit(connection.to);
-      if (!from.connector || !to.connector || (!api.isTransceiverCage(from.connector) && !api.isTransceiverCage(to.connector))) return "";
-      const result = api.engineCompatibilitySummary(from, to);
-      let state = result.compatibilityStatus, details = result.valid ? result.warnings.join(" ") : result.reason;
+      if (!integrated && (!from.connector || !to.connector || (!api.isTransceiverCage(from.connector) && !api.isTransceiverCage(to.connector)))) return "";
+      let result = from.connector && to.connector ? api.engineCompatibilitySummary(from, to) : null;
+      if (integrated && (!result || result.valid)) result = api.integratedCableWireValidation(connection, from.connector, to.connector);
+      let state = result.compatibilityStatus, details = result.valid ? (result.warnings || []).join(" ") : result.reason;
       const cableMode = api.normalizeEngineFiberMode(connection.fiberMode);
-      if (result.valid && cableMode && result.allowedFiberModes.length && !result.allowedFiberModes.includes(cableMode)) {
+      if (result.valid && cableMode && result.allowedFiberModes?.length && !result.allowedFiberModes.includes(cableMode)) {
         state = "incompatible";
         details = "The saved cable's fibre mode does not match the endpoints.";
-      } else if (result.valid && connection.cableAssembly) {
-        const assembly = api.dacWireValidation(connection, from.connector, to.connector);
-        state = !assembly.valid ? "incompatible" : assembly.warnings?.length ? "unverified" : state;
-        details = !assembly.valid ? assembly.reason : assembly.warnings?.join(" ") || details;
       }
       const label = { compatible: "Compatible", incompatible: "Incompatible", unverified: "Unverified" }[state];
       return `<dt>Compatibility</dt><dd data-transceiver-link-status="${escapeHtml(state)}" style="overflow-wrap:anywhere">${escapeHtml(label)}${details ? `: ${escapeHtml(details)}` : ""}</dd>`;
@@ -34138,7 +34134,7 @@
     function reportCableType(connection) {
       let label = cableTypes[connection.cableType]?.label
         || (connection.cableType && window.WireNexusTransceivers && engineRendererRequested()
-          && window.WireNexusTransceivers.isDacCableType(connection.cableType)
+          && window.WireNexusTransceivers.isIntegratedCableType(connection.cableType)
           ? window.WireNexusTransceivers.engineConnectorTypeDisplayName(connection.cableType) : "")
         || connection.cableType || "Cable";
       if (connection.cableType === "led-signal") label = "LED Signal";

@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
-import { transceiverModulePatch, isDacCableType } from "../src/engine/transceiverModules.js";
+import { transceiverModulePatch, isIntegratedCableType } from "../src/engine/transceiverModules.js";
 import * as compatibility from "../src/engine/connectorCompatibility.js";
 
 const source = readFileSync(new URL("../src/engine/productionBridge.js", import.meta.url), "utf8");
@@ -13,12 +13,12 @@ function fixture({ attached = true, module = "lc-singlemode" } = {}) {
   Object.assign(connector, transceiverModulePatch(connector, module));
   const device = { id: "device", connectors: [connector] };
   const alerts = [], mutations = [];
-  const context = { ...compatibility, transceiverModulePatch, isDacCableType, alert: message => alerts.push(message),
+  const context = { ...compatibility, transceiverModulePatch, isIntegratedCableType, alert: message => alerts.push(message),
     CONNECTOR_RELATIONSHIP_FIELDS: [],
     connectorIdsForInspectorEdit: c => [c.id, c.pairedConnectorId].filter(Boolean) };
   const methods = vm.runInNewContext(`({
     ${method("commitConnectorInspectorFields", "applyConnectorMetadataStates")},
-    ${method("allowDacCableTypeEdit", "commitWireInspectorFields")}
+    ${method("allowIntegratedCableTypeEdit", "commitWireInspectorFields")}
   })`, context);
   const api = { ...methods, ready: true, resolveDeviceBySourceId: () => device,
     scene: { getConnector: () => connector, connectorWireIds: () => new Set(attached ? ["physical-cable"] : []) },
@@ -28,7 +28,7 @@ function fixture({ attached = true, module = "lc-singlemode" } = {}) {
 }
 
 test("actual Inspector handler blocks connected removal/replacement before mutation or history, including paired anchors", () => {
-  for (const replacement of ["", "rj45-ethernet", "sfp-sdi-rx", "dac-sfp-plus"]) {
+  for (const replacement of ["", "rj45-ethernet", "sfp-sdi-rx", "dac-sfp-plus", "aoc-sfp-plus"]) {
     const { api, connector, alerts, mutations } = fixture();
     connector.pairedConnectorId = "mirrored-anchor";
     // Only the second anchor is wired; it still belongs to the same cage.
@@ -69,16 +69,18 @@ test("unknown module values are rejected atomically instead of silently emptying
   assert.deepEqual(mutations, []);
 });
 
-test("DAC type guard covers single/multi preview and commit without blocking length/label changes", () => {
+test("integrated cable type guard covers single/multi preview and commit without blocking length/label changes", () => {
   const { api, alerts } = fixture();
-  const wire = { cableType: "dac-sfp-plus", cableAssembly: { kind: "direct-attach-copper" }, length: "3m" };
-  assert.equal(api.allowDacCableTypeEdit([wire], { cableType: "cat6a" }), false);
-  assert.equal(api.allowDacCableTypeEdit([{ cableType: "cat6a" }], { cableType: "dac-sfp-plus" }), false);
-  assert.equal(api.allowDacCableTypeEdit([wire], { length: "5m", label: "Backbone" }), true);
-  assert.equal(alerts.length, 2);
+  for (const cableType of ["dac-sfp-plus", "aoc-sfp-plus"]) {
+    const wire = { cableType, length: "3m" };
+    assert.equal(api.allowIntegratedCableTypeEdit([wire], { cableType: "cat6a" }), false);
+    assert.equal(api.allowIntegratedCableTypeEdit([{ cableType: "cat6a" }], { cableType }), false);
+    assert.equal(api.allowIntegratedCableTypeEdit([wire], { length: "5m", label: "Backbone" }), true);
+  }
+  assert.equal(alerts.length, 4);
   for (const name of ["commitWireInspectorFields", "previewWireInspectorFields", "previewMultiWireInspectorFields", "commitMultiWireInspectorFields"]) {
     const body = source.slice(source.indexOf(`  ${name}(`));
-    assert.match(body.slice(0, body.indexOf("\n  }\n")), /allowDacCableTypeEdit/);
+    assert.match(body.slice(0, body.indexOf("\n  }\n")), /allowIntegratedCableTypeEdit/);
   }
 });
 

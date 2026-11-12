@@ -17,6 +17,29 @@ const sdi = (rate, direction) => option(
   { formFactor: rate === "12G" || rate === "6G" ? "sfp-plus" : "sfp",
     signalFamily: "sdi", mediaType: "coax", direction, supportedRates: rate ? [`${rate}-SDI`] : [] }
 );
+
+const integratedProfiles = [
+  ["dac-sfp-plus", "SFP+ DAC", "sfp-plus", "10G", ["sfp-plus-cage"]],
+  ["dac-sfp28", "SFP28 DAC", "sfp28", "25G", ["sfp28-cage"]],
+  ["dac-qsfp", "QSFP DAC", "qsfp", "", ["qsfp-cage"]],
+  ["dac-qsfp-plus", "QSFP+ DAC", "qsfp-plus", "40G", ["qsfp-cage"]],
+  ["dac-qsfp28", "QSFP28 DAC", "qsfp28", "100G", ["qsfp-cage"]],
+  ["aoc-sfp-plus", "SFP+ AOC", "sfp-plus", "10G", ["sfp-plus-cage", "sfp28-cage"]],
+  ["aoc-sfp28", "SFP28 AOC", "sfp28", "25G", ["sfp28-cage"]],
+  ["aoc-qsfp-plus", "QSFP+ AOC", "qsfp-plus", "40G", ["qsfp-cage"]],
+  ["aoc-qsfp28", "QSFP28 AOC", "qsfp28", "100G", ["qsfp-cage"]]
+].map(([type, label, formFactor, rate, cages]) => {
+  const mediaType = type.startsWith("aoc-") ? "active-optical" : "direct-attach-copper";
+  return { ...option(type, `${label}${rate ? ` ${rate}` : ""} (integrated cable end)`, type, cages,
+    { formFactor, signalFamily: "ethernet", mediaType, direction: "bidirectional",
+      supportedRates: Object.freeze(rate ? [rate] : []), cableAssembly: true }), cableLabel: label };
+});
+
+const integratedByType = new Map(integratedProfiles.map(profile => [profile.value, Object.freeze(profile)]));
+export const integratedCableProfile = type => integratedByType.get(type) || null;
+export const isIntegratedCableType = type => integratedByType.has(type);
+export const isDacCableType = type => integratedCableProfile(type)?.capabilities.mediaType === "direct-attach-copper";
+
 export const TRANSCEIVER_MODULE_OPTIONS = Object.freeze([
   option("", "Empty / No module", "", ALL_CAGES),
   option("lc-singlemode", "LC Single Mode", "fiber-lc", ALL_CAGES,
@@ -30,21 +53,21 @@ export const TRANSCEIVER_MODULE_OPTIONS = Object.freeze([
   option("mpo-multimode", "MPO Multimode (OM4)", "fiber-mpo", ["qsfp-cage"],
     { formFactor: "qsfp", mediaType: "fiber" }, "om4"),
   ...["", "3G", "6G", "12G"].flatMap(rate => [sdi(rate, "input"), sdi(rate, "output")]),
-  ...[
-    ["sfp-plus", "SFP+", "10G"], ["sfp28", "SFP28", "25G"], ["qsfp", "QSFP", ""]
-  ].map(([formFactor, label, rate]) => option(`dac-${formFactor}`, `${label} DAC${rate ? ` ${rate}` : ""} (integrated cable end)`,
-    `dac-${formFactor}`, [`${formFactor}-cage`],
-    { formFactor, signalFamily: "ethernet", mediaType: "direct-attach-copper", direction: "bidirectional",
-      supportedRates: rate ? [rate] : [], cableAssembly: true })),
+  ...integratedProfiles,
   ...opticalTransceiverProfiles
 ].map(item => Object.freeze({ ...item, cages: Object.freeze(item.cages), capabilities: Object.freeze(item.capabilities) })));
 
 const key = value => String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
-function activeTypeForModuleValue(value, allowDetailedOptics) {
+function activeTypeForModuleValue(value, cage) {
   const alias = TRANSCEIVER_MODULE_ACTIVE_TYPES.get(key(value));
   if (alias) return alias;
   const profile = transceiverModuleOption(value);
-  return profile?.capabilities.optical && !allowDetailedOptics ? "" : profile?.activeType || "";
+  return !cage && cageOnlyProfile(profile) ? "" : profile?.activeType || "";
+}
+
+function cageOnlyProfile(profile) {
+  return profile?.capabilities.optical || (profile?.capabilities.cableAssembly
+    && !["dac-sfp-plus", "dac-sfp28", "dac-qsfp"].includes(profile.value));
 }
 
 const TRANSCEIVER_MODULE_ACTIVE_TYPES = new Map([
@@ -116,7 +139,6 @@ const normalizeDirection = value => {
   if (["bidirectional", "io", "both"].includes(name)) return "bidirectional";
   return "";
 };
-export const isDacCableType = type => /^dac-(sfp-plus|sfp28|qsfp)$/.test(String(type || ""));
 function cageType(connector) {
   const type = String(connector?.type || "").trim();
   const legacyType = String(connector?.connectorType || "").trim();
@@ -163,9 +185,11 @@ export function resolveInstalledModule(connector = {}) {
   const rawValue = firstText(type, id, name);
   const knownProfile = value => {
     const candidate = transceiverModuleOption(value, connector);
-    return !cage && candidate?.capabilities.optical ? null : candidate;
+    return !cage && cageOnlyProfile(candidate) ? null : candidate;
   };
-  const profile = knownProfile(rawValue);
+  const primaryProfile = knownProfile(rawValue);
+  const profile = !primaryProfile?.value && cage && isIntegratedCableType(activeTypeForModuleValue(activeType, cage))
+    ? knownProfile(activeType) : primaryProfile;
   // Historical cage aliases do not turn metadata on ordinary ports into module profiles.
   const capabilityValue = cage ? rawValue : firstText(...typeFields, connector.installedModuleId, module.id);
   const capabilityProfile = capabilityValue === rawValue ? profile : knownProfile(capabilityValue);
@@ -195,7 +219,7 @@ export function resolveInstalledModule(connector = {}) {
 export const installedModuleCapabilities = connector => resolveInstalledModule(connector).capabilities;
 
 export function transceiverModuleValidation(connector, capabilities = installedModuleCapabilities(connector),
-  profile = transceiverModuleOption(installedModuleValue(connector), connector)) {
+  profile = resolveInstalledModule(connector).profile) {
   if (!isTransceiverCage(connector)) return { valid: false, reason: "A module requires an SFP or QSFP cage.", warnings: [] };
   const host = connector.cageCapabilities || {};
   const form = CAGE_FORM_FACTORS[cageType(connector)];
@@ -223,8 +247,10 @@ export function transceiverModuleValidation(connector, capabilities = installedM
   if (profile?.value && !profile.cages.includes(cageType(connector))) {
     return reject("This module/cable end is not supported by this cage family.");
   }
-  if (capabilities.formFactor && !forms.includes(capabilities.formFactor)) return reject("Module and cage form factors are incompatible.");
-  if (capabilities.cableAssembly && capabilities.formFactor !== form) return reject("DAC cable ends must match the cage form factor.");
+  const legacyQsfpFit = profile?.value === "dac-qsfp" && form === "qsfp"
+    && forms.some(candidate => ["qsfp-plus", "qsfp28"].includes(candidate));
+  if (capabilities.formFactor && !forms.includes(capabilities.formFactor) && !legacyQsfpFit) return reject("Module and cage form factors are incompatible.");
+  if (capabilities.cableAssembly && !profile?.capabilities.cableAssembly) return reject("An integrated cable requires a recognized DAC or AOC end.");
   for (const [hostKey, moduleKey, description] of [
     ["supportedSignalFamilies", "signalFamily", "signal family"], ["supportedMediaTypes", "mediaType", "media type"]
   ]) {
@@ -248,7 +274,8 @@ export function transceiverModuleValidation(connector, capabilities = installedM
     && nodeDirection !== capabilities.direction) return reject("Module direction conflicts with the node direction.");
   const warnings = [];
   if (!rates.length) warnings.push("Module data rate is unverified.");
-  const explicitlySupported = profile?.capabilities.optical && list(host.supportedModuleTypes).some(value => key(value) === key(requestedType));
+  const explicitlySupported = (profile?.capabilities.optical || profile?.capabilities.cableAssembly)
+    && list(host.supportedModuleTypes).some(value => key(value) === key(requestedType));
   if (!explicitlySupported && (!hostRates.length || !list(host.platforms).length || !list(capabilities.platforms).length)) {
     warnings.push("Host/platform module support is unverified.");
   }
@@ -307,7 +334,8 @@ export function transceiverModulePresentation(connector = {}) {
   const { rawValue, name, profile, capabilities: caps, hasModule, effectiveType } = resolveInstalledModule(connector);
   if (!hasModule) return "Empty / No module";
   const label = name || profile?.label || rawValue || "Historical module";
-  const check = profile?.value && effectiveType !== profile.activeType
+  const identity = integratedEndIdentityCheck(connector, profile, rawValue);
+  const check = !identity.valid ? identity : profile?.value && effectiveType !== profile.activeType
     ? { valid: false, reason: "Installed module identity and effective connector disagree." }
     : transceiverModuleValidation(connector, caps, profile);
   const optical = caps.optical;
@@ -315,13 +343,32 @@ export function transceiverModulePresentation(connector = {}) {
   return [label, list(caps.supportedRates).join(", "), caps.direction, optical?.interface, optical?.fiberFamily,
     nm(optical?.txNm) && `TX ${nm(optical.txNm)}`, nm(optical?.rxNm) && `RX ${nm(optical.rxNm)}`, caps.manufacturer, caps.model,
     caps.physicalConstraints && (typeof caps.physicalConstraints === "string" ? caps.physicalConstraints : JSON.stringify(caps.physicalConstraints)),
-    !check.valid ? check.reason : check.warnings.join(" ")].filter(Boolean).join(" | ");
+    !check.valid ? check.reason : [...check.warnings, ...identity.warnings].join(" ")].filter(Boolean).join(" | ");
+}
+
+function integratedEndIdentityCheck(connector, profile, rawValue) {
+  if (!profile?.capabilities.cableAssembly) return { valid: true, warnings: [] };
+  const module = object(connector.installedModule) || object(connector.module) || object(connector.transceiverModule) || {};
+  const declared = [rawValue, connector.installedModuleType, connector.installedModuleId,
+    connector.moduleType, connector.moduleId, connector.transceiverModuleType, connector.transceiverModuleId,
+    connector.installedModuleActiveType, connector.installedModuleEffectiveType,
+    connector.moduleActiveType, connector.moduleEffectiveType, connector.transceiverModuleActiveType,
+    connector.transceiverModuleEffectiveType, module.type, module.value, module.id, module.activeType,
+    module.effectiveType, module.connectorType];
+  if ([...new Set(declared.filter(Boolean))].some(value => {
+    const type = activeTypeForModuleValue(value, true);
+    return type && type !== profile.activeType;
+  })) {
+    return { valid: false, reason: "Installed cable-end identities contradict one another.", warnings: [] };
+  }
+  return { valid: true, warnings: transceiverModuleOption(rawValue)?.value === profile.value
+    ? [] : ["Installed cable-end identity is unverified."] };
 }
 
 export function transceiverConnectionValidation(source, target, sourceType, targetType) {
   const warnings = [];
   const first = resolveInstalledModule(source), second = resolveInstalledModule(target);
-  for (const [connector, activeType, { profile, capabilities }] of [[source, sourceType, first], [target, targetType, second]]) {
+  for (const [connector, activeType, { profile, capabilities, rawValue }] of [[source, sourceType, first], [target, targetType, second]]) {
     if (!isTransceiverCage(connector)) continue;
     // A transient Jump hit is the complementary cable endpoint, not a second
     // installed receiver/transmitter. The real cage is validated separately.
@@ -331,13 +378,17 @@ export function transceiverConnectionValidation(source, target, sourceType, targ
     }
     const check = transceiverModuleValidation(connector, capabilities, profile);
     if (!check.valid) return { ...check, rule: "module-capability" };
-    warnings.push(...check.warnings);
+    const identity = integratedEndIdentityCheck(connector, profile, rawValue);
+    if (!identity.valid) return { ...identity, rule: "module-capability" };
+    warnings.push(...check.warnings, ...identity.warnings);
   }
   const a = first.capabilities, b = second.capabilities;
-  if (isDacCableType(sourceType) || isDacCableType(targetType)) {
+  if (isIntegratedCableType(sourceType) || isIntegratedCableType(targetType)) {
     if (sourceType !== targetType || !isTransceiverCage(source) || !isTransceiverCage(target)
+      || source?.jumpModuleCompatibilityProxy || target?.jumpModuleCompatibilityProxy
       || !a.cableAssembly || !b.cableAssembly || a.formFactor !== b.formFactor) {
-      return { valid: false, rule: "dac-assembly", reason: "DAC requires matching integrated cable ends on compatible cages.", warnings: [] };
+      return { valid: false, rule: isDacCableType(sourceType) || isDacCableType(targetType) ? "dac-assembly" : "aoc-assembly",
+        reason: "DAC and AOC assemblies require two matching integrated ends in compatible cages.", warnings: [] };
     }
   }
   if (a.signalFamily && b.signalFamily && a.signalFamily !== b.signalFamily) {
@@ -355,7 +406,8 @@ export function transceiverConnectionValidation(source, target, sourceType, targ
       || !targetRates.some(values => list(values).length)) warnings.push("An endpoint data rate is unverified.");
     if (!a.signalFamily || !b.signalFamily) warnings.push("Endpoint signal family is unverified.");
   }
-  const direction = (connector, caps) => transceiverLink ? opticalEthernetDirection(connector, caps) || effectiveTransceiverDirection(connector)
+  const direction = (connector, caps) => isIntegratedCableType(sourceType) && sourceType === targetType ? "bidirectional"
+    : transceiverLink ? opticalEthernetDirection(connector, caps) || effectiveTransceiverDirection(connector)
     : normalizeDirection(connector?.signalDirection || connector?.direction);
   const from = direction(source, a);
   const to = direction(target, b);
@@ -396,61 +448,83 @@ function commonTransceiverRates(source, target) {
   return commonRates([source, target].flatMap(connector => connectorRateSets(connector)));
 }
 
-export function dacAssemblyForConnectors(source, target, cableType) {
-  if (!isDacCableType(cableType)) return null;
-  for (const connector of [source, target]) {
-    const { effectiveType: activeType } = resolveInstalledModule(connector);
-    if (activeType !== cableType) throw new Error("DAC cable type does not match the installed cable end.");
+export function integratedCableAssemblyForConnectors(source, target, cableType) {
+  const profile = integratedCableProfile(cableType);
+  if (!profile) return null;
+  const ends = [source, target].map(resolveInstalledModule);
+  if (ends.some(end => end.effectiveType !== cableType)) {
+    throw new Error("Assembly type does not match the installed cable ends.");
   }
   const check = transceiverConnectionValidation(source, target, cableType, cableType);
   if (!check.valid) throw new Error(check.reason);
-  const a = installedModuleCapabilities(source);
-  const b = installedModuleCapabilities(target);
+  const [a, b] = ends.map(end => end.capabilities);
   const rates = connectorRateSets(source, a).some(values => list(values).length)
     && connectorRateSets(target, b).some(values => list(values).length) ? commonTransceiverRates(source, target).rates : [];
+  const snapshotEnd = ({ rawValue, capabilities }) => ({
+    formFactor: capabilities.formFactor, moduleType: rawValue || cableType, capabilities: structuredClone(capabilities)
+  });
   return {
-    kind: "direct-attach-copper", version: 1, cableType,
-    ends: {
-      from: { formFactor: a.formFactor, moduleType: installedModuleValue(source), capabilities: structuredClone(a) },
-      to: { formFactor: b.formFactor, moduleType: installedModuleValue(target), capabilities: structuredClone(b) }
-    },
+    kind: profile.capabilities.mediaType, version: 1, cableType,
+    ends: { from: snapshotEnd(ends[0]), to: snapshotEnd(ends[1]) },
     supportedRates: rates, warnings: check.warnings
   };
 }
 
-export function dacWireValidation(wire, source, target) {
-  if (!isDacCableType(wire?.cableType) && !wire?.cableAssembly) return { valid: true, reason: "" };
+export function integratedCableWireValidation(wire, source, target) {
+  if (!isIntegratedCableType(wire?.cableType) && !wire?.cableAssembly) return { valid: true, reason: "" };
+  const invalid = reason => ({ valid: false, reason, compatibilityStatus: "incompatible" });
   let expected;
-  try { expected = dacAssemblyForConnectors(source, target, wire.cableType); }
-  catch (error) { return { valid: false, reason: error.message }; }
-  const assembly = wire.cableAssembly;
-  const invalid = reason => ({ valid: false, reason });
-  if (!expected || !object(assembly) || assembly.kind !== expected.kind || assembly.cableType !== wire.cableType
-    || ["from", "to"].some(end => assembly.ends?.[end]?.formFactor !== expected.ends[end].formFactor
-      || key(assembly.ends[end].moduleType) !== key(expected.ends[end].moduleType))) {
-    return invalid("DAC cable assembly and installed cable ends are inconsistent. Disconnect/remap first.");
+  try { expected = integratedCableAssemblyForConnectors(source, target, wire.cableType); }
+  catch (error) { return invalid(error.message); }
+  if (!expected || ["from", "to"].some(end => wire[end]?.jumpNodeId || wire[end]?.multiCoreId || wire[end]?.surfaceId)) {
+    return invalid("Integrated assemblies must connect directly between their two compatible cages.");
   }
-  if (assembly.version != null && assembly.version !== expected.version) return invalid("Unsupported DAC cable assembly version.");
+  if (wire.cableAssembly != null && !object(wire.cableAssembly)) return invalid("Malformed cable assembly details.");
+  const assembly = wire.cableAssembly || {};
+  if ((assembly.kind && assembly.kind !== expected.kind) || (assembly.cableType && assembly.cableType !== expected.cableType)) {
+    return invalid("Saved cable assembly type contradicts the installed cable ends.");
+  }
+  if (assembly.version != null && assembly.version !== expected.version) return invalid("Unsupported cable assembly version.");
   const inconsistentRates = (saved, known) => saved != null && (!Array.isArray(saved)
     || (list(known).length && list(saved).some(rate => !hasRate(known, rate))));
-  const knownRates = expected.supportedRates.length ? expected.supportedRates : commonTransceiverRates(source, target).rates;
-  if (inconsistentRates(assembly.supportedRates, knownRates)) return invalid("DAC assembly rates contradict the installed ends.");
+  const rateSets = [commonTransceiverRates(source, target).rates];
   const warnings = [...expected.warnings];
-  if (assembly.version == null || !list(assembly.supportedRates).length || !expected.supportedRates.length) {
-    warnings.push("Saved DAC assembly details are incomplete or unverified.");
-  }
+  let incomplete = assembly.version == null || !assembly.kind || !assembly.cableType
+    || !list(assembly.supportedRates).length || !expected.supportedRates.length;
+  if (assembly.ends != null && !object(assembly.ends)) return invalid("Malformed cable assembly ends.");
   for (const end of ["from", "to"]) {
-    const saved = assembly.ends[end].capabilities;
-    const known = expected.ends[end].capabilities;
+    const record = assembly.ends?.[end];
+    if (record != null && !object(record)) return invalid("Malformed cable assembly end.");
+    const knownEnd = expected.ends[end];
+    const savedProfile = transceiverModuleOption(record?.moduleType);
+    if ((record?.formFactor && record.formFactor !== knownEnd.formFactor)
+      || (savedProfile?.value && savedProfile.value !== expected.cableType)) {
+      return invalid("Saved assembly end contradicts the installed cable end.");
+    }
+    if (!record?.formFactor || !savedProfile?.value) incomplete = true;
+    const saved = record?.capabilities;
+    const known = knownEnd.capabilities;
     if (saved == null) {
-      warnings.push("Saved DAC end capabilities are unverified.");
+      incomplete = true;
       continue;
     }
-    if (!object(saved) || ["formFactor", "signalFamily", "mediaType", "direction", "cableAssembly"].some(field =>
+    const fields = ["formFactor", "signalFamily", "mediaType", "direction", "cableAssembly"];
+    if (!object(saved) || fields.some(field =>
       saved[field] != null && known[field] != null && (field === "direction" ? normalizeDirection(saved[field]) : saved[field]) !== known[field])
       || inconsistentRates(saved.supportedRates, known.supportedRates)) {
-      return invalid("Saved DAC end capabilities contradict the installed module.");
+      return invalid("Saved assembly end capabilities contradict the installed module.");
     }
+    rateSets.push(saved.supportedRates);
+    if (fields.some(field => saved[field] == null) || !list(saved.supportedRates).length) incomplete = true;
   }
-  return { valid: true, reason: "", warnings: [...new Set(warnings)] };
+  const rates = commonRates(rateSets);
+  if ((rates.constrained && !rates.rates.length) || inconsistentRates(assembly.supportedRates, rates.rates)) {
+    return invalid("Assembly rates contradict the installed ends or host rates.");
+  }
+  if (incomplete) warnings.push("Saved cable assembly details are incomplete or unverified.");
+  return { valid: true, reason: "", warnings: [...new Set(warnings)], compatibilityStatus: warnings.length ? "unverified" : "compatible" };
 }
+
+// Keep the existing DAC helpers available to older consumers.
+export const dacAssemblyForConnectors = integratedCableAssemblyForConnectors;
+export const dacWireValidation = integratedCableWireValidation;

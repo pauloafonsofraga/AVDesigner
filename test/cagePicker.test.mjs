@@ -128,6 +128,7 @@ test("VX 2+ factory Ethernet-style nodes are empty QSFP cages, not SFP SDI hosts
     assert.equal(connector.installedModuleType, "");
     assert.deepEqual(transceivers.transceiverModuleOptionsForConnector(connector).map(o => o.value),
       ["", "lc-singlemode", "lc-multimode", "mpo-fiber", "mpo-multimode", "dac-qsfp",
+        "dac-qsfp-plus", "dac-qsfp28", "aoc-qsfp-plus", "aoc-qsfp28",
         "40gbase-sr4", "40gbase-lr4", "100gbase-sr4", "100gbase-lr4"]);
   }
 });

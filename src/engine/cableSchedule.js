@@ -1,7 +1,7 @@
 import { engineConnectorColor, engineConnectorDisplayLabel, engineConnectorCompatibilityType,
   engineConnectorUserFacingTypeLabel } from "./connectorCompatibility.js";
 import { normalizeSignalDirection } from "./deviceDefinitionV2.js";
-import { effectiveTransceiverDirection, isTransceiverCage } from "./transceiverModules.js";
+import { effectiveTransceiverDirection, isTransceiverCage, integratedCableProfile, isDacCableType } from "./transceiverModules.js";
 import { rawWireJumpIds, resolvePlayableSignalPath } from "./jumpNodeModel.js";
 import { cableLengthDisplayLabel } from "./loomMetadata.js";
 import { resolveRackPatchPresentation } from "./rackPatchTopology.js";
@@ -77,7 +77,6 @@ const typeFamilies = new Map(Object.entries({
   sdi: "V", bnc: "V", hdmi: "V", dvi: "V", "display-port": "V", "mini-display-port": "V",
   vga: "V", cxp: "V", "component-video":"V", rgbhv:"V", "led-signal": "V", "led-grid-signal": "V",
   cat5e: "N", cat6: "N", cat6a: "N", ethercon: "N", ethernet: "N",
-  "dac-sfp-plus": "N", "dac-sfp28": "N", "dac-qsfp": "N",
   "xlr-3pin": "A", "xlr-5pin": "A", "trs-ts": "A", rca: "A", aes: "A",
   "dmx-3pin": "L", "dmx-5pin": "L",
   "usb-a": "U", "usb-b": "U", "usb-c": "U",
@@ -95,6 +94,7 @@ const nodeDefinition = (definitions, id) => Array.isArray(definitions)
 
 export function cableFamily(typeId, nodeDefinitions = []) {
   const key = String(typeId || "").trim().toLowerCase();
+  if (integratedCableProfile(key)) return "N";
   if (typeFamilies.has(key)) return typeFamilies.get(key);
   const node = nodeDefinition(nodeDefinitions, key);
   const tags = Array.isArray(node?.tags) ? node.tags.map(tag => String(tag).toLowerCase()) : [];
@@ -297,6 +297,8 @@ export function buildCableSchedule(input, options = {}) {
     const rackLocation = source.rackId === destination.rackId
       ? sourceRack : `${sourceRack} → ${destinationRack}`.trim();
     const cableType = String(group.wires.find(wire => wire.cableType && wire.cableType !== "jump")?.cableType || value("cableType"));
+    const assemblyProfile = integratedCableProfile(cableType);
+    const assembly = primary.cableAssembly;
     const cableNode = node(cableType);
     const cableSignal={type:cableType,compatibilityType:cableNode?.compatibilityType};
     const physicalCircuits = groupedCoaxMetadata(cableSignal);
@@ -334,8 +336,10 @@ export function buildCableSchedule(input, options = {}) {
         ...[source, destination].filter(end => end.stageboxChannels?.length)
           .map(end => `${end.realDevice}: ${end.stageboxChannels.join(", ")}`),
         physicalCircuits ? `${physicalCircuits.count} separate 75 ohm coaxial circuits: ${physicalCircuits.circuits.map(c=>c.id).join(", ")}. Grouped signal; all circuits required.` : "",
-        primary.cableAssembly?.kind === "direct-attach-copper"
-          ? ["Integrated DAC assembly", ...(primary.cableAssembly.supportedRates || []), ...(primary.cableAssembly.warnings || [])].join(" | ") : ""].filter(Boolean).join("\n"),
+        assemblyProfile ? [`Integrated ${isDacCableType(cableType) ? "DAC" : "AOC"} assembly`,
+          ...(Array.isArray(assembly?.supportedRates) ? assembly.supportedRates : []),
+          ...(Array.isArray(assembly?.warnings) ? assembly.warnings : []),
+          ...(!assembly ? ["Saved cable assembly details are unverified."] : [])].join(" | ") : ""].filter(Boolean).join("\n"),
       wireIds: group.wires.map(wire => String(wire.id)),
       sourceNodeTypeId: source.typeId, destinationNodeTypeId: destination.typeId,
       sourceNodeTypeLabel: source.typeLabel, destinationNodeTypeLabel: destination.typeLabel,

@@ -7,7 +7,7 @@ import {
 import { isGeneratedScopedNodeId } from "./nodeCompatibilityIdentity.js";
 import {multibandSignal, multibandColors} from "./multibandSignals.js";
 import {
-  transceiverModuleOption, resolveInstalledModule, transceiverConnectionValidation, isDacCableType,
+  transceiverModuleOption, resolveInstalledModule, transceiverConnectionValidation, isIntegratedCableType, integratedCableProfile,
   effectiveTransceiverDirection, isTransceiverCage, opticalEthernetDirection
 } from "./transceiverModules.js";
 const ENGINE_CONNECTOR_COMPATIBILITY_ALIASES = new Map([
@@ -104,6 +104,12 @@ export const ENGINE_CONNECTOR_TYPE_COLORS = new Map([
   ["dac-sfp-plus", "#CF964D"],
   ["dac-sfp28", "#CF964D"],
   ["dac-qsfp", "#CF964D"],
+  ["dac-qsfp-plus", "#CF964D"],
+  ["dac-qsfp28", "#CF964D"],
+  ["aoc-sfp-plus", "#32B6FF"],
+  ["aoc-sfp28", "#32B6FF"],
+  ["aoc-qsfp-plus", "#32B6FF"],
+  ["aoc-qsfp28", "#32B6FF"],
   ["rs-422", "#607D8B"],
   ["led-signal", "#ff99cc"],
   ["usb-a", "#4E342E"],
@@ -166,9 +172,6 @@ const CONNECTOR_LABELS = new Map([
   ["sfp-plus-cage", "SFP+ Cage"],
   ["sfp28-cage", "SFP28 Cage"],
   ["qsfp-cage", "QSFP Cage"],
-  ["dac-sfp-plus", "SFP+ DAC"],
-  ["dac-sfp28", "SFP28 DAC"],
-  ["dac-qsfp", "QSFP DAC"],
   ["qsfp", "QSFP"],
   ["usb-a", "USB-A"],
   ["usb-b", "USB-B"],
@@ -275,7 +278,7 @@ export function areEngineConnectorTypesCompatible(source, target) {
   const sourceType = engineConnectorCompatibilityType(source);
   const targetType = engineConnectorCompatibilityType(target);
   if (!sourceType || !targetType) return false;
-  if ((isEngineCageConnector(source) || isEngineCageConnector(target) || isDacCableType(sourceType) || isDacCableType(targetType))
+  if ((isEngineCageConnector(source) || isEngineCageConnector(target) || isIntegratedCableType(sourceType) || isIntegratedCableType(targetType))
     && !transceiverConnectionValidation(source, target, sourceType, targetType).valid) return false;
   if (sourceType === targetType) return engineFiberModesCompatible(source, target, sourceType, targetType);
   if (CAT_CONNECTOR_TYPES.has(sourceType) && CAT_CONNECTOR_TYPES.has(targetType)) return true;
@@ -339,7 +342,7 @@ export function engineCompatibilitySummary(sourceHit, targetHit) {
   if (isPairedNetworkConnector(source) && isPairedNetworkConnector(target)) {
     return result(true, "paired-network", "", sourceType, targetType, source, target);
   }
-  if (isTwoWayConnector(source) && isTwoWayConnector(target)) {
+  if (isIntegratedCableType(sourceType) || (isTwoWayConnector(source) && isTwoWayConnector(target))) {
     return result(true, "two-way", "", sourceType, targetType, source, target);
   }
   const transceiverLink = isEngineCageConnector(source) || isEngineCageConnector(target);
@@ -718,7 +721,7 @@ function connectorDisplayName(connector) {
 }
 
 function typeDisplayName(type) {
-  return CONNECTOR_LABELS.get(type) || type || "Unknown";
+  return CONNECTOR_LABELS.get(type) || integratedCableProfile(type)?.cableLabel || type || "Unknown";
 }
 
 function inferFiberModeFromModuleValue(value) {
@@ -795,7 +798,7 @@ function result(valid, rule, reason, sourceType, targetType, source = null, targ
   const selectedCableType = sourceType || targetType || "";
   const warnings = valid ? transceiverConnectionValidation(source, target, sourceType, targetType).warnings : [];
   const transceiverLink = isEngineCageConnector(source) || isEngineCageConnector(target)
-    || isDacCableType(sourceType) || isDacCableType(targetType);
+    || isIntegratedCableType(sourceType) || isIntegratedCableType(targetType);
   return {
     valid,
     warnings,

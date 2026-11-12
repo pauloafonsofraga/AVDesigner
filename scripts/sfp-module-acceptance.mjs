@@ -36,7 +36,7 @@ page.setDefaultTimeout(15000);
 page.on("pageerror", error => report.pageErrors.push(error.message));
 page.on("console", message => { if (message.type() === "error") report.consoleErrors.push(message.text()); });
 page.on("dialog", async dialog => { report.alerts.push({ phase: currentPhase, type: dialog.type(), message: dialog.message() }); await dialog.accept(); });
-let currentPhase = "startup", sourceTemplate, cardTemplate, sdiSnapshot;
+let currentPhase = "startup", sourceTemplate, cardTemplate, sdiSnapshot, aocSnapshot;
 const dacSnapshots = new Map();
 const check = (name, details) => { report.checks.push({ phase: currentPhase, name, ...(details === undefined ? {} : { details }) }); console.log(`PASS ${currentPhase}: ${name}`); };
 const shot = async name => {
@@ -195,7 +195,7 @@ const saveReload = async label => {
     if (!w.cableNumber) { assert(actual.cableNumber, "Save assigns a cable number"); w.cableNumber = actual.cableNumber; }
     return w;
   });
-  assert.deepEqual(saved.connections, expected, "Downloaded project retains canonical wires");
+  assert.deepEqual(saved.connections.map(normalizedWire), expected.map(normalizedWire), "Downloaded project retains canonical wires");
   await page.reload(); await page.evaluate(() => wireNexusReady);
   await upload(saved, `${label}.avd`);
   assert.deepEqual((await page.evaluate(() => state.connections)).map(normalizedWire), saved.connections.map(normalizedWire),
@@ -498,6 +498,70 @@ try {
     await shot("connected-canvas-module-guard"); check("Editor and canvas Inspector block removal/replacement with alerts and preserve exact wire");
   });
 
+  await phase("aoc-lifecycle", async () => {
+    const value = "aoc-sfp-plus";
+    const cage = (id, direction, extra = {}) => node(id, "sfp-plus-cage", direction, extra);
+    const host = { cageCapabilities: { supportedModuleTypes: [value] } };
+    const source = template("aoc-source", [cage("out", "output", host)]);
+    const sink = template("aoc-sink", [cage("in", "input", host),
+      cage("alternate", "input", { y: 244 }), node("detachable", "fiber-lc", "input", { y: 298 })], { height: 350 });
+    await upload(projectFor("AOC lifecycle acceptance", [source, sink]));
+    await openInstance(source.id); await selectEditorNode("out");
+    await setModule("out", value); await saveEditor();
+    for (const id of ["in", "alternate"]) {
+      await clickPoint("connector", sink.id, id);
+      await page.locator("#connectorModule").selectOption(value);
+    }
+    assert.equal((await wireDrag([source.id, "out"], [sink.id, "in"], true, "aoc-create")).compatibilityStatus, "compatible");
+    const wireId = await page.evaluate(() => state.connections[0].id);
+    await clickPoint("wire", wireId);
+    await page.locator("#wireLength").fill("15m"); await page.locator("#wireLength").press("Enter");
+    await page.waitForFunction(() => /^15\s*m$/.test(state.connections[0]?.length));
+    assert.match(await page.locator("[data-wire-assembly-kind]").innerText(), /AOC/);
+    await page.locator('[data-transceiver-link-status="compatible"]').waitFor();
+    const original = await canonicalWire(wireId);
+    assert.equal(original.cableAssembly.kind, "active-optical");
+    assert.equal(original.fiberMode || "", "", "An AOC has no detachable fibre patch mode");
+    const replug = async (from, to, status) => {
+      const a = await point("connector", sink.id, from), b = await point("connector", sink.id, to);
+      await page.mouse.move(a.x, a.y); await page.mouse.down(); await page.mouse.move(b.x, b.y, { steps: 12 });
+      const preview = await page.evaluate(() => {
+        const b = activeEngineBridge();
+        return { check: b.currentWireCompatibility(), wireId: b.wireCreate?.rewire?.wireId };
+      });
+      await page.mouse.up();
+      assert.equal(preview.wireId, wireId);
+      assert.equal(preview.check.compatibilityStatus, status, JSON.stringify(preview.check));
+    };
+    await replug("in", "detachable", "incompatible");
+    assert.deepEqual(await canonicalWire(wireId), original);
+    await replug("in", "alternate", "unverified");
+    await page.waitForFunction(() => state.connections[0]?.to.connectorId === "alternate");
+    const moved = await canonicalWire(wireId);
+    assert.deepEqual(normalizedWire({ ...moved, to: original.to,
+      cableAssembly: { ...moved.cableAssembly, warnings: original.cableAssembly.warnings } }), normalizedWire(original));
+    assert.match(moved.cableAssembly.warnings.join(" "), /host\/platform/i);
+    await page.keyboard.press("Meta+z");
+    assert.deepEqual(normalizedWire(await canonicalWire(wireId)), normalizedWire(original));
+    await page.keyboard.press("Meta+Shift+z");
+    assert.deepEqual(normalizedWire(await canonicalWire(wireId)), normalizedWire(moved));
+    check("AOC real replug rejects LC, moves the same cable to a matching cage, and undo/redo restores both endpoint and warnings");
+    await clickPoint("wire", wireId);
+    await page.locator("#wireSignalChain").click(); await page.locator("#signalChainDialog[open]").waitFor();
+    assert.match(await page.locator("#signalChainBody").innerText(), /AOC[\s\S]*15\s*m/i);
+    await page.locator("#closeSignalChain").click();
+    await page.locator("#playWireTrace").click();
+    await page.waitForFunction(id => activeEngineBridge().wirePlaybackOverlayState()?.startingWireId === id, wireId);
+    await page.keyboard.press("Escape"); await clickPoint("wire", wireId);
+    await page.locator("#deleteSelected").click(); await page.waitForFunction(() => state.connections.length === 0);
+    await page.keyboard.press("Meta+z");
+    await page.waitForFunction(id => state.connections.some(wire => wire.id === id), wireId);
+    assert.deepEqual(normalizedWire(await canonicalWire(wireId)), normalizedWire(moved));
+    check("Signal Chain, Play Cable and delete/undo use a single physical AOC record");
+    aocSnapshot = await saveReload("aoc-project");
+    assert.equal(aocSnapshot.connections.length, 1);
+  });
+
   await phase("export-fixture", async () => {
     assert.equal(dacSnapshots.size, 2, "Both UI-created DAC variants required for export parity");
     const definitions = [], connections = [];
@@ -509,33 +573,41 @@ try {
       const w = structuredClone(snapshot.connections[0]); w.from.deviceId = `${form}-${w.from.deviceId}`; w.to.deviceId = `${form}-${w.to.deviceId}`;
       w.id = `${form}-${w.id}`; w.cableNumber = ""; connections.push(w);
     }
-    assert(sdiSnapshot && cardTemplate, "UI-authored SDI/card fixtures required for export parity");
+    assert(sdiSnapshot && cardTemplate && aocSnapshot, "UI-authored SDI/card/AOC fixtures required for export parity");
     definitions.push(...structuredClone(sdiSnapshot.devices).map(d => ({ ...d, y: 960 })));
     connections.push(...structuredClone(sdiSnapshot.connections));
     definitions.push({ instanceId: "modular-export", templateId: cardTemplate.id, name: cardTemplate.name,
       x: 100, y: 1390, templateOverride: structuredClone(cardTemplate) });
+    definitions.push(...structuredClone(aocSnapshot.devices).map(d => ({ ...d, y: 1800 })));
+    connections.push(...structuredClone(aocSnapshot.connections).map(wire => ({ ...wire, id: `aoc-${wire.id}`, cableNumber: "" })));
+    assert.equal(new Set(connections.map(wire => wire.id)).size, connections.length);
     const project = { ...structuredClone(dacSnapshots.get("sfp-plus")), projectName: "SFP Acceptance Exports", devices: definitions, connections };
-    report.fixtures.push("exports: merge UI-authored/reloaded DAC, SDI and modular-card snapshots; namespace colliding IDs and allocate fresh display numbers for combined fixture");
+    report.fixtures.push("exports: merge UI-authored/reloaded DAC, AOC, SDI and modular-card snapshots; namespace colliding IDs and allocate fresh display numbers for combined fixture");
     await upload(project); await shot("export-canvas");
     await phase("cable-schedule-export", async () => {
     await page.locator("#cableScheduleButton").click(); await page.locator("#cableScheduleBody tr").first().waitFor();
     const rows = await page.evaluate(() => structuredClone(cableScheduleRows));
-    assert.equal(rows.length, 3, "One schedule row per physical cable: two DAC and one SDI");
-    assert.equal(new Set(rows.map(r => r.cableNumber)).size, 3, "Unique cable IDs");
+    assert.equal(rows.length, 4, "One schedule row per physical cable: two DAC, one AOC, and one SDI");
+    assert.equal(new Set(rows.map(r => r.cableNumber)).size, 4, "Unique cable IDs");
     const dacRows = rows.filter(row => /DAC/.test(row.cable)); assert.equal(dacRows.length, 2);
     for (const row of dacRows) { assert.match(row.length, /^3\s*m$/); assert.match(row.notes, /Integrated DAC assembly/i); }
+    const aocRow = rows.find(row => row.cableTypeId === "aoc-sfp-plus");
+    assert.match(aocRow.notes, /Integrated AOC assembly/);
+    assert.match(aocRow.length, /^15\s*m$/);
     assert.match(rows.find(row => row.cableTypeId === "sdi")?.connector || "", /SDI/);
     await shot("cable-schedule"); await writeJson("cable-schedule.json", rows);
     const csv = await download("cable-schedule.csv", () => page.locator("#downloadCableScheduleCsv").click());
     const csvText = await readFile(csv, "utf8");
     for (const row of rows) assert(csvText.includes(row.cableNumber));
     assert.match(csvText, /Integrated DAC assembly/); assert.match(csvText, /SFP28 DAC/); assert.match(csvText, /SFP\+ DAC/);
+    assert.match(csvText, /Integrated AOC assembly/);
     const xlsx = await download("cable-schedule.xlsx", () => page.locator("#downloadCableScheduleXlsx").click());
     const ExcelJS = createRequire(import.meta.url)("exceljs"); const workbook = new ExcelJS.Workbook(); await workbook.xlsx.readFile(xlsx);
     const cells = []; for (const sheet of workbook.worksheets) sheet.eachRow(row => row.eachCell(cell => cells.push(cell.text)));
     for (const row of rows) assert(cells.includes(row.cableNumber));
     assert.match(cells.join("\n"), /Integrated DAC assembly/);
-    await page.locator("#closeCableSchedule").click(); check("Cable Schedule, CSV and XLSX agree on two DAC assemblies plus SDI, stable IDs, 3 m lengths and DAC metadata", rows);
+    assert.match(cells.join("\n"), /Integrated AOC assembly/);
+    await page.locator("#closeCableSchedule").click(); check("Cable Schedule, CSV and XLSX agree on all four physical cables", rows);
     });
     await phase("offline-html-export", async () => {
     await page.keyboard.press("Escape");
@@ -550,7 +622,7 @@ try {
     const viewerScreenshot = join(dir, "offline-viewer.png");
     await viewer.screenshot({ path: viewerScreenshot, fullPage: true }); report.artifacts.push(viewerScreenshot);
     await writeJson("offline-scene.json", exported);
-    assert.equal(exported.wires.length, 3);
+    assert.equal(exported.wires.length, 4);
     for (const wire of connections) {
       const out = exported.wires.find(w => w.id === wire.id); assert(out); assert.equal(out.length, wire.length); assert.equal(out.cableType, wire.cableType);
       if (wire.cableAssembly) assert.deepEqual(out.cableAssembly, wire.cableAssembly, "Offline viewer preserves assembly contract");
@@ -562,7 +634,7 @@ try {
       const out = exported.devices.find(d => d.id === device.id)?.connectors.find(connector => connector.id === c.id); assert(out);
       for (const key of Object.keys(c)) assert.deepEqual(out[key], c[key], `Offline module retains ${device.id}.${c.id}.${key}`);
     }
-    assert.deepEqual(viewerErrors, []); await viewer.close(); check("Self-contained HTML renders without network and retains ordinary/card modules, cable count/identity/length and DAC assemblies");
+    assert.deepEqual(viewerErrors, []); await viewer.close(); check("Self-contained HTML retains ordinary/card modules, cable count/identity/length and DAC/AOC assemblies");
     });
     await phase("pdf-export", async () => {
     await page.keyboard.press("Escape");
@@ -582,8 +654,8 @@ try {
     } catch (error) { report.limitations.push(`PDF text inspection unavailable; set AVDESIGNER_PDF_PYTHON to a Python with pypdf: ${error.message}`); }
     if (pdfText !== undefined) {
       await writeFile(join(dir, "pdf-text.txt"), pdfText); report.artifacts.push(join(dir, "pdf-text.txt"));
-      for (const pattern of [/SFP\+ DAC/, /SFP28 DAC/, /SFP SDI Source/, /Acceptance Modular SFP/, /3\s*m/]) assert.match(pdfText, pattern);
-      check("PDF text includes both DAC families, 3 m, SDI source and modular-card device");
+      for (const pattern of [/SFP\+ DAC/, /SFP28 DAC/, /SFP\+ AOC/, /SFP SDI Source/, /Acceptance Modular SFP/, /3\s*m/]) assert.match(pdfText, pattern);
+      check("PDF text includes both DAC families, AOC, SDI source and modular-card device");
     }
     });
   });

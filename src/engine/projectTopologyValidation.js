@@ -1,6 +1,6 @@
 import {normalizeAvDesignerProject} from './projectAdapter.js';
 import {SceneGraph} from './sceneGraph.js';
-import {engineCompatibilitySummary, engineConnectorForSavedCableValidation, engineSyntheticCableEndDirection, isEngineCageConnector} from './connectorCompatibility.js';
+import {engineCompatibilitySummary, engineConnectorCompatibilityType, engineConnectorForSavedCableValidation, engineSyntheticCableEndDirection, isEngineCageConnector} from './connectorCompatibility.js';
 import {validateConnectorTopology, normalizeConnectorRelationships, exclusiveConnectionRejectionReason, connectorVisualAnchors} from './deviceDefinitionV2.js';
 import {validateJumpLinks, jumpCompatibleHitForDeviceWire} from './jumpNodeModel.js';
 import {validateModularCardChanges} from './modularCardSafety.js';
@@ -9,7 +9,7 @@ import {reconcileLoomJumpAssociations, loomJumpAttachmentCompatibility} from './
 import {validateMultiCoreEdit, multiCoreEditDiagnosticKey} from './multiCoreEditValidation.js';
 import {createMultiCoreConnectivity} from './multiCoreConnectivity.js';
 import {multiCoreJumpDiagnostics, multiCoreJumpPeer} from './multiCoreJumpRouting.js';
-import {dacWireValidation, isDacCableType} from './transceiverModules.js';
+import {integratedCableWireValidation, isIntegratedCableType, isDacCableType} from './transceiverModules.js';
 
 const rootOf = value => value?.state || value?.project || value;
 const same = (a,b) => JSON.stringify(a) === JSON.stringify(b);
@@ -84,9 +84,14 @@ export function projectTopologyDiagnostics(input) {
       if (ref?.anchorId && hit.connector && !connectorVisualAnchors(hit.connector,hit.device).some(a=>a.id===ref.anchorId)) add('cables',raw.id,`${end}-anchor`,'Missing connector anchor.');
       if (!hit.connector || !hit.device || wire[`${end}SurfaceId`]) continue;
       const multiple = hit.connector.adapterMultipleExternalConnections || hit.device.visual?.adapterMapping?.multipleExternalConnections;
-      if (!multiple && scene.connectorExternalWireIds(hit.device.id,hit.connector.id).size>1) add('cables',raw.id,`${end}-occupied`,'Connector has multiple external cables.');
+      const integrated = isIntegratedCableType(engineConnectorCompatibilityType(hit.connector));
+      if ((!multiple || integrated) && scene.connectorExternalWireIds(hit.device.id,hit.connector.id).size>1) add('cables',raw.id,`${end}-occupied`,'Connector has multiple external cables.');
       const exclusive = exclusiveConnectionRejectionReason(scene,hit,wire.id);
       if (exclusive) add('cables',raw.id,`${end}-exclusive`,exclusive);
+    }
+    if (isIntegratedCableType(raw.cableType) || raw.cableAssembly) {
+      const assembly = integratedCableWireValidation(raw,hits[0].connector,hits[1].connector);
+      if (!assembly.valid) add('cables',raw.id,isDacCableType(raw.cableType)?'dac':'assembly',assembly.reason);
     }
     if (mcWireIds.has(raw.id) || hits.some(h=>!h.connector) || wire.fromSurfaceId || wire.toSurfaceId) continue;
     let [a,b] = hits;
@@ -94,7 +99,7 @@ export function projectTopologyDiagnostics(input) {
     if (b.device.kind==='jump' && a.device.kind!=='jump') b = jumpCompatibleHitForDeviceWire(b,a);
     const check = engineCompatibilitySummary(a,b);
     if (!check.valid) add('cables',raw.id,'compatibility',check.reason);
-    if (raw.cableType && !isDacCableType(raw.cableType) && hits.every(h=>h.device.kind!=='jump')) {
+    if (raw.cableType && !isIntegratedCableType(raw.cableType) && hits.every(h=>h.device.kind!=='jump')) {
       const transceiverLink = raw.cableType==='sdi' || hits.some(hit=>isEngineCageConnector(hit.connector));
       for (const [index,hit] of hits.entries()) {
         const node = nodeDefinitions.get(raw.cableType);
@@ -104,10 +109,6 @@ export function projectTopologyDiagnostics(input) {
         const saved = engineCompatibilitySummary({...hit,connector},cable);
         if (!saved.valid) add('cables',raw.id,'cable-type',saved.reason);
       }
-    }
-    if (isDacCableType(raw.cableType) || raw.cableAssembly) {
-      const dac = dacWireValidation(raw,a.connector,b.connector);
-      if (!dac.valid) add('cables',raw.id,'dac',dac.reason);
     }
   }
   const loomIds = new Set(list(root.looms).map(l=>l.id));

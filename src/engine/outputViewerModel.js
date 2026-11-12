@@ -6,10 +6,10 @@ import {sharedBusTypeLabels} from './sharedBusLabels.js';
 import { resolvePlayableSignalPath, jumpNodeRoleLabel } from "./jumpNodeModel.js";
 import { resolveOutputDeviceAssets } from "./outputViewerAssets.js";
 import { assertOutputSceneContract } from "./outputSceneContract.js";
-import { engineConnectorTypeDisplayName, engineConnectorUserFacingTypeLabel } from "./connectorCompatibility.js";
+import { engineCompatibilitySummary, engineConnectorTypeDisplayName, engineConnectorUserFacingTypeLabel } from "./connectorCompatibility.js";
 import { normalizeRackShell, rackShellStyle } from "./rackShell.js";
 import { multiCorePortReference } from "./multiCoreProjection.js";
-import { isTransceiverCage, transceiverModulePresentation } from "./transceiverModules.js";
+import { integratedCableWireValidation, isDacCableType, isIntegratedCableType, isTransceiverCage, transceiverModulePresentation } from "./transceiverModules.js";
 import { stageboxSignalPath } from "./stageboxSignalPath.js";
 
 function freeze(value) {
@@ -111,14 +111,25 @@ export function outputSelectionDetails(scene, selection) {
     const cableNumber = formatCableNumber(wire.cableNumber, cableFamily(wire.cableType));
     const title = wire.label && wire.label !== wire.cableType && wire.label !== wire.id
       ? wire.label : cableNumber || readableType;
+    const assemblyRows = [];
+    if (isIntegratedCableType(wire.cableType)) {
+      const hit = end => ({ device: scene.getDevice(wire[`${end}DeviceId`]),
+        connector: scene.getConnector(wire[`${end}DeviceId`], wire[`${end}ConnectorId`]) });
+      const from = hit("from"), to = hit("to");
+      const pairing = engineCompatibilitySummary(from, to);
+      const check = pairing.valid ? integratedCableWireValidation(wire, from.connector, to.connector) : pairing;
+      const status = !check.valid ? "Incompatible" : check.warnings?.length ? "Unverified" : "Compatible";
+      const details = check.valid ? check.warnings?.join(" ") : check.reason;
+      assemblyRows.push(["Assembly", isDacCableType(wire.cableType) ? "Integrated direct-attach copper (DAC)" : "Integrated active optical cable (AOC)"],
+        ["Supported rates", Array.isArray(wire.cableAssembly?.supportedRates) && wire.cableAssembly.supportedRates.join(", ") || "Unverified"],
+        ["Compatibility", details ? `${status}: ${details}` : status]);
+    }
     return { title, rows: [
       ["Cable", readableType],
       ["Cable ID", cableNumber],
       ["From", endpointLabel("from")], ["To", endpointLabel("to")],
       ["Length", wire.length], ["Notes", wire.notes],
-      ...(wire.cableAssembly ? [["Assembly", "Integrated direct-attach copper"],
-        ["Supported rates", wire.cableAssembly.supportedRates?.join(", ") || "Unverified"],
-        ["Compatibility", wire.cableAssembly.warnings?.join(" ") || "Declared capabilities match"]] : [])
+      ...assemblyRows
     ], wireIds: [wire.id] };
   }
   if (selection.type === "jump-link") {

@@ -12,7 +12,7 @@ import { adapterCenter, adapterRotationHandle, snapAdapterRotation, adapterRotat
 import { ObjectSnapSession } from "./objectSnapping.js";
 import { CONNECTOR_RELATIONSHIP_FIELDS, applyConnectorRelationshipFieldPatch } from "./connectorRelationshipMetadata.js";
 import { multiCoreCanvasMethods } from "./multiCoreCanvas.js";
-import { transceiverModulePatch, dacAssemblyForConnectors, isDacCableType, dacWireValidation } from "./transceiverModules.js";
+import { transceiverModulePatch, integratedCableAssemblyForConnectors, isIntegratedCableType, integratedCableWireValidation } from "./transceiverModules.js";
 import {
   ENGINE_DEFAULT_FIBER_MODE,
   effectiveConnectorTypeForEngine,
@@ -4904,7 +4904,7 @@ class ProductionEngineBridge {
       || "#32b6ff";
     return {
       cableType,
-      cableAssembly: dacAssemblyForConnectors(wireSource?.connector, wireTarget?.connector, cableType),
+      cableAssembly: integratedCableAssemblyForConnectors(wireSource?.connector, wireTarget?.connector, cableType),
       fiberMode,
       customColor: explicitCustomColor,
       color: engineWireColorForCable(cableType, fiberMode, fallback) || fallback,
@@ -5025,6 +5025,9 @@ class ProductionEngineBridge {
       }) || updated;
     }
     updated = this.applyJumpWireMetadataFromScene(updated.id, compatibility) || updated;
+    if (isIntegratedCableType(updated.cableType) && updated.cableAssembly && compatibility.valid) {
+      updated.cableAssembly = { ...updated.cableAssembly, warnings: compatibility.warnings };
+    }
     const mutationMs = this.mutations?.commitRewiredWire(this.scene, updated.id) || 0;
     if (beforeWire.loomId || updated.loomId || state.loomId) this.refreshLoomComposition();
     const afterWire = cloneWire(updated);
@@ -5120,6 +5123,7 @@ class ProductionEngineBridge {
   }
 
   connectorAllowsAdditionalExternalWire(hit) {
+    if (isIntegratedCableType(engineConnectorCompatibilityType(hit?.connector))) return false;
     return Boolean(
       hit?.connector?.adapterMultipleExternalConnections
       || hit?.device?.visual?.adapterMapping?.multipleExternalConnections
@@ -6655,8 +6659,9 @@ class ProductionEngineBridge {
       let targetHit = rewire.detachedSide === "from" ? this.wireCreate.from : this.wireCreate.target;
       const sourceIsJump = isJumpNodeDevice(sourceHit?.device);
       const targetIsJump = isJumpNodeDevice(targetHit?.device);
-      if ((sourceIsJump || targetIsJump) && (isDacCableType(rewire.originalWire.cableType) || rewire.originalWire.cableAssembly)) {
-        return { valid: false, rule: "dac-direct-cages", reason: "A DAC assembly must keep both integrated cage endpoints.", sourceType: "", targetType: "" };
+      const integrated = isIntegratedCableType(rewire.originalWire.cableType) || rewire.originalWire.cableAssembly;
+      if ((sourceIsJump || targetIsJump) && integrated) {
+        return { valid: false, compatibilityStatus: "incompatible", rule: "assembly-direct-cages", reason: "An integrated cable must keep both cage endpoints.", sourceType: "", targetType: "" };
       }
       if (sourceIsJump !== targetIsJump) {
         const realHit = sourceIsJump ? targetHit : sourceHit;
@@ -6670,17 +6675,18 @@ class ProductionEngineBridge {
         engineCompatibilityHitForWireEndpoint(sourceHit, rewire.originalWire, "from"),
         engineCompatibilityHitForWireEndpoint(targetHit, rewire.originalWire, "to")
       );
-      if (summary.valid && (rewire.originalWire.cableAssembly || isDacCableType(rewire.originalWire.cableType))) {
-        const check = dacWireValidation(rewire.originalWire, sourceHit.connector, targetHit.connector);
-        if (!check.valid) return { ...summary, valid: false, rule: "dac-assembly", reason: check.reason };
+      if (summary.valid && (integrated || isIntegratedCableType(summary.selectedCableType))) {
+        const check = integrated ? integratedCableWireValidation(rewire.originalWire, sourceHit.connector, targetHit.connector)
+          : { valid: false, compatibilityStatus: "incompatible", reason: "A detachable cable cannot be replugged as an integrated assembly." };
+        return { ...summary, ...check, ...(!check.valid ? { rule: "assembly-endpoint" } : {}) };
       }
       return mc?.valid && summary.rule === "type-mismatch" ? { ...summary, ...mc } : summary;
     }
     const sourceIsJump = isJumpNodeDevice(this.wireCreate.from?.device);
     const targetIsJump = isJumpNodeDevice(this.wireCreate.target?.device);
     if ((sourceIsJump || targetIsJump) && [this.wireCreate.from, this.wireCreate.target]
-      .some(hit => isDacCableType(engineConnectorCompatibilityType(hit?.connector)))) {
-      return { valid: false, rule: "dac-direct-cages", reason: "Connect the integrated DAC directly between its two compatible cages.", sourceType: "", targetType: "" };
+      .some(hit => isIntegratedCableType(engineConnectorCompatibilityType(hit?.connector)))) {
+      return { valid: false, compatibilityStatus: "incompatible", rule: "assembly-direct-cages", reason: "Connect the integrated cable directly between its two compatible cages.", sourceType: "", targetType: "" };
     }
     let sourceHit = this.wireCreate.from;
     let targetHit = this.wireCreate.target;
@@ -6706,7 +6712,7 @@ class ProductionEngineBridge {
       ? this.wireCreateEndpointRejectionReason(this.wireCreate.from, this.wireCreate.target)
       : "";
     return occupancyReason
-      ? { ...summary, valid: false, rule: "connector-occupied", reason: occupancyReason }
+      ? { ...summary, valid: false, ...(summary.compatibilityStatus ? { compatibilityStatus: "incompatible" } : {}), rule: "connector-occupied", reason: occupancyReason }
       : summary;
   }
 
@@ -7803,11 +7809,11 @@ class ProductionEngineBridge {
     return wires.length ? this.commitMultiWireInspectorFields(wires.map(wire => wire.id), { label }, { preserveSelection: true }) : false;
   }
 
-  allowDacCableTypeEdit(wires, fields) {
+  allowIntegratedCableTypeEdit(wires, fields) {
     if (fields.cableType === undefined) return true;
     if (!wires.some(wire => fields.cableType !== wire.cableType
-      && (wire.cableAssembly || isDacCableType(wire.cableType) || isDacCableType(fields.cableType)))) return true;
-    globalThis.alert?.("A DAC is one integrated cable assembly. Disconnect it and choose compatible cable ends before changing its type.");
+      && (wire.cableAssembly || isIntegratedCableType(wire.cableType) || isIntegratedCableType(fields.cableType)))) return true;
+    globalThis.alert?.("DAC and AOC are integrated cable assemblies. Disconnect the cable and choose compatible ends before changing its type.");
     return false;
   }
 
@@ -7815,7 +7821,7 @@ class ProductionEngineBridge {
     if (!this.ready) return false;
     const wire = this.resolveWire(wireId);
     if (!wire || wire.layerLocked || wire.layerHidden) return false;
-    if (!this.allowDacCableTypeEdit([wire], fields)) return true;
+    if (!this.allowIntegratedCableTypeEdit([wire], fields)) return true;
     if (Object.keys(fields).length === 1 && fields.label !== undefined) {
       const link = this.jumpLinkForPhysicalWire(wire.id);
       if (link) return this.commitJumpLinkLabel(link.id, fields.label);
@@ -7841,7 +7847,7 @@ class ProductionEngineBridge {
     if (!this.ready) return false;
     const wire = this.resolveWire(wireId);
     if (!wire) return false;
-    if (!this.allowDacCableTypeEdit([wire], fields)) return true;
+    if (!this.allowIntegratedCableTypeEdit([wire], fields)) return true;
     if (Object.keys(fields).length === 1 && fields.label !== undefined) {
       const link = this.jumpLinkForPhysicalWire(wire.id);
       if (link) return this.previewJumpLinkLabel(link.id, fields.label);
@@ -7851,7 +7857,7 @@ class ProductionEngineBridge {
 
   previewMultiWireInspectorFields(wireIds = [], fields = {}) {
     if (!this.ready) return false;
-    if (!this.allowDacCableTypeEdit(wireIds.map(id => this.resolveWire(id)).filter(Boolean), fields)) return true;
+    if (!this.allowIntegratedCableTypeEdit(wireIds.map(id => this.resolveWire(id)).filter(Boolean), fields)) return true;
     let previewed = 0;
     uniqueItems(wireIds)
       .map(id => this.resolveWire(id))
@@ -7871,7 +7877,7 @@ class ProductionEngineBridge {
       .filter(Boolean);
     const ids = uniqueItems(wires.map(wire => wire.id));
     if (!ids.length) return false;
-    if (!this.allowDacCableTypeEdit(wires, fields)) return true;
+    if (!this.allowIntegratedCableTypeEdit(wires, fields)) return true;
     const wiresById = new Map(wires.map(wire => [wire.id, wire]));
     const before = ids.map(id => {
       const wire = wiresById.get(id);

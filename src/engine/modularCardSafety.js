@@ -2,7 +2,7 @@ import { normalizeAvDesignerDevice } from "./projectAdapter.js";
 import { engineCompatibilitySummary, engineConnectorCompatibilityType, ENGINE_CONNECTOR_TYPE_COLORS,
   isEngineCageConnector, installedModuleDetailsForEngine, engineConnectorForSavedCableValidation,
   engineSyntheticCableEndDirection } from "./connectorCompatibility.js";
-import { dacWireValidation, isDacCableType, transceiverConnectionValidation, installedModuleCapabilities } from "./transceiverModules.js";
+import { integratedCableWireValidation, isIntegratedCableType, transceiverConnectionValidation, installedModuleCapabilities } from "./transceiverModules.js";
 import { cardFitsPhysicalSlot } from "./modularDeviceLayout.js";
 import { exclusiveConnectionRejectionReason } from "./deviceDefinitionV2.js";
 import { resolvePlayableSignalPath } from "./jumpNodeModel.js";
@@ -163,25 +163,26 @@ export function validateModularCardChanges(beforeValue, afterValue, { includeCon
       const cablePort = { id: "cable-end", type: wire.cableType, compatibilityType: node?.compatibilityType,
         direction: engineSyntheticCableEndDirection(newPort, end, wire.cableType === "sdi" || isEngineCageConnector(newPort) || isEngineCageConnector(peerPort)),
         fiberMode: wire.fiberMode || "" };
-      if (!isDacCableType(wire.cableType)) {
+      if (!isIntegratedCableType(wire.cableType)) {
         const connector = engineConnectorForSavedCableValidation(newPort, peerPort, wire.fiberMode);
         const cableCheck = engineCompatibilitySummary({ ...hit, connector }, { device: { id: `cable:${wire.id}` }, connector: cablePort });
         if (!cableCheck.valid) { fail(cableCheck.reason); continue; }
-      } else if (type !== wire.cableType) { fail("DAC cable and installed module types differ."); continue; }
+      } else if (type !== wire.cableType) { fail("Cable assembly and installed end types differ."); continue; }
       if (peerDevice && !peerPort) { fail("The opposite cable endpoint cannot be resolved safely."); continue; }
       if (peerPort) {
         const check = engineCompatibilitySummary(hit, { device: peerModel, connector: peerPort });
         if (!check.valid) { fail(check.reason); continue; }
         const a = end === "from" ? newPort : peerPort, b = end === "from" ? peerPort : newPort;
-        const dac = dacWireValidation(wire, a, b);
-        if (!dac.valid) { fail(dac.reason); continue; }
+        const assembly = integratedCableWireValidation(wire, a, b);
+        if (!assembly.valid) { fail(assembly.reason); continue; }
+        assembly.warnings?.forEach(warning => warnings.add(warning));
         transceiverConnectionValidation(a, b, engineConnectorCompatibilityType(a), engineConnectorCompatibilityType(b)).warnings?.forEach(warning => warnings.add(warning));
         if (includeConnectorChanges && (!installedModuleCapabilities(a).supportedRates?.length && !a.supportedRates?.length
           || !installedModuleCapabilities(b).supportedRates?.length && !b.supportedRates?.length)) {
           warnings.add(`Cable ${wire.id}: undeclared hardware rates are unverified; declared type, direction and module constraints were checked.`);
         }
-      } else if (isDacCableType(wire.cableType)) {
-        fail("DAC peer/assembly cannot be independently resolved; disconnect or explicitly remap first."); continue;
+      } else if (isIntegratedCableType(wire.cableType)) {
+        fail("The integrated cable's other end cannot be independently resolved. Disconnect or explicitly remap first."); continue;
       } else {
         warnings.add(`Cable ${wire.id}: checked the installed port and cable; remote gateway hardware is not verified.`);
       }

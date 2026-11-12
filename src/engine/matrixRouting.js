@@ -1,4 +1,4 @@
-import { effectiveTransceiverDirection, isTransceiverCage, isDacCableType } from "./transceiverModules.js";
+import { effectiveTransceiverDirection, isTransceiverCage, isIntegratedCableType } from "./transceiverModules.js";
 import {
   effectiveConnectorTypeForEngine,
   engineConnectorCompatibilityType,
@@ -106,7 +106,7 @@ export function defaultMatrixPortForEngineConnector(connector) {
   if (!connector || connector.empty || !connector.type || isEngineDeadCageConnector(connector)) return false;
   const rawType = String(connector.type || "").trim();
   const activeType = engineConnectorCompatibilityType(connector) || rawType;
-  if (isDacCableType(activeType)) return false;
+  if (isIntegratedCableType(activeType)) return false;
   if (MATRIX_EXCLUDED_CABLE_TYPES.has(activeType) || isEnginePowerCableType(activeType)) return false;
   const text = matrixConnectorSearchText(connector);
   if (MATRIX_EXCLUDED_TEXT_RE.test(text)) return false;
