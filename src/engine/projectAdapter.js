@@ -1,5 +1,6 @@
 import { resolveProjectorLens } from "./projectorModel.js";
 import { effectiveStageboxChannels, normalizeStageboxSnake, stageboxEndDraft } from "./stageboxSnake.js";
+import { breakoutProjectFields } from "./qsfpBreakoutModel.js";
 import { projectStageboxEndNodes } from "./stageboxNodeGeometry.js";
 import { projectWireRouting } from "./wireRoutingPolicy.js";
 import { reflowFaceImageLayout } from "./faceplateGeometry.js";
@@ -370,7 +371,7 @@ export function normalizeAvDesignerProject(data, loadMeta = {}) {
     : deriveLegacyPairJumpLinks(root, { getConnector: jumpConnector });
   const jumpLinks = explicitJumpLinks.length ? explicitJumpLinks : legacyJumpLinks;
   const jumpLinkDiagnostics = validateJumpLinks({ ...root, jumpLinks }, { getConnector: jumpConnector });
-  if (!allDevices.length && !root.looms?.length && !modelData) return generateSyntheticProject(SIZE_PRESETS.small);
+  if (!allDevices.length && !root.looms?.length && !modelData && !Object.hasOwn(root, "breakoutAssemblies")) return generateSyntheticProject(SIZE_PRESETS.small);
   const adapterMs = performance.now() - adapterStart;
   const connectorCount = allDevices.reduce((total, device) => total + (device.connectors?.length || 0), 0);
   const stats = {
@@ -389,6 +390,7 @@ export function normalizeAvDesignerProject(data, loadMeta = {}) {
   };
   return {
     ...(modelData ? { modelData } : {}),
+    ...breakoutProjectFields(root),
     devices: allDevices,
     wires,
     racks: placedRacks,

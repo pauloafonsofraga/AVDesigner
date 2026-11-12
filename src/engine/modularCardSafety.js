@@ -7,6 +7,7 @@ import { cardFitsPhysicalSlot } from "./modularDeviceLayout.js";
 import { exclusiveConnectionRejectionReason } from "./deviceDefinitionV2.js";
 import { resolvePlayableSignalPath } from "./jumpNodeModel.js";
 import { createMultiCoreConnectivity, isMultiCoreEndpointReference } from "./multiCoreConnectivity.js";
+import { validateQsfpBreakoutTransition } from "./qsfpBreakoutValidation.js";
 
 const rootOf = value => value?.state || value || {};
 const idOf = device => String(device?.instanceId || device?.id || "");
@@ -43,9 +44,10 @@ export function connectedCardReplacements(beforeValue, afterValue) {
 
 // Validate proposed definitions before any wire cleanup, project mutation or history.
 // Only devices/slots with changed installed content and their touching cables are resolved.
-export function validateModularCardChanges(beforeValue, afterValue, { includeConnectorChanges = false } = {}) {
+export function validateModularCardChanges(beforeValue, afterValue, { includeConnectorChanges = false, includeBreakout = true } = {}) {
   const before = rootOf(beforeValue), after = rootOf(afterValue);
   const changed = new Map(), errors = [], warnings = new Set();
+  if (includeBreakout) errors.push(...validateQsfpBreakoutTransition(before, after).map(issue => issue.message));
   const afterDevices = new Map((after.devices || []).map(device => [idOf(device), device]));
   for (const device of before.devices || []) {
     const nextDevice = afterDevices.get(idOf(device));

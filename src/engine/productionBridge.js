@@ -58,6 +58,7 @@ import { canonicalLoomWireRouting } from "./loomJumpRouting.js";
 import { loomForJump, loomJumpAttachmentCompatibility, reconcileLoomJumpAssociations } from "./loomJumpAssociation.js";
 import { multiCoreForJump } from "./multiCoreJumpRouting.js";
 import { multiCoreProjectFields } from "./multiCoreModel.js";
+import { breakoutDeviceReserved, breakoutPortReserved } from "./qsfpBreakoutModel.js";
 import { monitorNameUpdates } from "./monitorNaming.js";
 import { PerfHud } from "./perfHud.js";
 import { validateEngineScene } from "./sceneValidation.js";
@@ -5101,6 +5102,8 @@ class ProductionEngineBridge {
     if (this.isOriginalRewireTarget(target)) return "";
     if (!compatibility?.valid) return compatibility?.reason || "Incompatible connector.";
     if (target.virtualSurfaceTarget) return "";
+    const breakout = this.breakoutConnectorRejectionReason?.(target);
+    if (breakout) return breakout;
     const occupiedByOtherWire = [...this.scene.connectorExternalWireIds(target.device.id, target.connector.id)]
       .some(wireId => wireId !== rewire.wireId);
     if (occupiedByOtherWire) return "Target connector is already connected.";
@@ -5115,11 +5118,26 @@ class ProductionEngineBridge {
   connectorExternalConnectionRejectionReason(hit, label = "Connector") {
     if (hit?.virtualSurfaceTarget) return "";
     if (!hit?.device?.id || !hit?.connector?.id) return "";
+    const breakout = this.breakoutConnectorRejectionReason?.(hit);
+    if (breakout) return breakout;
     if (this.connectorAllowsAdditionalExternalWire(hit)) return "";
     const exclusiveReason = exclusiveConnectionRejectionReason(this.scene, hit);
     if (exclusiveReason) return exclusiveReason;
     const connectedCount = this.scene.connectorExternalWireIds(hit.device.id, hit.connector.id).size;
     return connectedCount > 0 ? `${label} connector is already connected.` : "";
+  }
+
+  breakoutConnectorRejectionReason(hit) {
+    const root = this.mutations?.root;
+    if (!root?.breakoutAssemblies?.length) return "";
+    const occupied = (deviceId, connectorId) => {
+      const device = this.scene.getDevice(deviceId);
+      return breakoutPortReserved(root, device?.sourceId || deviceId, connectorId);
+    };
+    if (occupied(hit.device.id, hit.connector.id)) return "This port is occupied by a QSFP breakout assembly.";
+    return exclusiveConnectionRejectionReason({
+      connectorExternalWireIds: (deviceId, connectorId) => occupied(deviceId, connectorId) ? ["breakout"] : []
+    }, hit);
   }
 
   connectorAllowsAdditionalExternalWire(hit) {
@@ -7568,7 +7586,9 @@ class ProductionEngineBridge {
       }
     }
     if (fields.installedModuleType !== undefined
-      && affectedConnectorIds.some(id => this.scene.connectorWireIds(device.id, id).size > 0)) {
+      && affectedConnectorIds.some(id => this.scene.connectorWireIds(device.id, id).size > 0
+        || (this.mutations?.root?.breakoutAssemblies?.length
+          && breakoutPortReserved(this.mutations.root, device.sourceId || device.id, id)))) {
       globalThis.alert?.("Disconnect the cage's cable before changing or removing its installed module. The cable was not changed.");
       this.updateSelectionHud();
       return true;
@@ -10047,6 +10067,9 @@ class ProductionEngineBridge {
       .filter(id => !rackChildIds.has(id))
       .filter(id => isEngineDeletableDevice(this.scene.getDevice(id)));
     if (!ids.length) return;
+    if (this.mutations?.root?.breakoutAssemblies?.length && ids.some(id => breakoutDeviceReserved(this.mutations.root, this.scene.getDevice(id)?.sourceId || id))) {
+      this.showError("Disconnect the QSFP breakout assembly before deleting its device."); return false;
+    }
     const commitStart = performance.now();
     const beforeAttachments = this.jumpAttachmentSnapshot();
     const selectionBefore = captureEngineSelection(this.scene);
@@ -10112,6 +10135,9 @@ class ProductionEngineBridge {
     const selectionBefore = captureEngineSelection(this.scene);
     const childIds = uniqueItems(ids.flatMap(rackId => this.scene.rackChildIds(rackId)));
     if (!childIds.length) return;
+    if (this.mutations?.root?.breakoutAssemblies?.length && childIds.some(id => breakoutDeviceReserved(this.mutations.root, this.scene.getDevice(id)?.sourceId || id))) {
+      this.showError("Disconnect the QSFP breakout assembly before deleting its rack."); return false;
+    }
     const connectedWireIds = uniqueItems([...this.scene.affectedWireIdsForObjects(childIds)]);
     this.beginProductionCommit(`delete ${ids.length} rack${ids.length === 1 ? "" : "s"}`);
     const deletedWires = [];

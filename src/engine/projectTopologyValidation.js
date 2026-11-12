@@ -10,6 +10,7 @@ import {validateMultiCoreEdit, multiCoreEditDiagnosticKey} from './multiCoreEdit
 import {createMultiCoreConnectivity} from './multiCoreConnectivity.js';
 import {multiCoreJumpDiagnostics, multiCoreJumpPeer} from './multiCoreJumpRouting.js';
 import {integratedCableWireValidation, isIntegratedCableType, isDacCableType} from './transceiverModules.js';
+import {hasQsfpBreakoutData, validateQsfpBreakoutProject, validateQsfpBreakoutTransition} from './qsfpBreakoutValidation.js';
 
 const rootOf = value => value?.state || value?.project || value;
 const same = (a,b) => JSON.stringify(a) === JSON.stringify(b);
@@ -130,22 +131,29 @@ export function projectTopologyDiagnostics(input) {
     }
   }
   for (const message of reconcileLoomJumpAssociations(structuredClone(root))) add('looms','ownership','association',message);
+  if (hasQsfpBreakoutData(root)) {
+    for (const issue of validateQsfpBreakoutProject(root).diagnostics) if (issue.severity === "error") {
+      add('breakouts',issue.assemblyId || issue.deviceId || '',issue.code,issue.message);
+    }
+  }
   return diagnostics;
 }
 
 export function validateProjectTopologyTransition(beforeInput, afterInput) {
   const before=rootOf(beforeInput),after=rootOf(afterInput),errors=[];
   const old = new Map();
-  for(const d of projectTopologyDiagnostics(before))old.set(d.key,(old.get(d.key) || 0)+1);
+  for(const d of projectTopologyDiagnostics(before))if(d.domain!=='breakouts')old.set(d.key,(old.get(d.key) || 0)+1);
   for(const d of projectTopologyDiagnostics(after)) {
+    if(d.domain==='breakouts')continue;
     const remaining=old.get(d.key) || 0;if(remaining)old.set(d.key,remaining-1);else errors.push(d);
   }
   // Explicit cable removals are part of the atomic transaction, never implicit cleanup.
   const retained = new Set(list(after.connections).map(w=>w.id));
   const retainedBefore = {...before,connections:list(before.connections).filter(w=>retained.has(w.id)
     && same(w.from,after.connections.find(next=>next.id===w.id)?.from) && same(w.to,after.connections.find(next=>next.id===w.id)?.to))};
-  const cards = validateModularCardChanges(retainedBefore,after,{includeConnectorChanges:true});
+  const cards = validateModularCardChanges(retainedBefore,after,{includeConnectorChanges:true,includeBreakout:false});
   for (const message of cards.errors) errors.push({domain:'cards',code:'card-change',message});
+  errors.push(...validateQsfpBreakoutTransition(before,after));
   if (!same(before.multiCores,after.multiCores) || !same(before.multiCoreDefinitions,after.multiCoreDefinitions)) {
     const multi = validateMultiCoreEdit({...before,connections:after.connections},after);
     errors.push(...multi.blockingDiagnostics);

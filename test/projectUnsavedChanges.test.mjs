@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import {readFileSync} from 'node:fs';
 import {createProjectUnsavedGuard,projectContentEqual} from '../src/projectUnsavedChanges.js';
+import {breakoutProjectFields} from '../src/engine/qsfpBreakoutModel.js';
 const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 const source=name=>html.match(new RegExp(`^    (?:async )?function ${name}\\([^\\n]*\\) \\{[\\s\\S]*?^    \\}`,'m'))[0];
 const unload=target=>{
@@ -90,7 +91,7 @@ test('the existing snapshot has a side-effect-free projection and startup/new/lo
   const context=vm.createContext({state:model,activeEngineBridge:()=>null,currentPowerVoltage:()=>230,
     normalizeInstanceRelationshipMetadata:()=>{normalized++;},serializeNodeLibrary:()=>{serialized++;return [];},
     nodeTypeOrder:['custom'],cableTypes:{custom:{label:'Custom'}},deviceLibrary:[{id:'t',favorite:true}],
-    window:{WireNexusMultiCore:{multiCoreProjectFields:()=>({})}},connectionsForProjectSnapshot:()=>{throw Error('derived preview cannot be read');}});
+    window:{WireNexusMultiCore:{multiCoreProjectFields:()=>({})},WireNexusBreakout:{breakoutProjectFields}},connectionsForProjectSnapshot:()=>{throw Error('derived preview cannot be read');}});
   vm.runInContext(source('projectSnapshotData'),context);
   const before=structuredClone(model),data=context.projectSnapshotData({readOnly:true});
   assert.deepEqual(model,before);assert.equal(normalized,0);assert.equal(serialized,0);

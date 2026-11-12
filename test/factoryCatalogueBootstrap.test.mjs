@@ -5,6 +5,7 @@ import vm from "node:vm";
 import { createFactoryCatalogueLoader } from "../src/factoryCatalogue.js";
 import { FACTORY_AUTHORING } from "../src/buildCapabilities.js";
 import { MULTI_CORE_PROJECT_FIELDS, multiCoreProjectFields } from "../src/engine/multiCoreModel.js";
+import { breakoutProjectFields } from "../src/engine/qsfpBreakoutModel.js";
 import { isMultiCoreConnection } from "../src/engine/multiCoreConnectivity.js";
 import * as editorLifecycle from "../src/editorLifecycle.js";
 import * as transceivers from "../src/engine/transceiverModules.js";
@@ -36,7 +37,7 @@ function harness({ fetchCatalogue = async () => Response.json(catalogue), initia
     createElement: () => ({ remove() {} }),
     body: { append() { calls.scripts++; window.wireNexusShellReady = initialize ? initialize() : Promise.resolve(); } }
   };
-  const context = { window, document, URL, Error, FACTORY_AUTHORING, MULTI_CORE_PROJECT_FIELDS, multiCoreProjectFields, isMultiCoreConnection, editorLifecycle,
+  const context = { window, document, URL, Error, FACTORY_AUTHORING, MULTI_CORE_PROJECT_FIELDS, multiCoreProjectFields, breakoutProjectFields, isMultiCoreConnection, editorLifecycle,
     transceivers, modularCardSafety, multibandSignals, wireRouting, nodeReplacement, ...connectorCompatibility,
     connectorIncludedInMatrixForEngine, defaultMatrixPortForEngineConnector,
     createFactoryCatalogueLoader: options => createFactoryCatalogueLoader({ ...options, fetchCatalogue: (...args) => { calls.fetch++; return fetchCatalogue(...args); } }),

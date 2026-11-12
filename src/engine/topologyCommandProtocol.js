@@ -3,9 +3,12 @@ import {validateProjectTopologyTransition} from './projectTopologyValidation.js'
 
 export const TOPOLOGY_COMMAND_VERSION = 2;
 export const TOPOLOGY_COLLECTIONS = Object.freeze(['devices','deviceLibrary','nodeLibrary','connections','jumpNodes','jumpLinks',
-  'looms','multiCores','multiCoreDefinitions','ledSurfaces','racks','imageObjects','areas','comments','titleBlocks','layers']);
+  'looms','multiCores','multiCoreDefinitions','ledSurfaces','racks','imageObjects','areas','comments','titleBlocks','layers','breakoutAssemblies']);
 const settings = ['wireMode','cableNumberCounters','loomNumberCounter','loomPortalNumberCounter','multiCoreIdCounter','powerVoltage'];
 const scopes = [...TOPOLOGY_COLLECTIONS,'settings'];
+const optionalScope = 'breakoutAssemblies';
+const requiredScopes = scopes.filter(scope => scope !== optionalScope);
+const collectionState = (snapshot, collection) => snapshot[collection] ?? {present:false,value:[]};
 const rootOf = value => value?.state || value?.project || value;
 const equal = (a,b) => JSON.stringify(commandJson(a))===JSON.stringify(commandJson(b));
 const idOf = (collection,value) => collection==='devices' ? value.instanceId || value.id || value.deviceId : value.id;
@@ -54,8 +57,8 @@ function differences(before,after,state) {
     }
     if(collection==='settings')continue;
     const beforeIds=[...a.keys()],afterIds=[...b.keys()];
-    if(before[collection].present!==after[collection].present || !equal(beforeIds,afterIds)) {
-      orders.push({collection,beforePresent:before[collection].present,afterPresent:after[collection].present,beforeIds,afterIds});
+    if(collectionState(before,collection).present!==collectionState(after,collection).present || !equal(beforeIds,afterIds)) {
+      orders.push({collection,beforePresent:collectionState(before,collection).present,afterPresent:collectionState(after,collection).present,beforeIds,afterIds});
     }
   }
   return {changes,orders};
@@ -64,7 +67,7 @@ function differences(before,after,state) {
 const affected = command => command.changes.map(({collection,id,expectedRevision,revision})=>({collection,id,expectedRevision,revision}));
 function materialize(snapshot) {
   const project={};
-  for(const collection of TOPOLOGY_COLLECTIONS)if(snapshot[collection].present)project[collection]=snapshot[collection].value;
+  for(const collection of TOPOLOGY_COLLECTIONS)if(collectionState(snapshot,collection).present)project[collection]=snapshot[collection].value;
   for(const {id,value} of snapshot.settings)project[id]=value;
   return project;
 }
@@ -81,7 +84,11 @@ export async function createTopologyCommand(beforeInput,afterInput,{state,comman
   if(!delta.changes.length && !delta.orders.length)return null;
   transition(before,after);
   const readSet=[];
-  for(const collection of scopes)readSet.push({collection,expectedRevision:state.scopeRevisions[collection] || 0,digest:await digest(before[collection])});
+  for(const collection of scopes) {
+    if(collection===optionalScope && !collectionState(before,collection).present && !collectionState(after,collection).present)continue;
+    readSet.push({collection,expectedRevision:state.scopeRevisions[collection] || 0,
+      digest:await digest(collection==='settings' ? before.settings : collectionState(before,collection))});
+  }
   const command=commandJson({version:TOPOLOGY_COMMAND_VERSION,type:'topology.transaction',sessionId:state.sessionId,commandId,intent,origin,
     ...delta,readSet,affected:affected(delta)});
   validateEnvelope(command);return command;
@@ -91,7 +98,7 @@ function validateEnvelope(command) {
   if(!command || command.version!==TOPOLOGY_COMMAND_VERSION || command.type!=='topology.transaction' || !id(command.commandId)
     || !id(command.sessionId) || !id(command.intent) || !['edit','undo','redo'].includes(command.origin)
     || !Array.isArray(command.changes) || !Array.isArray(command.orders) || (!command.changes.length && !command.orders.length)
-    || !Array.isArray(command.readSet) || command.readSet.length!==scopes.length)fail('INVALID_COMMAND','Invalid topology command envelope.');
+    || !Array.isArray(command.readSet))fail('INVALID_COMMAND','Invalid topology command envelope.');
   const seen=new Set();
   for(const c of command.changes) {
     if(!c || !scopes.includes(c.collection) || !id(c.id) || seen.has(keyOf(c.collection,c.id))
@@ -118,6 +125,10 @@ function validateEnvelope(command) {
     if(!read || !scopes.includes(read.collection) || reads.has(read.collection) || !Number.isSafeInteger(read.expectedRevision)
       || read.expectedRevision<0 || !/^[a-f0-9]{64}$/.test(read.digest))fail('INVALID_COMMAND','Invalid dependency guard.');
     reads.add(read.collection);
+  }
+  if(requiredScopes.some(scope=>!reads.has(scope))
+    || (!reads.has(optionalScope) && [...command.changes,...command.orders].some(item=>item.collection===optionalScope))) {
+    fail('INVALID_COMMAND','Missing topology dependency guard.');
   }
   if(!equal(command.affected,affected(command)))fail('INVALID_COMMAND','Affected entities do not match the transaction.');
 }
@@ -149,6 +160,9 @@ export async function replayTopologyCommand(project,input,state) {
     return {project,state,duplicate:true};
   }
   const before=captureTopologyState(project);
+  if(before[optionalScope].present && !command.readSet.some(read=>read.collection===optionalScope)) {
+    fail('STALE_REVISION','Breakout assemblies require a current topology dependency guard.');
+  }
   for(const read of command.readSet)if((state.scopeRevisions[read.collection] || 0)!==read.expectedRevision || await digest(before[read.collection])!==read.digest) {
     fail('STALE_REVISION',`Dependency ${read.collection} changed.`);
   }

@@ -9,6 +9,7 @@ import { outputParityFixture } from "../fixtures/output-parity.mjs";
 import { loomStabilityFixture } from "../fixtures/loom-stability.mjs";
 import { managedLoomMixedFixture } from "../fixtures/managed-looms.mjs";
 import * as model from "../src/engine/multiCoreModel.js";
+import { breakoutProjectFields } from "../src/engine/qsfpBreakoutModel.js";
 import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
 import { ProjectMutationAdapter } from "../src/engine/projectMutations.js";
 import { cloneHistoryValue } from "../src/engine/historyClone.js";
@@ -29,7 +30,8 @@ const png = `data:image/png;base64,${readFileSync(new URL("../Nodes/Thumbnails/H
 
 function shell(project = {}) {
   const state = { version: 1, devices: [], connections: [], imageObjects: [], ledSurfaces: [], areas: [], racks: [], jumpNodes: [], jumpLinks: [], comments: [], titleBlocks: [], looms: [], ...structuredClone(project) };
-  const context = vm.createContext({ state, structuredClone, cloneHistoryValue, window: { WireNexusMultiCore: { ...model, isMultiCoreConnection } },
+  const context = vm.createContext({ state, structuredClone, cloneHistoryValue, window: {
+    WireNexusMultiCore: { ...model, isMultiCoreConnection }, WireNexusBreakout: { breakoutProjectFields } },
     activeEngineBridge: () => null, deviceLibrary: [], serializeNodeLibrary: () => [], restoreCanvasClipboardNodeLibrary: () => {},
     normalizeInstanceRelationshipMetadata: () => {}, plainPoint: point => point,
     setDarkMode: () => {}, setGridVisible: () => {}, setObjectSnapping: () => {}, setWireMode: () => {}, setCableHops: () => {},
@@ -41,17 +43,23 @@ function shell(project = {}) {
 
 test("actual shell save, history restore and viewer compaction preserve all optional model fields", () => {
   const project = hybridMultiCoreProject(); project.multiCoreDefinitions = [hybridMultiCoreDefinition()];
+  project.breakoutAssemblies = [{ id: "preserve-unknown", schemaVersion: 99 }];
   project.multiCores[0].idCounters = { routePoint: 88, circuit: 70 };
   const h = shell(project), history = h.projectSnapshot(), saved = json(h.projectSnapshotData());
   assert.equal(h.projectSnapshotData({ forEngine: true }).multiCores, h.state.multiCores, "ordinary snapshots retain Engine write-through ownership");
   assert.notEqual(history.multiCores, h.state.multiCores, "history is detached");
   assert.deepEqual(fields(saved), fields(project));
+  assert.deepEqual(saved.breakoutAssemblies, project.breakoutAssemblies);
+  assert.notEqual(history.breakoutAssemblies, h.state.breakoutAssemblies);
+  delete h.state.breakoutAssemblies;
   h.state.multiCores[0].name = "Changed";
   h.restoreSnapshot(history);
+  assert.deepEqual(h.state.breakoutAssemblies, project.breakoutAssemblies);
   assert.deepEqual(fields(h.state), fields(project));
   h.restoreSnapshot(json(h.compactProjectDataForViewer(saved)));
   assert.deepEqual(fields(h.projectSnapshotData()), fields(project));
   h.restoreSnapshot({});
+  assert.equal(Object.hasOwn(h.state, "breakoutAssemblies"), false);
   for (const field of model.MULTI_CORE_PROJECT_FIELDS) {
     assert.equal(Object.hasOwn(h.state, field), false);
     assert.equal(Object.hasOwn(h.projectSnapshotData(), field), false);

@@ -11,6 +11,7 @@ import {
 import { cloneMatrixRoutes } from "./matrixRouting.js?v=iteration54-4-0-matrix-routing-internal-routes";
 import { normalizeJumpLinks } from "./jumpNodeModel.js";
 import { multiCoreProjectFields } from "./multiCoreModel.js";
+import { breakoutProjectFields } from "./qsfpBreakoutModel.js";
 import { validateMultiCoreEdit } from "./multiCoreEditValidation.js";
 import { replaceMultiCoreSectionPoints } from "./multiCoreJumpRouting.js";
 import { multiCorePortReference } from "./multiCoreProjection.js";
@@ -1065,6 +1066,7 @@ function buildProjectFromSceneData(sceneData = {}) {
     : (sceneData.wires || []).filter(wire => !wire.multiCoreIdentity && !wire.stageboxAssemblyId).map(wire => rawConnectionFromSceneWireData(sceneData, wire));
   return {
     ...multiCoreProjectFields(sceneData.modelData),
+    ...breakoutProjectFields(sceneData),
     format: ENGINE_EXPORT_FORMAT,
     version: 1,
     projectName: sceneData.meta?.projectName || sceneData.meta?.sourceName || "Engine Prototype Project",

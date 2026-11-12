@@ -10137,6 +10137,7 @@
       return cloneHistoryValue({
         ...(state.layers ? {layers:state.layers,activeLayerId:state.activeLayerId} : {}),
         ...window.WireNexusMultiCore.multiCoreProjectFields(state, { cloneValues: false }),
+        ...window.WireNexusBreakout.breakoutProjectFields(state, { cloneValues: false }),
         ...(includeClipboardDependencies ? { deviceLibrary, nodeLibrary: serializeNodeLibrary() } : {}),
         imageObjects: state.imageObjects,
         devices: state.devices,
@@ -10169,6 +10170,8 @@
       state.activeLayerId=snapshot.activeLayerId || 'layer-default';
       for (const key of window.WireNexusMultiCore.MULTI_CORE_PROJECT_FIELDS) delete state[key];
       Object.assign(state, window.WireNexusMultiCore.multiCoreProjectFields(snapshot));
+      delete state.breakoutAssemblies;
+      Object.assign(state, window.WireNexusBreakout.breakoutProjectFields(snapshot));
       if (Array.isArray(snapshot.deviceLibrary)) deviceLibrary = cloneHistoryValue(snapshot.deviceLibrary);
       if (Array.isArray(snapshot.nodeLibrary)) restoreCanvasClipboardNodeLibrary(snapshot.nodeLibrary);
       state.imageObjects = cloneHistoryValue(snapshot.imageObjects || []);
@@ -34012,6 +34015,7 @@
       const engineRoot = useEngineRoot ? activeEngineBridge()?.mutations?.root : null;
       return {
         ...window.WireNexusMultiCore.multiCoreProjectFields(state, { cloneValues: false }),
+        ...window.WireNexusBreakout.breakoutProjectFields(state, { cloneValues: false }),
         version: state.version,
         ...(state.layers ? {layers:state.layers,...(!readOnly ? {activeLayerId:state.activeLayerId} : {})} : {}),
         projectName: state.projectName,
@@ -35103,7 +35107,7 @@ document.addEventListener("click", function(event) {
                 const merged=applyTopologyIntent(local,captureTopologyState(reset?local:previous),captureTopologyState(next));
                 for(const key of TOPOLOGY_COLLECTIONS)if(!['deviceLibrary','nodeLibrary'].includes(key)) {
                   if(Object.hasOwn(merged,key))state[key]=merged[key];
-                  else if(['multiCores','multiCoreDefinitions','layers'].includes(key))delete state[key];
+                  else if(['multiCores','multiCoreDefinitions','layers','breakoutAssemblies'].includes(key))delete state[key];
                   else state[key]=[];
                 }
                 deviceLibrary=mergeLoadedDeviceLibrary(merged.deviceLibrary);
@@ -35307,6 +35311,8 @@ document.addEventListener("click", function(event) {
           state.connections = Array.isArray(data.connections) ? data.connections : [];
           for (const key of window.WireNexusMultiCore.MULTI_CORE_PROJECT_FIELDS) delete state[key];
           Object.assign(state, window.WireNexusMultiCore.multiCoreProjectFields(data));
+          delete state.breakoutAssemblies;
+          Object.assign(state, window.WireNexusBreakout.breakoutProjectFields(data));
           const { migrateLegacyLooms } = await import(engineImportUrl("./src/engine/loomModel.js"));
           const loomProject = { ...data, deviceLibrary, connections: state.connections };
           const loomWarnings = migrateLegacyLooms(loomProject);
@@ -35604,6 +35610,7 @@ document.addEventListener("click", function(event) {
       state.projectName = "Untitled WireNexus Project";
       state.devices = [];
       for (const key of window.WireNexusMultiCore.MULTI_CORE_PROJECT_FIELDS) delete state[key];
+      delete state.breakoutAssemblies;
       state.ledSurfaces = [];
       state.areas = [];
       state.racks = [];

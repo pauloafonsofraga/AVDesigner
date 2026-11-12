@@ -3,6 +3,7 @@ import * as imageAssets from "./imageAssets.js";
 import { observeLibraryArtwork } from "./libraryArtwork.js";
 import { FACTORY_AUTHORING } from "./buildCapabilities.js";
 import { MULTI_CORE_PROJECT_FIELDS, multiCoreProjectFields } from "./engine/multiCoreModel.js";
+import { breakoutProjectFields } from "./engine/qsfpBreakoutModel.js";
 import { isMultiCoreConnection } from "./engine/multiCoreConnectivity.js";
 import * as editorLifecycle from "./editorLifecycle.js";
 import * as transceivers from "./engine/transceiverModules.js";
@@ -46,6 +47,7 @@ function start() {
     Object.defineProperty(window, "WireNexusBuildCapabilities", { value: Object.freeze({ factoryAuthoring: FACTORY_AUTHORING === true }) });
     Object.defineProperty(window, "WireNexusImageAssets", { value: Object.freeze({ ...imageAssets, portableProjectData }) });
     Object.defineProperty(window, "WireNexusMultiCore", { value: Object.freeze({ MULTI_CORE_PROJECT_FIELDS, multiCoreProjectFields, isMultiCoreConnection }) });
+    Object.defineProperty(window, "WireNexusBreakout", { value: Object.freeze({ breakoutProjectFields }) });
     Object.defineProperty(window, "WireNexusEditorLifecycle", { value: editorLifecycle });
     Object.defineProperty(window, "WireNexusMultiband", { value: multibandSignals });
     Object.defineProperty(window, "WireNexusWireRouting", { value: wireRouting });
