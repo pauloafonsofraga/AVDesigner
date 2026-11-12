@@ -10,7 +10,7 @@ import { validateModularCardChanges } from "../src/engine/modularCardSafety.js";
 import { buildEngineOutputScene } from "../src/engine/outputSceneSnapshot.js";
 import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
 import { ProjectMutationAdapter } from "../src/engine/projectMutations.js";
-import { validateProjectTopologyTransition } from "../src/engine/projectTopologyValidation.js";
+import { projectTopologyDiagnostics, validateProjectTopologyTransition } from "../src/engine/projectTopologyValidation.js";
 import { SceneGraph } from "../src/engine/sceneGraph.js";
 
 const cage = (type = "sfp-plus-cage", fields = {}) => ({
@@ -64,6 +64,55 @@ test("generic module rates do not mask connector or host declarations, and equiv
   const tx = install(cage(), "sfp-sdi-3g-tx");
   assert.equal(compare(tx, { type: "sdi", direction: "input", supportedRates: ["3000 Mbit/s SDI"] }).valid, true);
   assert.equal(compare(tx, { type: "sdi", direction: "input", supportedRates: ["3G Ethernet"] }).rule, "module-rate");
+});
+
+function ordinaryWireProject(from, to, cableType) {
+  const portId = "port";
+  const devices = ["a", "b"].map((id, i) => ({ instanceId: id, templateId: id, x: i * 450, y: 0 }));
+  const deviceLibrary = [from, to].map((port, i) => ({
+    id: devices[i].templateId, width: 380, height: 220, connectors: [{ ...port, id: portId }]
+  }));
+  return { devices, deviceLibrary, connections: [{ id: "cable", cableType,
+    from: { deviceId: "a", connectorId: portId }, to: { deviceId: "b", connectorId: portId } }] };
+}
+
+test("ordinary ports retain historical rate precedence, aliases and topology validation", () => {
+  const cases = [
+    [{ type: "cat6a", direction: "io", supportedRates: ["1G"], moduleCapabilities: { supportedRates: ["10G"] } },
+      { type: "cat6a", direction: "io", supportedRates: ["10G"] }],
+    [{ type: "sdi", direction: "output", supportedRates: ["3G (SDI)"] },
+      { type: "sdi", direction: "input", supportedRates: ["3G-SDI"] }],
+    [{ type: "hdmi", direction: "output", physicalType: "hdmi", connectorType: "sfp-cage" },
+      { type: "hdmi", direction: "input" }],
+    [{ type: "hdmi", direction: "output", physicalType: "sfp-cage", connectorType: "hdmi" },
+      { type: "hdmi", direction: "input" }],
+    [{ type: "cat6a", direction: "io", moduleId: "rj45-ethernet" },
+      { type: "cat6a", direction: "io", moduleCapabilities: { signalFamily: "hdbaset" } }],
+    [{ type: "fiber-lc", direction: "io", installedModule: "lc-multimode" },
+      { type: "fiber-lc", direction: "io", fiberMode: "single-mode" }]
+  ];
+  for (const [source, target] of cases) {
+    assert.equal(compare(source, target).valid, true);
+    assert.deepEqual(projectTopologyDiagnostics(ordinaryWireProject(source, target, source.type)), []);
+  }
+  assert.equal(compare({ type: "cat6a", direction: "io", supportedRates: ["10G"] },
+    { type: "cat6a", direction: "io", supportedRates: ["1G"] }).rule, "module-rate");
+});
+
+test("historical cage fields and punctuated SDI rates keep valid links without activating empty cages", () => {
+  const input = { type: "sdi", direction: "input", supportedRates: ["3G-SDI"] };
+  const tx = install(cage("sfp-plus-cage", { direction: "output", signalDirection: "output" }), "sfp-sdi-3g-tx");
+  tx.moduleCapabilities.supportedRates = ["3G (SDI)"];
+  assert.equal(compare(tx, input).valid, true);
+  assert.deepEqual(projectTopologyDiagnostics(ordinaryWireProject(tx, input, "sdi")), []);
+  assert.equal(compare(tx, { ...input, supportedRates: ["3G Ethernet"] }).rule, "module-rate");
+  assert.equal(compare({ ...cage(" sfp-plus-cage "), physicalType: undefined },
+    { ...cage(" sfp-plus-cage "), physicalType: undefined }).rule, "dead-cage");
+
+  const legacySfp = { ...install(cage(), "sfp-sdi-12g-tx"), type: "sfp-cage" };
+  const peer = { ...input, supportedRates: ["12G-SDI"] };
+  assert.equal(compare(legacySfp, peer).valid, true);
+  assert.deepEqual(projectTopologyDiagnostics(ordinaryWireProject(legacySfp, peer, "sdi")), []);
 });
 
 test("QSFP has separate single-mode and multimode MPO profiles; OM4 survives project and viewer reopen", () => {

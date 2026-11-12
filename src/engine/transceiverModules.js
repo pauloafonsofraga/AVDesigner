@@ -92,16 +92,16 @@ const list = value => Array.isArray(value) ? value.map(item => String(item ?? ""
 const intersection = (a, b) => a.some(value => b.some(other => key(value) === key(other)));
 function rateKey(value) {
   const text = String(value).toLowerCase().replace(/(?<=\d),(?=\d{3}\b)/g, "");
-  const rate = text.match(/^(\d+(?:\.\d+)?)\s*([kmgt])\s*(?:(?:bits?\s*\/\s*s|b\s*\/\s*s|bps|b)\s*)?(?:[- ]*(sdi|ethernet))?$/);
-  if (!rate) return text.replace(/[\s_-]+/g, "");
-  const [, amount, unit, family] = rate;
-  return `${Math.round(Number(amount) * { k: 1e3, m: 1e6, g: 1e9, t: 1e12 }[unit])}${family === "sdi" ? "-sdi" : ""}`;
+  const rate = text.match(/^(\d+(?:\.\d+)?)\s*([kmgt])\s*(?:(?:bits?\s*\/\s*s|b\s*\/\s*s|bps|b)\s*)?(?:[-/ ]*(?:\(\s*(sdi|ethernet)\s*\)|(sdi|ethernet)))?$/);
+  if (!rate) return `label:${key(text)}`;
+  const [, amount, unit, wrappedFamily, family] = rate;
+  return `bps:${Math.round(Number(amount) * { k: 1e3, m: 1e6, g: 1e9, t: 1e12 }[unit])}${(wrappedFamily || family) === "sdi" ? "-sdi" : ""}`;
 }
 const hasRate = (rates, rate) => rates.some(other => rateKey(other) === rateKey(rate));
-function commonRates(sets) {
+function commonRates(sets, matches = hasRate) {
   const known = sets.map(list).filter(values => values.length);
   return { constrained: known.length > 1,
-    rates: (known[0] || []).filter(rate => known.every(values => hasRate(values, rate))) };
+    rates: (known[0] || []).filter(rate => known.every(values => matches(values, rate))) };
 }
 const normalizeDirection = value => {
   const name = key(value);
@@ -111,8 +111,16 @@ const normalizeDirection = value => {
   return "";
 };
 export const isDacCableType = type => /^dac-(sfp-plus|sfp28|qsfp)$/.test(String(type || ""));
-const cageType = connector => [connector?.type, connector?.physicalType, connector?.connectorType]
-  .find(type => Object.hasOwn(CAGE_FORM_FACTORS, type)) || "";
+function cageType(connector) {
+  const type = String(connector?.type || "").trim();
+  const legacyType = String(connector?.connectorType || "").trim();
+  const storedCage = Object.hasOwn(CAGE_FORM_FACTORS, type);
+  // Two agreeing ordinary identifiers take precedence over a stale cage field.
+  if (type && !storedCage && type === legacyType) return "";
+  const physical = String(connector?.physicalType || (!type ? legacyType : "") || "").trim();
+  if (Object.hasOwn(CAGE_FORM_FACTORS, physical)) return physical;
+  return storedCage ? type : "";
+}
 export const isTransceiverCage = connector => Boolean(cageType(connector));
 export const installedModuleValue = connector => resolveInstalledModule(connector).rawValue;
 
@@ -134,12 +142,13 @@ const emptyModule = value => ["", "empty", "none", "nomodule", "emptynomodule"].
 
 export function resolveInstalledModule(connector = {}) {
   connector ??= {};
+  const cage = isTransceiverCage(connector);
   const module = object(connector.installedModule) || object(connector.module) || object(connector.transceiverModule) || {};
   const id = firstText(connector.installedModuleId, connector.moduleId, connector.transceiverModuleId, module.id, module.value);
   const name = firstText(connector.installedModuleName, connector.moduleName, connector.transceiverModuleName, module.name, module.label);
-  const type = firstText(connector.installedModuleType, connector.moduleType, connector.transceiverModuleType,
-    module.type, module.value, typeof connector.installedModule === "string" ? connector.installedModule : "",
-    typeof connector.module === "string" ? connector.module : "", typeof connector.transceiverModule === "string" ? connector.transceiverModule : "");
+  const typeFields = [connector.installedModuleType, connector.moduleType, connector.transceiverModuleType, module.type, module.value];
+  const type = firstText(...typeFields) || (cage ? firstText(...[connector.installedModule, connector.module,
+    connector.transceiverModule].filter(value => typeof value === "string")) : "");
   const activeType = firstText(connector.installedModuleActiveType, connector.installedModuleEffectiveType,
     connector.moduleActiveType, connector.moduleEffectiveType, connector.transceiverModuleActiveType,
     connector.transceiverModuleEffectiveType, module.activeType, module.effectiveType, module.connectorType);
@@ -147,18 +156,21 @@ export function resolveInstalledModule(connector = {}) {
     connector.transceiverModuleFiberMode, module.fiberMode);
   const rawValue = firstText(type, id, name);
   const profile = transceiverModuleOption(rawValue, connector);
+  // Historical cage aliases do not turn metadata on ordinary ports into module profiles.
+  const capabilityValue = cage ? rawValue : firstText(...typeFields, connector.installedModuleId, module.id);
+  const capabilityProfile = capabilityValue === rawValue ? profile : transceiverModuleOption(capabilityValue, connector);
   const effectiveType = activeTypeForModuleValue(activeType) || activeTypeForModuleValue(rawValue);
   const explicit = connector.moduleCapabilities || {};
-  const caps = { ...(profile?.capabilities || {}), ...(module.capabilities || {}),
+  const caps = { ...(capabilityProfile?.capabilities || {}), ...(module.capabilities || {}),
     ...Object.fromEntries(["formFactor", "supportedRates", "signalFamily", "mediaType", "direction",
       "manufacturer", "model", "physicalConstraints", "platforms", "cableAssembly"].filter(field => module[field] !== undefined).map(field => [field, module[field]])),
     ...explicit };
   // Old SDI aliases have unknown rates/direction; never infer optical media or 12G.
-  if (!caps.signalFamily && ["sdi", "bnc", "sfpsdi", "sfpbnc"].includes(key(rawValue))) {
+  if (!caps.signalFamily && ["sdi", "bnc", "sfpsdi", "sfpbnc"].includes(key(capabilityValue))) {
     caps.signalFamily = "sdi";
     caps.mediaType = "coax";
   }
-  if (!list(caps.supportedRates).length) {
+  if (cage && !list(caps.supportedRates).length) {
     const fallback = [module.supportedRates, module.capabilities?.supportedRates, profile?.capabilities.supportedRates]
       .map(list).find(rates => rates.length);
     if (fallback) caps.supportedRates = fallback;
@@ -308,17 +320,21 @@ export function transceiverConnectionValidation(source, target, sourceType, targ
   if (a.signalFamily && b.signalFamily && a.signalFamily !== b.signalFamily) {
     return { valid: false, rule: "module-signal", reason: "Installed module signal families do not match.", warnings: [] };
   }
-  const sourceRates = connectorRateSets(source, a), targetRates = connectorRateSets(target, b);
-  const rates = commonRates([...sourceRates, ...targetRates]);
+  const transceiverLink = isTransceiverCage(source) || isTransceiverCage(target);
+  // Keep ordinary connector precedence and matching; the new negotiation is for cage links.
+  const sourceRates = connectorRateSets(source, a, transceiverLink), targetRates = connectorRateSets(target, b, transceiverLink);
+  const rates = commonRates([...sourceRates, ...targetRates], transceiverLink ? hasRate : (values, rate) => intersection(values, [rate]));
   if (rates.constrained && !rates.rates.length) {
     return { valid: false, rule: "module-rate", reason: "Endpoints have no supported data rate in common.", warnings: [] };
   }
-  if (isTransceiverCage(source) || isTransceiverCage(target)) {
+  if (transceiverLink) {
     if (!sourceRates.some(values => list(values).length)
       || !targetRates.some(values => list(values).length)) warnings.push("An endpoint data rate is unverified.");
   }
-  const from = effectiveTransceiverDirection(source);
-  const to = effectiveTransceiverDirection(target);
+  const direction = connector => transceiverLink ? effectiveTransceiverDirection(connector)
+    : normalizeDirection(connector?.signalDirection || connector?.direction);
+  const from = direction(source);
+  const to = direction(target);
   const directionalModule = [a, b].some(cap => ["input", "output"].includes(cap.direction) || cap.signalFamily === "sdi" || cap.cableAssembly);
   if (directionalModule && ["input", "output"].includes(from) && from === to) {
     return { valid: false, rule: "module-direction", reason: `${from === "input" ? "Receiver/input" : "Transmitter/output"} nodes cannot connect to each other.`, warnings: [] };
@@ -332,8 +348,10 @@ export function effectiveTransceiverDirection(connector) {
   return ["input", "output"].includes(direction) ? direction : node;
 }
 
-function connectorRateSets(connector, caps = installedModuleCapabilities(connector)) {
-  return [caps.supportedRates, connector?.supportedRates, connector?.cageCapabilities?.supportedRates];
+function connectorRateSets(connector, caps = installedModuleCapabilities(connector), transceiverLink = true) {
+  const port = connector?.supportedRates;
+  const rates = transceiverLink ? [caps.supportedRates, port] : [caps.supportedRates || port];
+  return [...rates, connector?.cageCapabilities?.supportedRates];
 }
 
 function commonTransceiverRates(source, target) {
