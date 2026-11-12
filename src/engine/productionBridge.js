@@ -58,7 +58,8 @@ import { canonicalLoomWireRouting } from "./loomJumpRouting.js";
 import { loomForJump, loomJumpAttachmentCompatibility, reconcileLoomJumpAssociations } from "./loomJumpAssociation.js";
 import { multiCoreForJump } from "./multiCoreJumpRouting.js";
 import { multiCoreProjectFields } from "./multiCoreModel.js";
-import { breakoutDeviceReserved, breakoutPortReserved } from "./qsfpBreakoutModel.js";
+import { breakoutPortReserved } from "./qsfpBreakoutModel.js";
+import { qsfpBreakoutCanvasMethods } from "./qsfpBreakoutCanvas.js";
 import { monitorNameUpdates } from "./monitorNaming.js";
 import { PerfHud } from "./perfHud.js";
 import { validateEngineScene } from "./sceneValidation.js";
@@ -2360,6 +2361,8 @@ class ProductionEngineBridge {
       this.capturePointer(event.pointerId);
       return;
     }
+    if (this.qsfpBreakoutPointerDown?.(event, point, world)) return;
+    this.scene.selectedBreakout = null;
     if (event.ctrlKey) this.noteCtrlLeftClickForContextMenu(event, point);
     this.capturePointer(event.pointerId);
     const tolerance = this.hitToleranceWorld();
@@ -2472,6 +2475,13 @@ class ProductionEngineBridge {
         connectorHit.connector.device.id,
         connectorHit.connector.connector.id
       );
+      if (this.mutations?.root?.breakoutAssemblies?.length && breakoutPortReserved(this.mutations.root,
+        connectorHit.connector.device.sourceId || connectorHit.connector.device.id, connectorHit.connector.connector.id)) {
+        this.scene.selectConnectorOnly(connectorHit.connector.device.id, connectorHit.connector.connector.id);
+        this.updateSelectionHud();
+        this.scheduleRender();
+        return;
+      }
       this.clearJumpMoveArm("connector-pointerdown", { updateHud: false });
       const clickedIsLedProcessorOutput = isLedProcessorMainSignalOutput(
         connectorHit.connector.device,
@@ -2686,9 +2696,10 @@ class ProductionEngineBridge {
     }
     event.preventDefault();
     event.stopPropagation();
-    if (this.dragSession || this.pendingDrag || this.pendingJumpPress || this.jumpLinkCreate || this.panState || this.routePointDrag || this.wireSegmentDrag || this.wireCreate || this.resizeSession || this.marqueeState) {
+    if (this.dragSession || this.pendingDrag || this.pendingJumpPress || this.jumpLinkCreate || this.panState || this.routePointDrag || this.wireSegmentDrag || this.wireCreate || this.resizeSession || this.marqueeState || this.qsfpBreakoutGesture) {
       this.cancelActiveInteraction("context-menu", { updateHud: false });
     }
+    this.scene.selectedBreakout = null;
     this.clearJumpMoveArm("context-menu", { updateHud: false });
     const target = this.contextMenuTarget(event);
     this.clearHoverState("context-menu", { render: false });
@@ -2729,6 +2740,11 @@ class ProductionEngineBridge {
     if (jumpPointerId != null && jumpPointerId !== event.pointerId) return;
     const pointerStart = performance.now();
     const point = this.eventPoint(event);
+    if (this.qsfpBreakoutGesture && !this.panState) {
+      this.updateQsfpBreakoutGesture(point);
+      this.scheduleRender();
+      return;
+    }
     if (this.multiCorePlacement && !this.panState) {
       this.multiCorePlacement.cursor = screenToWorld(this.camera, point);
       this.scheduleRender(); return;
@@ -3047,6 +3063,7 @@ class ProductionEngineBridge {
       return;
     }
     const point = this.eventPoint(event);
+    if (this.qsfpBreakoutPointerUp?.(event, point)) return;
     if ((this.loomCreationActive || (this.wireCreate?.manual && !this.wireCreate.rewire)) && !this.panState) {
       this.releasePointerCapture(event.pointerId);
       this.scheduleRender();
@@ -3185,6 +3202,9 @@ class ProductionEngineBridge {
   }
 
   handleLostPointerCapture(event) {
+    if (this.qsfpBreakoutGesture?.pointerId != null && this.qsfpBreakoutGesture.pointerId === event.pointerId) {
+      this.cancelQsfpBreakoutGesture(); this.updateSelectionHud(); return;
+    }
     if ((this.wireCreate?.manual && !this.wireCreate.rewire) || this.wireCreate?.loomId) return;
     const jumpPointerId = this.pendingJumpPress?.pointerId ?? this.jumpLinkCreate?.pointerId;
     if (jumpPointerId != null && event?.pointerId != null && jumpPointerId !== event.pointerId) return;
@@ -3250,6 +3270,12 @@ class ProductionEngineBridge {
       return;
     }
     if (event.key === "Delete" || event.key === "Backspace") {
+      if (this.scene.selectedBreakout) {
+        consumeEngineShortcut(event);
+        this.cancelQsfpBreakoutGesture();
+        this.deleteQsfpBreakoutSelection();
+        return;
+      }
       const projectedEnds = [...this.scene.selectedIds].some(id => this.scene.getDevice(id)?.multiCoreIdentity);
       const projectedTrunk = this.selectedMultiCoreProjection();
       if (projectedEnds || projectedTrunk?.multiCoreIdentity) {
@@ -3300,6 +3326,9 @@ class ProductionEngineBridge {
       return;
     }
     if (event.key !== "Escape") return;
+    if (this.cancelQsfpBreakoutGesture?.()) {
+      consumeEngineShortcut(event); this.updateSelectionHud(); return;
+    }
     if (this.multiCorePlacement || this.multiCoreRoutePlacement) {
       consumeEngineShortcut(event); this.multiCoreRoutePlacement = null; this.cancelMultiCorePlacement(); return;
     }
@@ -5304,6 +5333,7 @@ class ProductionEngineBridge {
   }
 
   cancelActiveInteraction(reason = "cancelled", { updateHud = true } = {}) {
+    this.cancelQsfpBreakoutGesture?.();
     this.multiCorePlacement = null;
     this.multiCoreRoutePlacement = null;
     if (this.rotationDrag) {
@@ -5831,6 +5861,8 @@ class ProductionEngineBridge {
       snapDebugVisual: this.snapDebugVisualState(),
       hoverScreenPoint: this.hoverState.screenPoint,
       selectedConnectors: this.scene.selectedConnectorKeys,
+      qsfpBreakoutPlans: this.qsfpBreakoutPlans?.(),
+      selectedQsfpBreakout: this.scene.selectedBreakout,
       selectedRoutePoints: this.scene.selectedRoutePointKeys,
       suppressedWireIds: rewire ? new Set([rewire.wireId]) : new Set(),
       tempWire: multiTempWires[0] || tempWire,
@@ -6439,7 +6471,8 @@ class ProductionEngineBridge {
     const selectedLooms = this.scene.selectedLoomIds.size;
     const selectedLoomPortals = this.scene.selectedLoomPortalKey ? 1 : 0;
     const selectedTotal = selectedDevices + selectedRacks + selectedWires + selectedRoutePoints + selectedConnectors + selectedJumpLinks + selectedLooms + selectedLoomPortals;
-    this.hud.setSceneStats({ selected: selectedTotal });
+    if (selectedTotal) this.scene.selectedBreakout = null;
+    this.hud.setSceneStats({ selected: selectedTotal + (this.scene.selectedBreakout ? 1 : 0) });
     this.hud.setMetric("selected racks", selectedRacks);
     this.hud.setMetric("selected devices", selectedDevices);
     this.hud.setMetric("selected wires", selectedWires);
@@ -6465,6 +6498,7 @@ class ProductionEngineBridge {
         sourceKind: wire.sourceKind || "connection"
       }));
     this.api.onEngineSelection?.({
+      breakout: this.scene.selectedBreakout,
       deviceIds: [...this.scene.selectedIds],
       rackIds: [...this.scene.selectedRackIds],
       wireIds: [...this.scene.selectedWireIds],
@@ -8518,6 +8552,8 @@ class ProductionEngineBridge {
     const rackIds = this.selectedRackIds();
     const deviceIds = uniqueItems([...this.selectedDeletableDeviceIds(),
       ...rackIds.flatMap(id => this.scene.rackChildIds(id))]);
+    const breakoutDeletion = this.prepareQsfpBreakoutDeviceDeletion(deviceIds);
+    if (breakoutDeletion.error) { this.showError(breakoutDeletion.error); return false; }
     const wireIds = uniqueItems([...this.scene.selectedWireIds, ...this.scene.affectedWireIdsForObjects(this.includeStageboxEnds(deviceIds))])
       .filter(id => !this.scene.getWire(id)?.stageboxAssemblyId);
     const devices = [], wires = [], racks = [];
@@ -8556,6 +8592,7 @@ class ProductionEngineBridge {
     }
     // UI notifications run after the transaction: a presentation error must
     // not roll back data after its undo command has already been recorded.
+    objects = this.withQsfpBreakoutDeletion(objects, breakoutDeletion);
     this.scene.clearSelection();
     this.recordCommand({ type: "DeleteLoomSelectionCommand", undo: bridge => {
       objects.undo(bridge);
@@ -8649,6 +8686,7 @@ class ProductionEngineBridge {
 
   renderEngineInspector() {
     if (!this.inspectorPanel) return;
+    if (this.renderQsfpBreakoutInspector?.(this.inspectorPanel)) return;
     if (this.scene.selectedLoomIds.size && (this.scene.selectedLoomIds.size > 1 || this.scene.selectedIds.size || this.scene.selectedRackIds.size)) {
       this.inspectorPanel.innerHTML = `<h3>Engine Inspector</h3>${detailsMarkup([
         ["Looms", this.scene.selectedLoomIds.size], ["Objects", this.scene.selectedIds.size],
@@ -10067,9 +10105,8 @@ class ProductionEngineBridge {
       .filter(id => !rackChildIds.has(id))
       .filter(id => isEngineDeletableDevice(this.scene.getDevice(id)));
     if (!ids.length) return;
-    if (this.mutations?.root?.breakoutAssemblies?.length && ids.some(id => breakoutDeviceReserved(this.mutations.root, this.scene.getDevice(id)?.sourceId || id))) {
-      this.showError("Disconnect the QSFP breakout assembly before deleting its device."); return false;
-    }
+    const breakoutDeletion = this.prepareQsfpBreakoutDeviceDeletion(ids);
+    if (breakoutDeletion.error) { this.showError(breakoutDeletion.error); return false; }
     const commitStart = performance.now();
     const beforeAttachments = this.jumpAttachmentSnapshot();
     const selectionBefore = captureEngineSelection(this.scene);
@@ -10112,7 +10149,8 @@ class ProductionEngineBridge {
     this.reconcileJumpAttachments(beforeAttachments.map(item => item.id));
     const afterAttachments = this.jumpAttachmentSnapshot();
     this.scene.clearSelection();
-    this.recordCommand(withJumpAttachments(deleteDevicesCommand(deletedDevices, deletedWires, selectionBefore), beforeAttachments, afterAttachments));
+    this.recordCommand(this.withQsfpBreakoutDeletion(withJumpAttachments(deleteDevicesCommand(deletedDevices, deletedWires, selectionBefore),
+      beforeAttachments, afterAttachments), breakoutDeletion));
     this.markCommitted(`delete ${deletedDevices.length} device${deletedDevices.length === 1 ? "" : "s"}`, mutationMs, {
       deletedDeviceCount: deletedDevices.length,
       deletedWireCount: deletedWires.length
@@ -10135,9 +10173,8 @@ class ProductionEngineBridge {
     const selectionBefore = captureEngineSelection(this.scene);
     const childIds = uniqueItems(ids.flatMap(rackId => this.scene.rackChildIds(rackId)));
     if (!childIds.length) return;
-    if (this.mutations?.root?.breakoutAssemblies?.length && childIds.some(id => breakoutDeviceReserved(this.mutations.root, this.scene.getDevice(id)?.sourceId || id))) {
-      this.showError("Disconnect the QSFP breakout assembly before deleting its rack."); return false;
-    }
+    const breakoutDeletion = this.prepareQsfpBreakoutDeviceDeletion(childIds);
+    if (breakoutDeletion.error) { this.showError(breakoutDeletion.error); return false; }
     const connectedWireIds = uniqueItems([...this.scene.affectedWireIdsForObjects(childIds)]);
     this.beginProductionCommit(`delete ${ids.length} rack${ids.length === 1 ? "" : "s"}`);
     const deletedWires = [];
@@ -10177,7 +10214,8 @@ class ProductionEngineBridge {
     });
     this.reconcileJumpAttachments(beforeAttachments.map(item => item.id));
     this.scene.clearSelection();
-    this.recordCommand(withJumpAttachments(deleteRackInstancesCommand(deletedRacks, deletedDevices, deletedWires, selectionBefore), beforeAttachments, this.jumpAttachmentSnapshot()));
+    this.recordCommand(this.withQsfpBreakoutDeletion(withJumpAttachments(deleteRackInstancesCommand(deletedRacks, deletedDevices,
+      deletedWires, selectionBefore), beforeAttachments, this.jumpAttachmentSnapshot()), breakoutDeletion));
     this.markCommitted(`delete ${deletedRacks.length} rack${deletedRacks.length === 1 ? "" : "s"}`, mutationMs, {
       deletedRackCount: deletedRacks.length,
       deletedDeviceCount: deletedDevices.length,
@@ -10420,13 +10458,19 @@ class ProductionEngineBridge {
       return;
     }
     const bounds = this.scene.bounds();
+    const breakoutPlans = this.qsfpBreakoutPlans?.() || [];
+    let left = bounds.x, top = bounds.y, right = left + bounds.width, bottom = top + bounds.height;
+    for (const plan of breakoutPlans) for (const point of [...plan.trunk, ...plan.branches.flatMap(branch => branch.points)]) {
+      left = Math.min(left, point.x); top = Math.min(top, point.y);
+      right = Math.max(right, point.x); bottom = Math.max(bottom, point.y);
+    }
     const rect = this.canvas.getBoundingClientRect();
     const padding = 120;
-    const zoomX = rect.width / Math.max(1, bounds.width + padding * 2);
-    const zoomY = rect.height / Math.max(1, bounds.height + padding * 2);
+    const zoomX = rect.width / Math.max(1, right - left + padding * 2);
+    const zoomY = rect.height / Math.max(1, bottom - top + padding * 2);
     this.camera.zoom = clamp(Math.min(zoomX, zoomY), ENGINE_MIN_ZOOM, ENGINE_MAX_ZOOM);
-    this.camera.x = bounds.x + bounds.width / 2 - rect.width / this.camera.zoom / 2;
-    this.camera.y = bounds.y + bounds.height / 2 - rect.height / this.camera.zoom / 2;
+    this.camera.x = (left + right) / 2 - rect.width / this.camera.zoom / 2;
+    this.camera.y = (top + bottom) / 2 - rect.height / this.camera.zoom / 2;
   }
 
   fitToView() {
@@ -10579,6 +10623,9 @@ class ProductionEngineBridge {
     if (!this.ready) {
       cursor = "wait";
       cursorState = "loading";
+    } else if (this.qsfpBreakoutGesture) {
+      cursor = "crosshair";
+      cursorState = "qsfp-breakout";
     } else if (this.multiCorePlacement || this.multiCoreRoutePlacement) {
       cursor = "crosshair";
       cursorState = "multi-core-placement";
@@ -10813,6 +10860,7 @@ class ProductionEngineBridge {
 }
 
 Object.assign(ProductionEngineBridge.prototype, multiCoreCanvasMethods);
+Object.assign(ProductionEngineBridge.prototype, qsfpBreakoutCanvasMethods);
 
 function normalizeProductionProject(projectData, reason) {
   const root = projectData?.state || projectData?.project || projectData || {};

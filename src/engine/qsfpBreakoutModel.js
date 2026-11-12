@@ -18,6 +18,8 @@ const profiles = new Map(QSFP_BREAKOUT_MODES.flatMap(mode => [
 export const qsfpBreakoutMode = id => modes.get(id);
 export const qsfpBreakoutCableProfile = type => profiles.get(type);
 export const BREAKOUT_CHANNEL_STATES = Object.freeze(["connected", "disconnected", "unused", "disabled"]);
+export const QSFP_BREAKOUT_LENGTH_UNITS = Object.freeze(["mm", "cm", "m", "km", "in", "ft", "yd"]);
+export const QSFP_BREAKOUT_MAX_ROUTE_POINTS = 64;
 
 export const breakoutProjectRoot = project => project?.state || project?.project || project || {};
 export const breakoutList = value => Array.isArray(value) ? value : [];
@@ -48,4 +50,15 @@ export function breakoutPortReserved(project, deviceId, connectorId) {
 
 export function breakoutDeviceReserved(project, deviceId) {
   return breakoutReservations(project).some(({ endpoint }) => endpoint.deviceId === deviceId);
+}
+
+export function createQsfpBreakoutAssembly({ id, source, modeId, cableType, routeStyle = "bezier" }) {
+  const mode = qsfpBreakoutMode(modeId);
+  if (!mode || qsfpBreakoutCableProfile(cableType)?.modeId !== modeId) throw new Error("Choose a compatible breakout assembly.");
+  return {
+    id, schemaVersion: QSFP_BREAKOUT_VERSION, source: { ...source }, modeId, cableType,
+    length: null, routeStyle, routePoints: [],
+    channels: mode.lanes.map(lane => ({ id: `${id}-channel-${lane}`, lanes: [lane], state: "unused" })),
+    branches: mode.lanes.map(lane => ({ id: `${id}-branch-${lane}`, channelId: `${id}-channel-${lane}`, destination: null }))
+  };
 }

@@ -2,7 +2,7 @@ import { normalizeAvDesignerDevice } from "./projectAdapter.js";
 import { connectorIsNotWorking, exclusiveConnectionRejectionReason } from "./deviceDefinitionV2.js";
 import { isIntegratedCableType, isTransceiverCage, resolveInstalledModule, transceiverModuleValidation } from "./transceiverModules.js";
 import {
-  QSFP_BREAKOUT_VERSION, BREAKOUT_CHANNEL_STATES, qsfpBreakoutMode, qsfpBreakoutCableProfile,
+  QSFP_BREAKOUT_VERSION, BREAKOUT_CHANNEL_STATES, QSFP_BREAKOUT_LENGTH_UNITS, QSFP_BREAKOUT_MAX_ROUTE_POINTS, qsfpBreakoutMode, qsfpBreakoutCableProfile,
   breakoutProjectRoot, breakoutList as list, breakoutId as id, breakoutPortKey, breakoutReservations
 } from "./qsfpBreakoutModel.js";
 
@@ -25,7 +25,7 @@ const diagnostic = (assemblyId, code, message, options = {}) => ({
   domain: "breakouts", assemblyId, id: assemblyId, code, message, severity: "error", ...options
 });
 
-function projectPorts(root) {
+export function resolveQsfpBreakoutPorts(root) {
   const devices = index(list(root.devices), instanceId);
   const templates = index([...new Set([...list(root.deviceLibrary), ...list(root.templates)])], t => t?.id || t?.templateId || t?.name);
   const models = new Map();
@@ -51,6 +51,35 @@ function projectPorts(root) {
     // Instance overrides can restrict hardware, but cannot grant a host mode.
     return authored.length === 1 ? { instance, device, connector, authored: authored[0] } : null;
   };
+}
+
+export function qsfpBreakoutHostModes(project, endpoint) {
+  const port = resolveQsfpBreakoutPorts(breakoutProjectRoot(project))(endpoint);
+  if (!port || !isCage(port.connector, "qsfp-cage") || !isCage(port.authored, "qsfp-cage")) return [];
+  const caps = port.authored.cageCapabilities;
+  return list(caps?.breakoutModes).filter(modeId => {
+    const mode = qsfpBreakoutMode(modeId);
+    return mode && (!Object.hasOwn(caps, "supportedFormFactors") || list(caps.supportedFormFactors).includes(mode.sourceForm));
+  });
+}
+
+function breakoutEndSpec(mode, profile, side) {
+  const source = side === "source";
+  const capabilities = { formFactor: source ? mode.sourceForm : mode.branchForm,
+    supportedRates: [source ? mode.sourceRate : mode.branchRate], signalFamily: "ethernet",
+    direction: "bidirectional", mediaType: profile.mediaType, cableAssembly: true };
+  return { value: profile.cableType, cages: [source ? "qsfp-cage" : mode.branchCage], capabilities };
+}
+
+export function qsfpBreakoutHostCableTypes(project, endpoint, modeId) {
+  const root = breakoutProjectRoot(project);
+  if (!qsfpBreakoutHostModes(root, endpoint).includes(modeId)) return [];
+  const { authored, connector } = resolveQsfpBreakoutPorts(root)(endpoint);
+  const mode = qsfpBreakoutMode(modeId);
+  return ["dac", "aoc"].filter(kind => {
+    const spec = breakoutEndSpec(mode, qsfpBreakoutCableProfile(`breakout-${modeId}-${kind}`), "source");
+    return [authored, connector].every(host => transceiverModuleValidation(host, spec.capabilities, spec).valid);
+  });
 }
 
 function selectedModes(root, resolve, diagnostics) {
@@ -120,10 +149,21 @@ function validateAssembly(assembly, { resolve, selections, add }) {
   if (isIntegratedCableType(assembly.cableType)) add("assembly-profile", "A point-to-point cable is not a breakout assembly.");
   else if (!profile) warn("assembly-type", "Breakout cable type is missing or not recognized.");
   if (mode && profile && profile.modeId !== mode.id) add("assembly-profile", "Breakout cable type conflicts with the selected mode.");
+  if (assembly.routeStyle !== undefined && !["bezier", "orthogonal"].includes(assembly.routeStyle)) {
+    add("assembly-route-style", "Breakout trunk routing must be curved or orthogonal.");
+  }
+  const validPoint = point => record(point) && Number.isFinite(point.x) && Number.isFinite(point.y);
+  if (assembly.routePoints !== undefined && (!Array.isArray(assembly.routePoints)
+    || assembly.routePoints.length > QSFP_BREAKOUT_MAX_ROUTE_POINTS || !assembly.routePoints.every(validPoint))) {
+    add("assembly-route-points", "Breakout trunk route contains invalid points.");
+  }
+  if (assembly.fanoutOffset !== undefined && !validPoint(assembly.fanoutOffset)) {
+    add("assembly-fanout", "Breakout fanout position is invalid.");
+  }
   if (assembly.length === undefined || assembly.length === null) {
     add("assembly-length-unknown", "Physical cable length is unknown.", { severity: "warning" });
   } else if (!record(assembly.length) || !Number.isFinite(assembly.length.value) || assembly.length.value <= 0
-    || !["mm", "cm", "m", "km", "in", "ft", "yd"].includes(assembly.length.unit)) {
+    || !QSFP_BREAKOUT_LENGTH_UNITS.includes(assembly.length.unit)) {
     add("assembly-length", "Physical cable length must be positive and have a supported unit.");
   }
   const checkEndpoint = (endpoint, side, branchId) => {
@@ -159,13 +199,10 @@ function validateAssembly(assembly, { resolve, selections, add }) {
       else if (selected !== mode.id) scoped("host-mode-mismatch", "The source port is set to a different breakout mode.");
     }
     if (!mode || !profile || !expectedCage) return;
-    const capabilities = { formFactor: side === "source" ? mode.sourceForm : mode.branchForm,
-      supportedRates: [side === "source" ? mode.sourceRate : mode.branchRate], signalFamily: "ethernet",
-      direction: "bidirectional", mediaType: profile.mediaType, cableAssembly: true };
-    const endProfile = { value: profile.cableType, cages: [expectedCage], capabilities };
+    const endProfile = breakoutEndSpec(mode, profile, side);
     // Check the definition and, independently, any tighter constraints on the instance.
     for (const host of [authored, connector]) {
-      const fit = transceiverModuleValidation(host, capabilities, endProfile);
+      const fit = transceiverModuleValidation(host, endProfile.capabilities, endProfile);
       if (!fit.valid) scoped("end-capabilities", fit.reason);
       else for (const warning of fit.warnings) scoped("end-unverified", warning, { severity: "warning" });
     }
@@ -223,7 +260,7 @@ function validateAssembly(assembly, { resolve, selections, add }) {
 
 export function validateQsfpBreakoutProject(project) {
   const root = breakoutProjectRoot(project), diagnostics = [], assemblies = [];
-  const resolve = projectPorts(root);
+  const resolve = resolveQsfpBreakoutPorts(root);
   const selections = selectedModes(root, resolve, diagnostics);
   if (Object.hasOwn(root, "breakoutAssemblies") && !Array.isArray(root.breakoutAssemblies)) {
     diagnostics.push(diagnostic("", "assembly-list", "Breakout assemblies must be a list; the original value is retained."));
@@ -294,7 +331,7 @@ export function validateQsfpBreakoutTransition(beforeInput, afterInput) {
     }
   }
   if (next.size && previous.size) {
-    const oldPort = projectPorts(before), newPort = projectPorts(after);
+    const oldPort = resolveQsfpBreakoutPorts(before), newPort = resolveQsfpBreakoutPorts(after);
     const oldReservations = new Set(breakoutReservations(before).map(item => JSON.stringify([item.assemblyId, breakoutPortKey(item.endpoint)])));
     const portSignature = port => port && [port.connector.cardSlotId, port.connector.cardTypeId, port.connector.sourceConnectorId,
       port.connector.physicalType, port.connector.type, port.connector.operationalStatus, resolveInstalledModule(port.connector),

@@ -216391,6 +216391,37 @@
           { "id": "ch-4", "name": "CH 4", "a": { "connectorId": "a-4", "contact": "" }, "b": { "connectorId": "b-4", "contact": "" } }
         ]
       }
+    },
+    {
+      "id": "generic-qsfp-breakout-lab",
+      "name": "Generic QSFP Breakout Lab",
+      "model": "Generic QSFP Breakout Lab",
+      "category": "Switches",
+      "description": "Synthetic breakout test equipment, not a manufacturer specification. Place two units to patch 40G and 100G breakout assemblies.",
+      "width": 380,
+      "height": 582,
+      "connectors": [
+        { "id": "qsfp-plus", "type": "qsfp-cage", "direction": "output", "nameText": "40G Breakout", "x": 380, "y": 152,
+          "cageCapabilities": { "supportedFormFactors": ["qsfp-plus"], "supportedRates": ["40G"], "supportedSignalFamilies": ["ethernet"], "supportedModuleTypes": ["breakout-qsfp-plus-4x10g-dac", "breakout-qsfp-plus-4x10g-aoc"], "supportedMediaTypes": ["direct-attach-copper", "active-optical"], "breakoutModes": ["qsfp-plus-4x10g"] } },
+        { "id": "qsfp28", "type": "qsfp-cage", "direction": "output", "nameText": "100G Breakout", "x": 380, "y": 206,
+          "cageCapabilities": { "supportedFormFactors": ["qsfp28"], "supportedRates": ["100G"], "supportedSignalFamilies": ["ethernet"], "supportedModuleTypes": ["breakout-qsfp28-4x25g-dac", "breakout-qsfp28-4x25g-aoc"], "supportedMediaTypes": ["direct-attach-copper", "active-optical"], "breakoutModes": ["qsfp28-4x25g"] } },
+        { "id": "sfp-plus-1", "type": "sfp-plus-cage", "direction": "input", "nameText": "10G 1", "x": 0, "y": 152,
+          "cageCapabilities": { "supportedFormFactors": ["sfp-plus"], "supportedRates": ["10G"], "supportedSignalFamilies": ["ethernet"], "supportedModuleTypes": ["breakout-qsfp-plus-4x10g-dac", "breakout-qsfp-plus-4x10g-aoc"], "supportedMediaTypes": ["direct-attach-copper", "active-optical"] } },
+        { "id": "sfp-plus-2", "type": "sfp-plus-cage", "direction": "input", "nameText": "10G 2", "x": 0, "y": 206,
+          "cageCapabilities": { "supportedFormFactors": ["sfp-plus"], "supportedRates": ["10G"], "supportedSignalFamilies": ["ethernet"], "supportedModuleTypes": ["breakout-qsfp-plus-4x10g-dac", "breakout-qsfp-plus-4x10g-aoc"], "supportedMediaTypes": ["direct-attach-copper", "active-optical"] } },
+        { "id": "sfp-plus-3", "type": "sfp-plus-cage", "direction": "input", "nameText": "10G 3", "x": 0, "y": 260,
+          "cageCapabilities": { "supportedFormFactors": ["sfp-plus"], "supportedRates": ["10G"], "supportedSignalFamilies": ["ethernet"], "supportedModuleTypes": ["breakout-qsfp-plus-4x10g-dac", "breakout-qsfp-plus-4x10g-aoc"], "supportedMediaTypes": ["direct-attach-copper", "active-optical"] } },
+        { "id": "sfp-plus-4", "type": "sfp-plus-cage", "direction": "input", "nameText": "10G 4", "x": 0, "y": 314,
+          "cageCapabilities": { "supportedFormFactors": ["sfp-plus"], "supportedRates": ["10G"], "supportedSignalFamilies": ["ethernet"], "supportedModuleTypes": ["breakout-qsfp-plus-4x10g-dac", "breakout-qsfp-plus-4x10g-aoc"], "supportedMediaTypes": ["direct-attach-copper", "active-optical"] } },
+        { "id": "sfp28-1", "type": "sfp28-cage", "direction": "input", "nameText": "25G 1", "x": 0, "y": 368,
+          "cageCapabilities": { "supportedFormFactors": ["sfp28"], "supportedRates": ["25G"], "supportedSignalFamilies": ["ethernet"], "supportedModuleTypes": ["breakout-qsfp28-4x25g-dac", "breakout-qsfp28-4x25g-aoc"], "supportedMediaTypes": ["direct-attach-copper", "active-optical"] } },
+        { "id": "sfp28-2", "type": "sfp28-cage", "direction": "input", "nameText": "25G 2", "x": 0, "y": 422,
+          "cageCapabilities": { "supportedFormFactors": ["sfp28"], "supportedRates": ["25G"], "supportedSignalFamilies": ["ethernet"], "supportedModuleTypes": ["breakout-qsfp28-4x25g-dac", "breakout-qsfp28-4x25g-aoc"], "supportedMediaTypes": ["direct-attach-copper", "active-optical"] } },
+        { "id": "sfp28-3", "type": "sfp28-cage", "direction": "input", "nameText": "25G 3", "x": 0, "y": 476,
+          "cageCapabilities": { "supportedFormFactors": ["sfp28"], "supportedRates": ["25G"], "supportedSignalFamilies": ["ethernet"], "supportedModuleTypes": ["breakout-qsfp28-4x25g-dac", "breakout-qsfp28-4x25g-aoc"], "supportedMediaTypes": ["direct-attach-copper", "active-optical"] } },
+        { "id": "sfp28-4", "type": "sfp28-cage", "direction": "input", "nameText": "25G 4", "x": 0, "y": 530,
+          "cageCapabilities": { "supportedFormFactors": ["sfp28"], "supportedRates": ["25G"], "supportedSignalFamilies": ["ethernet"], "supportedModuleTypes": ["breakout-qsfp28-4x25g-dac", "breakout-qsfp28-4x25g-aoc"], "supportedMediaTypes": ["direct-attach-copper", "active-optical"] } }
+      ]
     }
   ],
   "nodeTypes": {
@@ -219369,6 +219400,17 @@
   },
   "libraryThumbnails": {},
   "promotions": [
+    {
+      "packageId": "52e3455f6728f06eddbc2ccda1692bdd5887f978f307ec6568a202ab95dce5e3",
+      "records": [
+        {
+          "kind": "device",
+          "id": "generic-qsfp-breakout-lab",
+          "baseFingerprint": null,
+          "candidateFingerprint": "27c96638c30ad1eae48733796913befdc194f30ab82adb8746a847265100f810"
+        }
+      ]
+    },
     {
       "packageId": "e6d112ae5ce81dd173e5424fe11fcd1677500b50e6bc9a62a01f81246c996187",
       "records": [

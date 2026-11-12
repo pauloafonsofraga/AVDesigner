@@ -1194,6 +1194,27 @@ export class WebglGraphRenderer {
     if (renderOptions.wires && !renderOptions.hideStaticWires) {
       sectionStart = performance.now();
       this.drawStaticWires(dragSession, layerTrace, staticSuppressedGeometryIds);
+      if (interaction.qsfpBreakoutPlans?.length) {
+        const breakoutVertices = [];
+        for (const plan of interaction.qsfpBreakoutPlans) {
+          if (this.activeProjectLayerId && (plan.layerId || "layer-default") !== this.activeProjectLayerId) continue;
+          const selected = interaction.selectedQsfpBreakout?.assemblyId === plan.id ? interaction.selectedQsfpBreakout : null;
+          const trunkSelected = selected && !selected.branchId;
+          pushPolyline(breakoutVertices, plan.trunk, WIRE_BASE_WIDTH * 2, trunkSelected ? "#fb9d4e" : "#82cde9");
+          for (const branch of plan.branches) {
+            const active = selected?.branchId === branch.id;
+            if (active) pushPolyline(breakoutVertices, branch.points, WIRE_BASE_WIDTH + 5, "rgba(251,121,4,.42)");
+            pushPolyline(breakoutVertices, branch.points, WIRE_BASE_WIDTH, branch.color);
+            const radius = Math.min(9, Math.max(4, 5 / camera.zoom));
+            pushCircle(breakoutVertices, branch.tip, radius, "#17242e");
+            pushCircleOutline(breakoutVertices, branch.tip, radius, 1.6 / camera.zoom, active ? "#fb9d4e" : branch.color);
+          }
+          if (trunkSelected) for (const point of [plan.hub, ...plan.corners]) {
+            pushCircle(breakoutVertices, point, 4 / camera.zoom, "#fb9d4e");
+          }
+        }
+        if (breakoutVertices.length) this.drawBuffer(this.liveBuffer, upload(gl, this.liveBuffer, breakoutVertices));
+      }
       if (loomDragPreview?.plan && renderOptions.wires) {
         this.drawLoomPreview(scene, loomDragPreview.plan);
       } else {
@@ -1486,6 +1507,19 @@ export class WebglGraphRenderer {
       .map(device => scene.canvasDeviceForId?.(device.id) || device);
     const dragSession = options.dragSession || null;
     const offsets = dragSession?.offsetMap();
+    if (renderOptions.wires && !renderOptions.hideStaticWires && camera.zoom >= 0.35) {
+      for (const plan of options.interactionState?.qsfpBreakoutPlans || []) {
+        if (this.activeProjectLayerId && (plan.layerId || "layer-default") !== this.activeProjectLayerId) continue;
+        ctx.save();
+        ctx.fillStyle = "#ecf5fb";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.font = "bold 8px system-ui";
+        for (const branch of plan.branches) ctx.fillText(String(branch.lane),
+          (branch.tip.x - camera.x) * camera.zoom, (branch.tip.y - camera.y) * camera.zoom);
+        ctx.restore();
+      }
+    }
     if (renderOptions.connectorMarkers) drawStageboxNodeBadges(ctx, visibleDevices(scene, camera, this.resolution)
       .filter(device => deviceVisible(device, renderOptions)), camera, offsets);
     const selectedIds = options.selectedIds || new Set();

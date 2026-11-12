@@ -30682,6 +30682,7 @@
       if (placedIds.length) {
         if (engineBridge?.deleteSelectedDevices) {
           engineBridge.deleteSelectedDevices(placedIds);
+          if (placedIds.some(id => instanceById(id))) return;
         } else {
           deleteSelectedItems(placedIds.map(id => ({ type: "device", id })));
         }
@@ -30879,6 +30880,9 @@
       if (!selection) return;
       if (engineBridge) {
         const selectedItems = selection.type === "multi" ? (selection.items || []) : [selection];
+        if (selection.type === "qsfp-breakout") {
+          engineBridge.deleteQsfpBreakoutSelection(); return;
+        }
         const selectedLoom = selectedItems.find(item => item?.type === "loom");
         if (selectedLoom) {
           engineBridge.deleteSelectionWithLooms?.();
@@ -31629,6 +31633,7 @@
 
     function renderInspector() {
       renderProjectLayersPanel();
+      if (state.selected?.type === "qsfp-breakout" && activeEngineBridge()?.renderQsfpBreakoutInspector(inspectorBody)) return;
       if (state.selected?.type==='image-object' && projectLayersPanel?.renderReferenceInspector(inspectorBody,state.selected.id)) return;
       if (activeEngineBridge()?.renderMultiCoreInspector?.(inspectorBody)) return;
       const selection = state.selected;
@@ -33214,6 +33219,7 @@
         ${activeEngineBridge() && connectorHasCable(deviceId, connectorId) ? '<button class="tool-button" id="connectorSignalChain" type="button">Signal Chain</button>' : ""}
       `;
       document.getElementById("connectorSignalChain")?.addEventListener("click", () => openSignalChainForConnector(deviceId, connectorId));
+      activeEngineBridge()?.renderQsfpBreakoutPortInspector(inspectorBody, deviceId, connectorId);
       bindCanvasConnectorFieldInputs(deviceId, connectorId);
       const moduleControl = document.getElementById("connectorModule");
       if (moduleControl) {
@@ -38096,6 +38102,10 @@ document.addEventListener("click", function(event) {
     }
 
     function syncProductionSelectionFromEngine(selection = {}) {
+      if (selection.breakout) {
+        state.selected = { type: "qsfp-breakout", ...selection.breakout };
+        renderInspector(); return;
+      }
       const projected = [...(selection.devices || []), ...(selection.wires || [])].filter(item => item.multiCoreIdentity);
       if (projected.length) {
         state.selected = { type: "multi-core-selection", items: [
@@ -38252,6 +38262,10 @@ document.addEventListener("click", function(event) {
             nextId,
             onEngineLoomCounterChange: counter => { state.loomNumberCounter = counter; },
             onEngineLoomsChange: looms => { state.looms = structuredClone(looms || []); },
+            onEngineBreakoutsChange: assemblies => {
+              if (assemblies === undefined) delete state.breakoutAssemblies;
+              else state.breakoutAssemblies = assemblies;
+            },
             onEngineLoomPortalCounterChange: counter => { state.loomPortalNumberCounter = counter; },
             setJumpNodeToolActive,
             getGridVisible: () => state.gridVisible !== false,

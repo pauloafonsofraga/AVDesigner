@@ -163,6 +163,7 @@ export class SceneGraph {
     this.selectedWireIds.clear();
     this.selectedLoomId = "";
     this.selectedLoomPortalKey = "";
+    this.selectedBreakout = null;
     this.expandedLoomIds.clear();
     this.selectedConnectorKeys.clear();
     this.selectedRoutePointKeys.clear();
@@ -1403,6 +1404,7 @@ export class SceneGraph {
   }
 
   clearSelection() {
+    this.selectedBreakout = null;
     this.selectedLoomId = "";
     this.selectedLoomPortalKey = "";
     this.selectedIds.clear();
