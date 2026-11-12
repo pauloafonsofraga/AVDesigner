@@ -46,6 +46,26 @@ const selectTrunk = async (index = 0) => {
   await click("trunk", null, index);
   await action("delete").waitFor();
 };
+const assertLane2Endpoint = async (connectedPort, freePort) => {
+  const result = await page.evaluate(async ({ connectedPort, freePort }) => {
+    const { breakoutPortReserved } = await import("./src/engine/qsfpBreakoutModel.js");
+    const bridge = activeEngineBridge();
+    const { scene, mutations } = bridge;
+    const [deviceId, connectorId] = connectedPort;
+    const device = scene.getDevice(deviceId);
+    const connector = scene.getConnector(deviceId, connectorId);
+    const lane = bridge.qsfpBreakoutPlans(null)[1].branches.find(branch => branch.lane === 2);
+    return {
+      target: lane.points.at(-1),
+      anchor: scene.connectorWorldPoint(device, connector),
+      connectedOccupied: breakoutPortReserved(mutations.root, ...connectedPort),
+      freeOccupied: breakoutPortReserved(mutations.root, ...freePort)
+    };
+  }, { connectedPort, freePort });
+  assert.deepEqual(result.target, result.anchor);
+  assert.equal(result.connectedOccupied, true);
+  assert.equal(result.freeOccupied, false);
+};
 const load = async () => {
   await page.evaluate(() => {
     const lab = window.WireNexusFactoryCatalogue.devices.find(device => device.id === "generic-qsfp-breakout-lab");
@@ -127,9 +147,54 @@ try {
   await inspector.locator("[data-breakout-type]").selectOption("aoc");
   await action("create").click();
   assert.equal((await snapshot())[1].cableType, "breakout-qsfp28-4x25g-aoc");
-  await drag(await scenePoint("tip", 2, 1), await scenePoint("port", ["sink", "sfp28-3"]));
-  assert.equal((await snapshot())[1].branches[1].destination.connectorId, "sfp28-3");
-  await action("trunk").click();
+  for (const lane of [4, 2, 1]) {
+    await drag(await scenePoint("tip", lane, 1), await scenePoint("port", ["sink", `sfp28-${lane}`]));
+    assert.equal((await snapshot())[1].branches[lane - 1].destination?.connectorId, `sfp28-${lane}`);
+  }
+  const beforeReplug = await snapshot();
+  assert.equal(beforeReplug[1].channels[2].state, "unused");
+  assert.equal(beforeReplug[1].branches[2].destination, null);
+  const oldPort = ["sink", "sfp28-2"], newPort = ["spare", "sfp28-2"];
+  const dragLane2 = async port => drag(await scenePoint("port", oldPort), await scenePoint("port", port));
+  const beforeHistory = await page.evaluate(() => activeEngineBridge().commandIndex);
+  await dragLane2(["sink", "sfp28-1"]);
+  await dragLane2(["spare", "sfp-plus-3"]);
+  assert.deepEqual(await snapshot(), beforeReplug);
+  assert.equal(await page.evaluate(() => activeEngineBridge().commandIndex), beforeHistory);
+  await assertLane2Endpoint(oldPort, newPort);
+
+  await dragLane2(newPort);
+  const afterReplug = structuredClone(beforeReplug);
+  afterReplug[1].branches[1].destination = { ...beforeReplug[1].branches[1].destination, deviceId: newPort[0], connectorId: newPort[1] };
+  assert.deepEqual(await snapshot(), afterReplug, "Dragging the attached socket should replug only lane 2");
+  assert.equal(await page.evaluate(() => activeEngineBridge().commandIndex), beforeHistory + 1);
+  await assertLane2Endpoint(newPort, oldPort);
+  await page.locator("#undoAction").click();
+  assert.deepEqual(await snapshot(), beforeReplug);
+  await assertLane2Endpoint(oldPort, newPort);
+  await page.locator("#redoAction").click();
+  assert.deepEqual(await snapshot(), afterReplug);
+  await assertLane2Endpoint(newPort, oldPort);
+
+  await page.evaluate(() => {
+    window.showSaveFilePicker = undefined;
+    window.breakoutBeforeReload = state.breakoutAssemblies;
+  });
+  const downloading = page.waitForEvent("download");
+  await page.locator("#saveProjectAs").click();
+  const file = await downloading;
+  assert.ok(file.suggestedFilename().endsWith(".avd"));
+  await page.locator("#fileInput").setInputFiles(await file.path());
+  await page.waitForFunction(() => state.breakoutAssemblies !== window.breakoutBeforeReload && activeEngineBridge()?.ready);
+  assert.deepEqual(await snapshot(), afterReplug);
+  await assertLane2Endpoint(newPort, oldPort);
+  await page.evaluate(() => {
+    const bridge = activeEngineBridge();
+    Object.assign(bridge.camera, { x: -40, y: -20, zoom: .63 });
+    bridge.scheduleRender();
+  });
+  await click("port", ["host", "qsfp28"]);
+  await action("inspect").click();
   await action("delete").click();
   assert.deepEqual(await snapshot(), routed);
   await page.evaluate(() => {
@@ -149,7 +214,7 @@ try {
   await page.evaluate(() => activeEngineBridge().undoEngineCommand());
   assert.deepEqual(await snapshot(), routed);
   assert.deepEqual(errors, []);
-  console.log("Chrome QSFP breakout acceptance passed: both modes, out-of-order branches, rejected drop, replug, disconnect, trunk routing/length, .avd reload and device deletion/undo.");
+  console.log("Chrome QSFP breakout acceptance passed, including QSFP28 4 -> 2 -> 1, lane 2 socket replug, rejected drops, Undo/Redo, exact occupancy and geometry, and .avd download/reopen.");
 } finally {
   await browser.close();
 }

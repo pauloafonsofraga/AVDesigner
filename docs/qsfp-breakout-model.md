@@ -8,7 +8,7 @@ wire records. No existing factory device was opted in.
 
 - In **Network > Switches**, place two **Generic QSFP Breakout Lab** devices. The lab device is synthetic, not a manufacturer specification.
 - Click its 40G or 100G QSFP cage. In the Inspector choose the declared mode and DAC or AOC, then select **Create Breakout**.
-- Drag a numbered branch handle to an empty compatible cage, or select a branch and use **Connect Branch** / **Replug Branch**. Invalid and canceled drops retain the previous attachment. Use **Disconnect Branch** to free a socket.
+- Drag a numbered branch handle to an empty compatible cage. To replug an attached branch, drag directly from its destination socket or use **Replug Branch** in the Inspector. Invalid and canceled drops retain the previous attachment. Use **Disconnect Branch** to free a socket.
 - Select the trunk to set the shared length, choose curved or orthogonal routing, add or drag route points, move the fanout hub, reset the route, or delete the assembly. Route points are canvas coordinates; the hub offset is relative to the source anchor.
 - Deleting a source device removes its assembly; deleting destinations disconnects the affected branches. Undo restores them together. Incompatible device definition, card and module changes remain blocked until the relevant ends are disconnected.
 

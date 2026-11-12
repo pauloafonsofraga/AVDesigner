@@ -148,3 +148,58 @@ test("committed branch and assembly history restores exact IDs and emits one pro
   commands[1].undo(bridge);
   assert.deepEqual(root, after);
 });
+
+test("dragging the attached QSFP28 socket after 4 -> 2 -> 1 replugs only lane 2 and replays occupancy", () => {
+  const root = sample(), modeId = "qsfp28-4x25g";
+  root.devices[0].breakoutPortModes = [{ connectorId: "qsfp28", modeId }];
+  root.breakoutAssemblies = [createQsfpBreakoutAssembly({
+    id, source: { ...source, connectorId: "qsfp28" }, modeId, cableType: `breakout-${modeId}-aoc`
+  })];
+  const port = (n, deviceId = "dst") => ({ deviceId, connectorId: `sfp28-${n}`, anchorId: "left" });
+  for (const lane of [4, 2, 1]) root.breakoutAssemblies = attach(root, lane, port(lane)).after.assemblies;
+  const before = structuredClone(root), scene = makeScene(root), commands = [];
+  const bridge = Object.assign({
+    mutations: { root, record() {} }, scene, api: {}, camera: { x: 0, y: 0, zoom: 1 },
+    connectorHitToleranceWorld: () => 10, beginProductionCommit() {}, markCommitted() {},
+    showError() {}, scheduleRender() {}, updateSelectionHud() {}, updateCanvasCursor() {},
+    cancelActiveInteraction() {}, deactivateLoomCreation() {}, capturePointer() {}, releasePointerCapture() {},
+    recordCommand: command => commands.push(command)
+  }, qsfpBreakoutCanvasMethods);
+  const point = ref => scene.connectorAnchorWorldPoint(scene.getDevice(ref.deviceId),
+    scene.getConnector(ref.deviceId, ref.connectorId), ref.anchorId);
+  const event = { button: 0, pointerId: 1, preventDefault() {}, stopImmediatePropagation() {} };
+  const oldPort = port(2), newPort = port(2, "alt"), origin = point(oldPort);
+  const drop = ref => {
+    assert.ok(bridge.qsfpBreakoutPointerDown(event, origin, origin));
+    assert.equal(bridge.qsfpBreakoutGesture.branchId, branchId(2));
+    assert.deepEqual(root, before, "Pointer-down must not release the old socket");
+    assert.ok(bridge.qsfpBreakoutPointerUp(event, point(ref)));
+  };
+  const assertEndpoint = (connected, free) => {
+    const branch = bridge.qsfpBreakoutPlans(null)[0].branches.find(item => item.id === branchId(2));
+    assert.deepEqual(branch.points.at(-1), point(connected));
+    assert.equal(breakoutReservations(root).some(({ endpoint }) => endpoint.deviceId === free.deviceId
+      && endpoint.connectorId === free.connectorId), false);
+    assert.deepEqual(breakoutReservations(root).find(({ branchId: reserved }) => reserved === branchId(2)).endpoint, connected);
+  };
+  drop(oldPort);
+  assert.ok(scene.selectedConnectorKeys.has("dst:sfp28-2"), "A click still inspects the socket");
+  drop(port(1));
+  assert.deepEqual(root, before);
+  assert.equal(commands.length, 0);
+  assertEndpoint(oldPort, newPort);
+
+  drop(newPort);
+  const after = structuredClone(before);
+  after.breakoutAssemblies[0].branches[1].destination = newPort;
+  assert.deepEqual(root, after);
+  assert.equal(commands.length, 1);
+  assert.equal(commands[0].type, "Replug breakout branch");
+  assertEndpoint(newPort, oldPort);
+  commands[0].undo(bridge);
+  assert.deepEqual(root, before);
+  assertEndpoint(oldPort, newPort);
+  commands[0].redo(bridge);
+  assert.deepEqual(root, after);
+  assertEndpoint(newPort, oldPort);
+});

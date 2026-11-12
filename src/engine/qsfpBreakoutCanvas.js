@@ -298,7 +298,8 @@ export const qsfpBreakoutCanvasMethods = {
     if (!plan?.editable || assembly !== gesture.original) { this.updateSelectionHud(); return false; }
     if (gesture.kind === "branch") {
       if (gesture.target) {
-        const applied = this.commitQsfpBreakout("Connect breakout branch", draft =>
+        const replug = list(assembly.branches).some(branch => branch?.id === gesture.branchId && branch.destination);
+        const applied = this.commitQsfpBreakout(replug ? "Replug breakout branch" : "Connect breakout branch", draft =>
           setQsfpBreakoutBranch(draft.assemblies, gesture.assemblyId, gesture.branchId, gesture.target));
         if (!applied) this.updateSelectionHud();
         return applied;
@@ -327,8 +328,26 @@ export const qsfpBreakoutCanvasMethods = {
       return true;
     }
     if (!this.mutations?.root?.breakoutAssemblies?.length || this.wireCreate) return false;
-    if (hitTestConnector(this.scene, world, this.connectorHitToleranceWorld(), this.camera.zoom).connector
-      || hitTestDevice(this.scene, world, d => d.kind !== "area" && !d.visual?.referenceImage).device) return false;
+    const connectorHit = hitTestConnector(this.scene, world, this.connectorHitToleranceWorld(), this.camera.zoom).connector;
+    if (connectorHit) {
+      const endpoint = qsfpBreakoutEndpoint(connectorHit);
+      if (!endpoint) return false;
+      // Connected ends sit on equipment sockets, ahead of cable-body hit targets.
+      const reservations = breakoutReservations(this.mutations.root).filter(({ endpoint: ref }) =>
+        ref.deviceId === endpoint.deviceId && ref.connectorId === endpoint.connectorId);
+      const [reservation] = reservations;
+      if (reservations.length !== 1 || reservation.role !== "branch" || reservation.endpoint.anchorId !== endpoint.anchorId) return false;
+      const { assemblyId, branchId } = reservation;
+      const branch = this.qsfpBreakoutPlans(null).find(plan => plan.id === assemblyId)?.branches.find(item => item.id === branchId);
+      if (!branch?.editable || branch.state === "disabled") return false;
+      consume(event);
+      this.selectQsfpBreakout(assemblyId, branchId);
+      this.beginQsfpBreakoutGesture({ kind: "branch", assemblyId, branchId, pointerId: event.pointerId,
+        cursor: connectorHit.point, start: point,
+        pressedSocket: { deviceId: connectorHit.device.id, connectorId: connectorHit.connector.id } });
+      return true;
+    }
+    if (hitTestDevice(this.scene, world, d => d.kind !== "area" && !d.visual?.referenceImage).device) return false;
     const hit = hitTestQsfpBreakout(this.qsfpBreakoutPlans(null), world, 9 / this.camera.zoom, this.scene.selectedBreakout);
     if (!hit) return false;
     consume(event);
@@ -345,7 +364,14 @@ export const qsfpBreakoutCanvasMethods = {
     if (gesture?.pointerId === undefined || event.pointerId !== gesture.pointerId) return false;
     consume(event);
     if (Math.hypot(gesture.start.x - point.x, gesture.start.y - point.y) >= 4) this.finishQsfpBreakoutGesture(point, true);
-    else { this.cancelQsfpBreakoutGesture(); this.updateSelectionHud(); }
+    else {
+      this.cancelQsfpBreakoutGesture();
+      if (gesture.pressedSocket) {
+        this.scene.selectedBreakout = null;
+        this.scene.selectConnectorOnly(gesture.pressedSocket.deviceId, gesture.pressedSocket.connectorId);
+      }
+      this.updateSelectionHud();
+    }
     return true;
   },
 
