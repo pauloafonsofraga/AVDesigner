@@ -1,6 +1,7 @@
 import { normalizeAvDesignerDevice } from "./projectAdapter.js";
 import { engineCompatibilitySummary, engineConnectorCompatibilityType, ENGINE_CONNECTOR_TYPE_COLORS,
-  isEngineCageConnector, installedModuleDetailsForEngine, engineSyntheticCableEndDirection } from "./connectorCompatibility.js";
+  isEngineCageConnector, installedModuleDetailsForEngine, engineConnectorForSavedCableValidation,
+  engineSyntheticCableEndDirection } from "./connectorCompatibility.js";
 import { dacWireValidation, isDacCableType, transceiverConnectionValidation, installedModuleCapabilities } from "./transceiverModules.js";
 import { cardFitsPhysicalSlot } from "./modularDeviceLayout.js";
 import { exclusiveConnectionRejectionReason } from "./deviceDefinitionV2.js";
@@ -163,7 +164,8 @@ export function validateModularCardChanges(beforeValue, afterValue, { includeCon
         direction: engineSyntheticCableEndDirection(newPort, end, wire.cableType === "sdi" || isEngineCageConnector(newPort) || isEngineCageConnector(peerPort)),
         fiberMode: wire.fiberMode || "" };
       if (!isDacCableType(wire.cableType)) {
-        const cableCheck = engineCompatibilitySummary(hit, { device: { id: `cable:${wire.id}` }, connector: cablePort });
+        const connector = engineConnectorForSavedCableValidation(newPort, peerPort, wire.fiberMode);
+        const cableCheck = engineCompatibilitySummary({ ...hit, connector }, { device: { id: `cable:${wire.id}` }, connector: cablePort });
         if (!cableCheck.valid) { fail(cableCheck.reason); continue; }
       } else if (type !== wire.cableType) { fail("DAC cable and installed module types differ."); continue; }
       if (peerDevice && !peerPort) { fail("The opposite cable endpoint cannot be resolved safely."); continue; }

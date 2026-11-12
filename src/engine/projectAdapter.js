@@ -16,6 +16,7 @@ import {
   engineConnectorDisplayLabel,
   engineConnectorFiberFamily,
   engineConnectorFiberMode,
+  engineDeclaredConnectorFiberMode,
   engineConnectorInfoFields,
   engineConnectorLabelSource,
   engineWireColorForCable,
@@ -1042,6 +1043,7 @@ function normalizeConnectorVisualMetadata(connector = {}, nodeColorByType = NODE
   const moduleDetails = installedModuleDetailsForEngine(connector);
   const effectiveType = effectiveConnectorTypeForEngine(connector) || String(connector.type || "");
   const displayLabel = engineConnectorDisplayLabel(connector, fallback || effectiveType);
+  const fiberMode = engineConnectorFiberMode(connector) || String(connector.fiberMode || "");
   return {
     effectiveType,
     displayLabel,
@@ -1052,7 +1054,8 @@ function normalizeConnectorVisualMetadata(connector = {}, nodeColorByType = NODE
     installedModuleFiberMode: String(connector.installedModuleFiberMode || ""),
     installedModuleFiberFamily: String(moduleDetails.fiberFamily || ""),
     installedModuleLabel: displayLabel,
-    fiberMode: engineConnectorFiberMode(connector) || String(connector.fiberMode || ""),
+    fiberMode,
+    ...(fiberMode && !engineDeclaredConnectorFiberMode(connector) ? { fiberModeInferred: true } : {}),
     fiberFamily: engineConnectorFiberFamily(connector),
     signalIndex: Number(connector.signalIndex) || 0,
     faceplateSide: Boolean(connector.faceplateSide),

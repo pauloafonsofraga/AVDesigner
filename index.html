@@ -8017,7 +8017,8 @@
       connector.signalIndex = connector.signalIndex || 0;
       connector.customColor = connector.type === "misc" ? (connector.customColor || cableTypes.misc.color) : (connector.customColor || "");
       connector.installedModuleType = connector.installedModuleType || "";
-      connector.fiberMode = isFiberCableType(effectiveConnectorType(connector) || connector.type) ? (connector.fiberMode || activeFiberModeForCageConnector(connector) || DEFAULT_FIBER_MODE) : "";
+      connector.fiberMode = isFiberCableType(effectiveConnectorType(connector) || connector.type)
+        ? (connector.fiberMode || activeFiberModeForCageConnector(connector) || (engineTransceiverApi() ? "" : DEFAULT_FIBER_MODE)) : "";
       connector.empty = connector.empty === true;
       normalizeMatrixPortFlag(connector);
       // New card nodes authored from the editor use the same V2 connector
@@ -19601,7 +19602,8 @@
       connector.signalIndex = connector.signalIndex || 0;
       connector.customColor = connector.customColor || "";
       connector.installedModuleType = connector.installedModuleType || "";
-      connector.fiberMode = isFiberCableType(effectiveConnectorType(connector) || connector.type) ? (connector.fiberMode || activeFiberModeForCageConnector(connector) || DEFAULT_FIBER_MODE) : "";
+      connector.fiberMode = isFiberCableType(effectiveConnectorType(connector) || connector.type)
+        ? (connector.fiberMode || activeFiberModeForCageConnector(connector) || (engineTransceiverApi() ? "" : DEFAULT_FIBER_MODE)) : "";
       connector.powerPlug = connector.powerPlug && typeof connector.powerPlug === "object" ? connector.powerPlug : null;
       connector.empty = connector.empty === true;
       connector.nameCustom = connector.nameCustom === true;
@@ -33321,6 +33323,29 @@
       `;
     }
 
+    function transceiverWireDetailsHtml(connection, bridge) {
+      const api = engineTransceiverApi();
+      if (!api?.engineCompatibilitySummary || !bridge?.scene || !connection.from?.deviceId || !connection.to?.deviceId) return "";
+      const hit = endpoint => ({
+        device: { id: endpoint.deviceId }, connector: bridge.scene.getConnector(endpoint.deviceId, endpoint.connectorId)
+      });
+      const from = hit(connection.from), to = hit(connection.to);
+      if (!from.connector || !to.connector || (!api.isTransceiverCage(from.connector) && !api.isTransceiverCage(to.connector))) return "";
+      const result = api.engineCompatibilitySummary(from, to);
+      let state = result.compatibilityStatus, details = result.valid ? result.warnings.join(" ") : result.reason;
+      const cableMode = api.normalizeEngineFiberMode(connection.fiberMode);
+      if (result.valid && cableMode && result.allowedFiberModes.length && !result.allowedFiberModes.includes(cableMode)) {
+        state = "incompatible";
+        details = "The saved cable's fibre mode does not match the endpoints.";
+      } else if (result.valid && connection.cableAssembly) {
+        const assembly = api.dacWireValidation(connection, from.connector, to.connector);
+        state = !assembly.valid ? "incompatible" : assembly.warnings?.length ? "unverified" : state;
+        details = !assembly.valid ? assembly.reason : assembly.warnings?.join(" ") || details;
+      }
+      const label = { compatible: "Compatible", incompatible: "Incompatible", unverified: "Unverified" }[state];
+      return `<dt>Compatibility</dt><dd data-transceiver-link-status="${escapeHtml(state)}" style="overflow-wrap:anywhere">${escapeHtml(label)}${details ? `: ${escapeHtml(details)}` : ""}</dd>`;
+    }
+
     function renderWireInspector(connectionId) {
       const connection = state.connections.find(item => item.id === connectionId);
       if (!connection) return;
@@ -33352,6 +33377,7 @@
           <dt>From</dt><dd>${escapeHtml(fromDevice ? `${fromDevice.name} / ${endpointConnectorName(connection.from)}` : fromSurface?.name || multiCoreLabel(connection.from) || "Missing")}</dd>
           <dt>To</dt><dd>${escapeHtml(toDevice ? `${toDevice.name} / ${endpointConnectorName(connection.to)}` : toSurface?.name || multiCoreLabel(connection.to) || "Missing")}</dd>
           ${wireAssemblyDetailsHtml(connection)}
+          ${transceiverWireDetailsHtml(connection, bridge)}
         </dl>
         ${activeEngineBridge() ? '<button class="tool-button" id="wireSignalChain" type="button">Signal Chain</button>' : ""}
         <button class="tool-button" id="playWireTrace" type="button">▶ Play Cable</button>

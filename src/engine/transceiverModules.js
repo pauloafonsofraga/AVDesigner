@@ -1,3 +1,5 @@
+import { opticalLinkCheck, opticalTransceiverProfiles } from "./transceiverOptics.js";
+
 // Module profiles describe capability, not a guarantee of host-platform support.
 const SFP_CAGES = ["sfp-cage", "sfp-plus-cage", "sfp28-cage"];
 const ALL_CAGES = [...SFP_CAGES, "qsfp-cage"];
@@ -33,12 +35,16 @@ export const TRANSCEIVER_MODULE_OPTIONS = Object.freeze([
   ].map(([formFactor, label, rate]) => option(`dac-${formFactor}`, `${label} DAC${rate ? ` ${rate}` : ""} (integrated cable end)`,
     `dac-${formFactor}`, [`${formFactor}-cage`],
     { formFactor, signalFamily: "ethernet", mediaType: "direct-attach-copper", direction: "bidirectional",
-      supportedRates: rate ? [rate] : [], cableAssembly: true }))
+      supportedRates: rate ? [rate] : [], cableAssembly: true })),
+  ...opticalTransceiverProfiles
 ].map(item => Object.freeze({ ...item, cages: Object.freeze(item.cages), capabilities: Object.freeze(item.capabilities) })));
 
 const key = value => String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
-function activeTypeForModuleValue(value) {
-  return TRANSCEIVER_MODULE_ACTIVE_TYPES.get(key(value)) || transceiverModuleOption(value)?.activeType || "";
+function activeTypeForModuleValue(value, allowDetailedOptics) {
+  const alias = TRANSCEIVER_MODULE_ACTIVE_TYPES.get(key(value));
+  if (alias) return alias;
+  const profile = transceiverModuleOption(value);
+  return profile?.capabilities.optical && !allowDetailedOptics ? "" : profile?.activeType || "";
 }
 
 const TRANSCEIVER_MODULE_ACTIVE_TYPES = new Map([
@@ -155,16 +161,22 @@ export function resolveInstalledModule(connector = {}) {
   const explicitFiberMode = firstText(connector.installedModuleFiberMode, connector.moduleFiberMode,
     connector.transceiverModuleFiberMode, module.fiberMode);
   const rawValue = firstText(type, id, name);
-  const profile = transceiverModuleOption(rawValue, connector);
+  const knownProfile = value => {
+    const candidate = transceiverModuleOption(value, connector);
+    return !cage && candidate?.capabilities.optical ? null : candidate;
+  };
+  const profile = knownProfile(rawValue);
   // Historical cage aliases do not turn metadata on ordinary ports into module profiles.
   const capabilityValue = cage ? rawValue : firstText(...typeFields, connector.installedModuleId, module.id);
-  const capabilityProfile = capabilityValue === rawValue ? profile : transceiverModuleOption(capabilityValue, connector);
-  const effectiveType = activeTypeForModuleValue(activeType) || activeTypeForModuleValue(rawValue);
+  const capabilityProfile = capabilityValue === rawValue ? profile : knownProfile(capabilityValue);
+  const effectiveType = activeTypeForModuleValue(activeType, cage) || activeTypeForModuleValue(rawValue, cage);
   const explicit = connector.moduleCapabilities || {};
   const caps = { ...(capabilityProfile?.capabilities || {}), ...(module.capabilities || {}),
     ...Object.fromEntries(["formFactor", "supportedRates", "signalFamily", "mediaType", "direction",
-      "manufacturer", "model", "physicalConstraints", "platforms", "cableAssembly"].filter(field => module[field] !== undefined).map(field => [field, module[field]])),
+      "manufacturer", "model", "physicalConstraints", "platforms", "cableAssembly", "optical"].filter(field => module[field] !== undefined).map(field => [field, module[field]])),
     ...explicit };
+  const opticDefaults = capabilityProfile?.capabilities.optical;
+  if (opticDefaults) caps.optical = { ...opticDefaults, ...object(caps.optical) };
   // Old SDI aliases have unknown rates/direction; never infer optical media or 12G.
   if (!caps.signalFamily && ["sdi", "bnc", "sfpsdi", "sfpbnc"].includes(key(capabilityValue))) {
     caps.signalFamily = "sdi";
@@ -189,7 +201,8 @@ export function transceiverModuleValidation(connector, capabilities = installedM
   const form = CAGE_FORM_FACTORS[cageType(connector)];
   const supportedForms = list(host.supportedFormFactors);
   const forms = supportedForms.length ? supportedForms
-    : form === "sfp28" ? ["sfp", "sfp-plus", "sfp28"] : form === "sfp-plus" ? ["sfp", "sfp-plus"] : [form];
+    : form === "sfp28" ? ["sfp", "sfp-plus", "sfp28"] : form === "sfp-plus" ? ["sfp", "sfp-plus"]
+      : form === "qsfp" ? ["qsfp", "qsfp-plus", "qsfp28"] : [form];
   const reject = reason => ({ valid: false, reason, warnings: [] });
   if (profile?.value) {
     for (const field of ["formFactor", "direction", "signalFamily", "mediaType", "cableAssembly"]) {
@@ -201,6 +214,10 @@ export function transceiverModuleValidation(connector, capabilities = installedM
     const rates = list(capabilities.supportedRates);
     if (declared.length && (!rates.length || rates.some(rate => !hasRate(declared, rate)))) {
       return reject("Module rates contradict the selected profile.");
+    }
+    if (profile.capabilities.optical && ["technology", "interface", "fiberFamily"].some(field =>
+      key(capabilities.optical?.[field]) !== key(profile.capabilities.optical[field]))) {
+      return reject("Optical capabilities contradict the selected profile.");
     }
   }
   if (profile?.value && !profile.cages.includes(cageType(connector))) {
@@ -231,7 +248,10 @@ export function transceiverModuleValidation(connector, capabilities = installedM
     && nodeDirection !== capabilities.direction) return reject("Module direction conflicts with the node direction.");
   const warnings = [];
   if (!rates.length) warnings.push("Module data rate is unverified.");
-  if (!hostRates.length || !list(host.platforms).length || !list(capabilities.platforms).length) warnings.push("Host/platform module support is unverified.");
+  const explicitlySupported = profile?.capabilities.optical && list(host.supportedModuleTypes).some(value => key(value) === key(requestedType));
+  if (!explicitlySupported && (!hostRates.length || !list(host.platforms).length || !list(capabilities.platforms).length)) {
+    warnings.push("Host/platform module support is unverified.");
+  }
   if (capabilities.signalFamily === "sdi" && !capabilities.direction) warnings.push("Historical SDI module direction is unverified; node direction is retained.");
   return { valid: true, reason: "", warnings };
 }
@@ -290,7 +310,10 @@ export function transceiverModulePresentation(connector = {}) {
   const check = profile?.value && effectiveType !== profile.activeType
     ? { valid: false, reason: "Installed module identity and effective connector disagree." }
     : transceiverModuleValidation(connector, caps, profile);
-  return [label, list(caps.supportedRates).join(", "), caps.direction, caps.manufacturer, caps.model,
+  const optical = caps.optical;
+  const nm = values => Array.isArray(values) && values.length ? values.join("/") + " nm" : "";
+  return [label, list(caps.supportedRates).join(", "), caps.direction, optical?.interface, optical?.fiberFamily,
+    nm(optical?.txNm) && `TX ${nm(optical.txNm)}`, nm(optical?.rxNm) && `RX ${nm(optical.rxNm)}`, caps.manufacturer, caps.model,
     caps.physicalConstraints && (typeof caps.physicalConstraints === "string" ? caps.physicalConstraints : JSON.stringify(caps.physicalConstraints)),
     !check.valid ? check.reason : check.warnings.join(" ")].filter(Boolean).join(" | ");
 }
@@ -330,16 +353,31 @@ export function transceiverConnectionValidation(source, target, sourceType, targ
   if (transceiverLink) {
     if (!sourceRates.some(values => list(values).length)
       || !targetRates.some(values => list(values).length)) warnings.push("An endpoint data rate is unverified.");
+    if (!a.signalFamily || !b.signalFamily) warnings.push("Endpoint signal family is unverified.");
   }
-  const direction = connector => transceiverLink ? effectiveTransceiverDirection(connector)
+  const direction = (connector, caps) => transceiverLink ? opticalEthernetDirection(connector, caps) || effectiveTransceiverDirection(connector)
     : normalizeDirection(connector?.signalDirection || connector?.direction);
-  const from = direction(source);
-  const to = direction(target);
+  const from = direction(source, a);
+  const to = direction(target, b);
   const directionalModule = [a, b].some(cap => ["input", "output"].includes(cap.direction) || cap.signalFamily === "sdi" || cap.cableAssembly);
   if (directionalModule && ["input", "output"].includes(from) && from === to) {
     return { valid: false, rule: "module-direction", reason: `${from === "input" ? "Receiver/input" : "Transmitter/output"} nodes cannot connect to each other.`, warnings: [] };
   }
+  if (transceiverLink && ["fiber-lc", "fiber-mpo"].includes(sourceType) && sourceType === targetType) {
+    if (source?.jumpModuleCompatibilityProxy || target?.jumpModuleCompatibilityProxy) {
+      warnings.push("The remote optical endpoint is unverified.");
+    } else {
+      const optics = opticalLinkCheck(a, b);
+      if (!optics.valid) return optics;
+      warnings.push(...optics.warnings);
+    }
+  }
   return { valid: true, reason: "", warnings: [...new Set(warnings)] };
+}
+
+export function opticalEthernetDirection(connector, caps = installedModuleCapabilities(connector)) {
+  return isTransceiverCage(connector) && !connector.jumpModuleCompatibilityProxy && caps.optical
+    && caps.signalFamily === "ethernet" && caps.direction === "bidirectional" ? "bidirectional" : "";
 }
 
 export function effectiveTransceiverDirection(connector) {

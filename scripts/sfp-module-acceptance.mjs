@@ -351,6 +351,40 @@ try {
     check("Canvas module changes immediately refresh Matrix eligibility and survive save/reopen");
   });
 
+  await phase("named-optics", async () => {
+    const opticalPort = (id, direction, value, y) => node(id, "sfp-plus-cage", direction, {
+      y, cageCapabilities: { supportedModuleTypes: [value] }
+    });
+    const source = template("named-optical-source", [
+      opticalPort("verified", "output", "10gbase-sr", 190),
+      opticalPort("spare", "output", "10gbase-sr", 244)
+    ]);
+    const sink = template("named-optical-sink", [
+      opticalPort("sr", "input", "10gbase-sr", 190),
+      opticalPort("lr", "input", "10gbase-lr", 244),
+      node("bare-lc", "fiber-lc", "input", { y: 298 })
+    ], { height: 350 });
+    await upload(projectFor("Named optics acceptance", [source, sink]));
+    for (const [device, port, value] of [[source, "verified", "10gbase-sr"], [source, "spare", "10gbase-sr"],
+      [sink, "sr", "10gbase-sr"], [sink, "lr", "10gbase-lr"]]) {
+      await clickPoint("connector", device.id, port);
+      await page.locator("#connectorModule").selectOption(value);
+    }
+    const incompatible = await wireDrag([source.id, "verified"], [sink.id, "lr"], false, "optics-sr-lr");
+    assert.equal(incompatible.compatibilityStatus, "incompatible");
+    const compatible = await wireDrag([source.id, "verified"], [sink.id, "sr"], true, "optics-sr-sr");
+    assert.equal(compatible.compatibilityStatus, "compatible");
+    const unverified = await wireDrag([source.id, "spare"], [sink.id, "bare-lc"], true, "optics-bare-lc");
+    assert.equal(unverified.compatibilityStatus, "unverified");
+    const saved = await saveReload("named-optics-project");
+    for (const [index, status] of ["compatible", "unverified"].entries()) {
+      assert.equal(saved.connections[index].fiberMode, "om4");
+      await clickPoint("wire", saved.connections[index].id);
+      await page.locator(`[data-transceiver-link-status="${status}"]`).waitFor();
+    }
+    check("Named optics and the Inspector verdict survive .avd save/reopen");
+  });
+
   await phase("sdi-canvas", async () => {
     assert(sourceTemplate, "Ordinary UI-created source required; no setter-based substitute");
     const source = structuredClone(sourceTemplate); source.id = "sdi-source"; source.name = "SFP SDI Source";

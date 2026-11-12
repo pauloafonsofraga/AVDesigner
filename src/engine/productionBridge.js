@@ -6617,7 +6617,9 @@ class ProductionEngineBridge {
     this.hud.setMetric("segment drag", this.wireSegmentDrag ? wireSegmentDragSummary(this.wireSegmentDrag) : "-");
     this.hud.setMetric("wire target", this.wireCreate?.target
       ? compatibility.valid && !rewireReason
-        ? `valid: ${compatibility.rule}`
+        ? compatibility.compatibilityStatus === "unverified"
+          ? `unverified: ${compatibility.warnings.join(" ")}`
+          : `${compatibility.compatibilityStatus || "valid"}: ${compatibility.rule}`
         : `invalid: ${rewireReason || compatibility.reason}`
       : "-");
     if (this.debugRewire) {

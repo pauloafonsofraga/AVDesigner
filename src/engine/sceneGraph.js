@@ -1969,8 +1969,10 @@ export class SceneGraph {
     // leave stale SFP/module state in the interaction path.
     const typeChanged = Object.hasOwn(patch, "type") && patch.type !== connector.type;
     const cageChanged = typeChanged && (isTransceiverCage(connector) || isTransceiverCage({ type: patch.type }));
+    const fiberChanged = patch.fiberMode !== undefined && (patch.fiberMode !== connector.fiberMode || patch.installedModuleType !== undefined);
     const merged = normalizeConnector({ ...connector, ...(typeChanged ? { compatibilityType: "" } : {}),
       ...(cageChanged ? { physicalType: patch.type, connectorType: patch.type } : {}),
+      ...(fiberChanged && connector.fiberModeInferred ? { fiberModeInferred: false } : {}),
       ...patch, id: connector.id }, 0, device.width, {
       forceV2: deviceDefinitionVersion(device) >= DEVICE_DEFINITION_SCHEMA_VERSION
     });
@@ -2828,6 +2830,7 @@ function normalizeConnector(connector, index, deviceWidth = 0, options = {}) {
     installedModuleFiberFamily: connector.installedModuleFiberFamily || "",
     installedModuleLabel: connector.installedModuleLabel || "",
     fiberMode: connector.fiberMode || "",
+    ...(Object.hasOwn(connector, "fiberModeInferred") ? { fiberModeInferred: connector.fiberModeInferred === true } : {}),
     fiberFamily: connector.fiberFamily || "",
     customColor: connector.customColor || "",
     nameText: connector.nameText || "",

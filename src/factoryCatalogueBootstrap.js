@@ -12,7 +12,8 @@ import * as multibandSignals from "./engine/multibandSignals.js";
 import * as wireRouting from "./engine/wireRoutingPolicy.js";
 import * as nodeReplacement from "./engine/nodeReplacement.js";
 import { installedModuleDetailsForEngine, activeTypeForEngineCageConnector,
-  isEngineCageConnector, isEngineDeadCageConnector, engineConnectorTypeDisplayName, engineConnectorCanvasLabelLines } from "./engine/connectorCompatibility.js";
+  isEngineCageConnector, isEngineDeadCageConnector, engineConnectorTypeDisplayName, engineConnectorCanvasLabelLines,
+  engineCompatibilitySummary, normalizeEngineFiberMode } from "./engine/connectorCompatibility.js";
 
 const version = new URL(import.meta.url).searchParams.get("v") || "";
 const load = createFactoryCatalogueLoader({ url: new URL(`../data/factory-catalogue.json?v=${encodeURIComponent(version)}`, import.meta.url) });
@@ -52,7 +53,7 @@ function start() {
     Object.defineProperty(window, "WireNexusTransceivers", { value: Object.freeze({ ...transceivers,
       installedModuleDetailsForEngine, activeTypeForEngineCageConnector, isEngineCageConnector, isEngineDeadCageConnector,
       engineConnectorTypeDisplayName, engineConnectorCanvasLabelLines,
-      connectorIncludedInMatrixForEngine, defaultMatrixPortForEngineConnector }) });
+      connectorIncludedInMatrixForEngine, defaultMatrixPortForEngineConnector, engineCompatibilitySummary, normalizeEngineFiberMode }) });
     observeLibraryArtwork();
     // Keep the existing classic-script globals used by the shell/bridge. No app
     // initialization or persistence can run against an absent catalogue.

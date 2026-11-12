@@ -1,6 +1,6 @@
 import {normalizeAvDesignerProject} from './projectAdapter.js';
 import {SceneGraph} from './sceneGraph.js';
-import {engineCompatibilitySummary, engineSyntheticCableEndDirection, isEngineCageConnector} from './connectorCompatibility.js';
+import {engineCompatibilitySummary, engineConnectorForSavedCableValidation, engineSyntheticCableEndDirection, isEngineCageConnector} from './connectorCompatibility.js';
 import {validateConnectorTopology, normalizeConnectorRelationships, exclusiveConnectionRejectionReason, connectorVisualAnchors} from './deviceDefinitionV2.js';
 import {validateJumpLinks, jumpCompatibleHitForDeviceWire} from './jumpNodeModel.js';
 import {validateModularCardChanges} from './modularCardSafety.js';
@@ -100,7 +100,8 @@ export function projectTopologyDiagnostics(input) {
         const node = nodeDefinitions.get(raw.cableType);
         const cable = {device:{id:`cable:${raw.id}`},connector:{id:'cable-end',type:raw.cableType,compatibilityType:node?.compatibilityType,
           direction:engineSyntheticCableEndDirection(hit.connector,index?'to':'from',transceiverLink),fiberMode:raw.fiberMode || ''}};
-        const saved = engineCompatibilitySummary(hit,cable);
+        const connector = engineConnectorForSavedCableValidation(hit.connector, hits[1-index].connector, raw.fiberMode);
+        const saved = engineCompatibilitySummary({...hit,connector},cable);
         if (!saved.valid) add('cables',raw.id,'cable-type',saved.reason);
       }
     }

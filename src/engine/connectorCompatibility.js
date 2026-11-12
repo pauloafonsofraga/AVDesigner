@@ -8,7 +8,7 @@ import { isGeneratedScopedNodeId } from "./nodeCompatibilityIdentity.js";
 import {multibandSignal, multibandColors} from "./multibandSignals.js";
 import {
   transceiverModuleOption, resolveInstalledModule, transceiverConnectionValidation, isDacCableType,
-  effectiveTransceiverDirection, isTransceiverCage
+  effectiveTransceiverDirection, isTransceiverCage, opticalEthernetDirection
 } from "./transceiverModules.js";
 const ENGINE_CONNECTOR_COMPATIBILITY_ALIASES = new Map([
   ["speakon", "speakon-nl4"],
@@ -264,8 +264,9 @@ export function engineConnectorCompatibilityType(connector) {
 }
 
 export function installedModuleDetailsForEngine(connector) {
-  const { id, name, type, rawValue, activeType, effectiveType, explicitFiberMode, fiberHint, capabilities } = resolveInstalledModule(connector);
-  const fiberMode = normalizeEngineFiberMode(explicitFiberMode) || inferFiberModeFromModuleValue(fiberHint);
+  const { id, name, type, rawValue, activeType, effectiveType, explicitFiberMode, fiberHint, capabilities, profile } = resolveInstalledModule(connector);
+  const fiberMode = normalizeEngineFiberMode(explicitFiberMode) || profile?.capabilities.optical && profile.fiberMode
+    || inferFiberModeFromModuleValue(fiberHint);
   return { id, name, type, rawValue, activeType, effectiveType, fiberMode,
     fiberFamily: engineFiberModeFamily(fiberMode), capabilities };
 }
@@ -342,7 +343,7 @@ export function engineCompatibilitySummary(sourceHit, targetHit) {
     return result(true, "two-way", "", sourceType, targetType, source, target);
   }
   const transceiverLink = isEngineCageConnector(source) || isEngineCageConnector(target);
-  const direction = port => transceiverLink ? effectiveTransceiverDirection(port) || port.direction : port.direction;
+  const direction = port => transceiverLink ? opticalEthernetDirection(port) || effectiveTransceiverDirection(port) || port.direction : port.direction;
   const from = direction(source), to = direction(target);
   if (from === "output" && to === "output") {
     return result(false, "output-output", "Output nodes cannot connect to output nodes.", sourceType, targetType, source, target);
@@ -427,11 +428,23 @@ export function engineFiberModeFamily(mode) {
   return ENGINE_MULTIMODE_FIBER_MODES.has(normalized) ? "multimode" : "";
 }
 
+export function engineDeclaredConnectorFiberMode(connector) {
+  return (connector?.fiberModeInferred ? "" : normalizeEngineFiberMode(firstText(connector?.fiberMode, connector?.fiberType)))
+    || installedModuleDetailsForEngine(connector).fiberMode;
+}
+
+export function engineConnectorForSavedCableValidation(port, peer, cableFiberMode) {
+  // The real pair is checked separately. Don't compare an inferred display
+  // mode on a bare port with the saved patch lead of a profiled optical link.
+  if (!cableFiberMode || !isEngineFiberCableType(engineConnectorCompatibilityType(port))
+    || engineDeclaredConnectorFiberMode(port) || !isEngineCageConnector(peer)
+    || !installedModuleDetailsForEngine(peer).capabilities.optical) return port;
+  return { ...port, fiberMode: cableFiberMode, fiberModeInferred: false };
+}
+
 export function engineConnectorFiberMode(connector) {
-  const explicit = normalizeEngineFiberMode(firstText(connector?.fiberMode, connector?.fiberType));
-  if (explicit) return explicit;
-  const details = installedModuleDetailsForEngine(connector);
-  if (details.fiberMode) return details.fiberMode;
+  const declared = engineDeclaredConnectorFiberMode(connector);
+  if (declared) return declared;
   const activeType = engineConnectorCompatibilityType(connector);
   return isEngineFiberCableType(activeType) ? ENGINE_DEFAULT_FIBER_MODE : "";
 }
@@ -444,8 +457,7 @@ export function engineAllowedFiberModesForCompatibility(source, target, sourceTy
   if (!isEngineFiberCableType(sourceType) || !isEngineFiberCableType(targetType)) return [];
   if (sourceType !== targetType) return [];
   if (!engineFiberModesCompatible(source, target, sourceType, targetType)) return [];
-  const sourceFamily = engineConnectorFiberFamily(source);
-  const targetFamily = engineConnectorFiberFamily(target);
+  const [sourceFamily, targetFamily] = engineFiberFamiliesForLink(source, target);
   const family = sourceFamily || targetFamily || "single-mode";
   return ENGINE_FIBER_MODE_OPTIONS
     .filter(option => option.family === family)
@@ -600,7 +612,7 @@ export function engineConnectorCanvasLabelLines(connector) {
   if (!module.rawValue && !module.activeType) return [typeDisplayName(connectorType(connector))];
   const profile = transceiverModuleOption(module.rawValue, connector);
   let label;
-  if (profile?.capabilities.signalFamily === "sdi") {
+  if (profile?.capabilities.signalFamily === "sdi" && !profile.capabilities.optical) {
     const rate = (profile.capabilities.supportedRates || []).map(value => value.replace(/-SDI$/i, "")).join("/");
     label = ["SFP SDI", rate, profile.capabilities.direction === "input" ? "RX" : "TX"].filter(Boolean).join(" ");
   } else if (profile?.value) {
@@ -725,10 +737,22 @@ function inferFiberModeFromModuleValue(value) {
 function engineFiberModesCompatible(source, target, sourceType, targetType) {
   if (!isEngineFiberCableType(sourceType) || !isEngineFiberCableType(targetType)) return true;
   if (sourceType !== targetType) return true;
-  const sourceFamily = engineConnectorFiberFamily(source);
-  const targetFamily = engineConnectorFiberFamily(target);
+  const [sourceFamily, targetFamily] = engineFiberFamiliesForLink(source, target);
+  for (const [port, family] of [[source, sourceFamily], [target, targetFamily]]) {
+    const required = isEngineCageConnector(port) ? installedModuleDetailsForEngine(port).capabilities.optical?.fiberFamily : "";
+    if (required && family && required !== family) return false;
+  }
   if (!sourceFamily || !targetFamily) return true;
   return sourceFamily === targetFamily;
+}
+
+function engineFiberFamiliesForLink(source, target) {
+  const detailed = [source, target].some(port =>
+    isEngineCageConnector(port) && installedModuleDetailsForEngine(port).capabilities.optical);
+  if (!detailed) return [source, target].map(engineConnectorFiberFamily);
+  // A display fallback is not a declared fibre family for a profiled link.
+  return [source, target].map(port => engineFiberModeFamily(engineDeclaredConnectorFiberMode(port))
+    || installedModuleDetailsForEngine(port).capabilities.optical?.fiberFamily || "");
 }
 
 function moduleKey(value) {
@@ -769,9 +793,13 @@ function result(valid, rule, reason, sourceType, targetType, source = null, targ
   const allowedFiberModes = valid ? engineAllowedFiberModesForCompatibility(source, target, sourceType, targetType) : [];
   const defaultFiberMode = valid ? engineDefaultFiberModeForCompatibility(source, target, sourceType, targetType) : "";
   const selectedCableType = sourceType || targetType || "";
+  const warnings = valid ? transceiverConnectionValidation(source, target, sourceType, targetType).warnings : [];
+  const transceiverLink = isEngineCageConnector(source) || isEngineCageConnector(target)
+    || isDacCableType(sourceType) || isDacCableType(targetType);
   return {
     valid,
-    warnings: valid ? transceiverConnectionValidation(source, target, sourceType, targetType).warnings : [],
+    warnings,
+    ...(transceiverLink ? { compatibilityStatus: !valid ? "incompatible" : warnings.length ? "unverified" : "compatible" } : {}),
     rule,
     reason,
     rawSourceType: connectorType(source),
