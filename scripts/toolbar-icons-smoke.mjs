@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {mkdirSync} from 'node:fs';
 import {cableTypeSelectionFixture} from '../fixtures/cable-type-selection.mjs';
-import {openMultiCorePicker} from './multi-core-test-ui.mjs';
 const {chromium}=createRequire(import.meta.url)('playwright');
 const base=process.env.AVDESIGNER_BASE_URL||'http://127.0.0.1:8790';
 const dir=process.env.AVDESIGNER_SCREENSHOT_DIR||'/tmp/wirenexus-toolbar-icons';mkdirSync(dir,{recursive:true});
@@ -50,7 +49,6 @@ try{
   for(let i=0;i<2;i++){await click('createCableLoom');assert.equal(await page.locator('#createCableLoom').getAttribute('aria-pressed'),'true');await page.keyboard.press('Escape');}
   for(const id of ['commentTool','areaTool','jumpNodeTool']){await click(id);assert.ok(await page.locator('#'+id).evaluate(e=>e.classList.contains('active')));await page.keyboard.press('Escape');}
   assert.equal(await page.locator('#createMultiCore').count(),0);
-  await openMultiCorePicker(page);await page.locator('dialog.multi-core-picker').waitFor({state:'visible'});await page.keyboard.press('Escape');
   checks.push('zoom, theme/grid/snap/hops, both routing modes, Auto/Manual, voltage and insertion tools preserve their handlers and states');
   for(const [button,modal,close] of [['deviceEditorButton','deviceEditorModal','closeDeviceEditor'],['nodeBuilderButton','nodeBuilderModal','closeNodeBuilder'],['rackBuilderButton','rackBuilderModal','closeRackBuilder'],['publishProjectButton','publishProjectModal','closePublishProject']]){
     await click(button);await page.locator('#'+modal).waitFor({state:'visible'});await page.locator('#'+close).click();await page.locator('#'+modal).waitFor({state:'hidden'});

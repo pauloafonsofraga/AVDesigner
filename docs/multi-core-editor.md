@@ -60,9 +60,8 @@ card semantics merely to share an editor window.
 
 Select a termination or trunk and choose **Edit Multi-Core** in the Inspector.
 End A/B opens that end; the trunk opens Trunk; Select Assembly opens General.
-**Device Editor → Multi-Core Library** opens the picker for Create, Edit Personal,
-Duplicate and Place. Its Project assemblies selector also permits inspection of
-retained records that cannot produce selectable schematic geometry.
+The legacy picker is no longer exposed in the Device Editor. Stored
+definitions and opaque assembly records remain intact on save and reopen.
 Only one Multi-Core editor can be open at a time.
 
 | Section | Editing surface |

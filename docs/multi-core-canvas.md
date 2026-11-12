@@ -34,14 +34,11 @@ Orthogonal routing geometry. Its anchors are the bottom centers of the two
 bodies, separate from signal ports. Labels include name, capacity and authored
 length. Canvas distances never replace physical length metadata.
 
-## Placement and interaction
+## Existing assemblies
 
-**Device Editor → Multi-Core Library** opens the selector for saved definitions
-and the Hybrid 14 reference definition. Choose **Place**, then click the canvas
-twice. The first click places a
-transient End A; movement previews End B and the trunk; the second click commits
-one aggregate. Escape discards all placement state without a history entry.
-Undo removes the insertion; redo restores the exact IDs and geometry.
+The legacy Multi-Core placement picker is no longer exposed in the editor.
+Existing projects still load and can edit their saved assemblies. Select an end
+or trunk on the canvas and choose **Edit Multi-Core** in the Inspector.
 
 `multiCoreCanvas.js` supplies a small set of ProductionEngineBridge methods;
 there is no separate canvas, drag solver or interaction framework.

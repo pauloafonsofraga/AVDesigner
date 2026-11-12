@@ -66,11 +66,9 @@ test('toolbar controls retain their original order and the original SVG-independ
   assert.doesNotMatch(source,/addEventListener|preventDefault|keydown|fetch\(/);
 });
 
-test('Multi-Core placement is entered through the Device Editor, not the project toolbar',()=>{
+test('the retired Multi-Core placement button is absent from both the toolbar and Device Editor',()=>{
   const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
   assert.doesNotMatch(html, /createMultiCore/);
   assert.equal(api.buttons.createMultiCore,undefined);
-  assert.match(html.slice(html.indexOf('id="deviceEditorModal"'),html.indexOf('id="rackBuilderModal"')),
-    /id="openDeviceEditorMultiCores"[^>]*>Multi-Core Library<\/button>/);
-  assert.match(html, /"openDeviceEditorMultiCores"\)\.addEventListener\("click", async \(\) => \{\s*if \(!activeEngineBridge\(\)\?\.ready \|\| !await closeDeviceEditor\(\)\) return;\s*activeEngineBridge\(\)\?\.openMultiCorePicker\(\)/);
+  assert.doesNotMatch(html, /openDeviceEditorMultiCores|>Multi-Core Library<|openMultiCorePicker/);
 });

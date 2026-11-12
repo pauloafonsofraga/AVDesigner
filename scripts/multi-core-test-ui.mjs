@@ -1,4 +1,4 @@
 export async function openMultiCorePicker(page) {
-  await page.locator("#deviceEditorButton").click();
-  await page.locator("#openDeviceEditorMultiCores").click();
+  // Exercise the legacy placement and definition flows without a product UI entry.
+  await page.evaluate(() => activeEngineBridge().openMultiCorePicker());
 }

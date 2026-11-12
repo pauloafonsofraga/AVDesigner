@@ -3331,8 +3331,6 @@
       letter-spacing: .02em;
     }
 
-    #openDeviceEditorMultiCores { margin-left: auto; }
-
     #deviceEditorModal .editor-panel .tool-button,
     #deviceEditorModal .editor-panel .primary-button,
     #deviceEditorModal .editor-panel .danger-button,
@@ -5766,7 +5764,6 @@
             <button class="editor-tab" data-editor-tab="connectors" type="button">Connectors</button>
             <button class="editor-tab" data-editor-tab="cards" type="button">Cards</button>
             <button class="editor-tab" data-editor-tab="defaults" type="button">Defaults</button>
-            <button class="tool-button hidden" id="openDeviceEditorMultiCores" type="button">Multi-Core Library</button>
           </div>
 
           <div class="editor-panels">
@@ -16969,7 +16966,6 @@
 
     function renderEditorTabs() {
       const template = currentEditorTemplate();
-      document.getElementById("openDeviceEditorMultiCores")?.classList.toggle("hidden", !engineRendererRequested());
       const disabledTabs = new Set();
       if (isAdapterTemplate(template)) {
         disabledTabs.add("faceplate");
@@ -35974,10 +35970,6 @@ document.addEventListener("click", function(event) {
       await importDevicePackageFile(file);
     });
     document.getElementById("applyDeviceEditor").addEventListener("click", applyDeviceEditor);
-    document.getElementById("openDeviceEditorMultiCores").addEventListener("click", async () => {
-      if (!activeEngineBridge()?.ready || !await closeDeviceEditor()) return;
-      activeEngineBridge()?.openMultiCorePicker();
-    });
     editorTabs.addEventListener("click", event => {
       const tab = event.target.closest("[data-editor-tab]");
       if (!tab) return;
