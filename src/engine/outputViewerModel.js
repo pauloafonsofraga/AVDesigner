@@ -88,7 +88,7 @@ export function outputConnectedNodeItems(scene, deviceId, connectorId = "") {
 }
 
 export function outputSelectionDetails(scene, selection) {
-  if (!selection) return { title: "Inspector", rows: [], wireIds: [] };
+  if (!selection) return { title: "Inspector", rows: (scene.qsfpBreakouts?.warnings || []).map(warning => ["QSFP Warning", warning]), wireIds: [] };
   if (selection.type === "qsfp-breakout") {
     const assembly = scene.qsfpBreakouts?.assemblies.find(item => item?.id === selection.id);
     if (!assembly) return outputSelectionDetails(scene, null);
@@ -99,10 +99,13 @@ export function outputSelectionDetails(scene, selection) {
     };
     const channels = qsfpBreakoutChannels(assembly);
     const selected = channels.find(channel => selection.branchId && channel.branchId === selection.branchId);
+    const conflicts = [...new Set((scene.qsfpBreakouts?.diagnostics || []).filter(issue => issue.assemblyId === assembly.id
+      && issue.code === "port-occupied" && (!selected || !issue.branchId || issue.branchId === selected.branchId)).map(issue => issue.message))];
     const lane = channel => `Lane ${channel.lanes.join(", ") || "?"}`;
     return { title: selected ? `${cable} / ${lane(selected)}` : cable, wireIds: [], breakoutChannels: channels,
       rows: [["Assembly ID", assembly.id], ["Mode", qsfpBreakoutModeLabel(mode)],
         ["Source", portLabel(assembly.source)], ["Physical Length", qsfpBreakoutLengthLabel(assembly.length)],
+        ...conflicts.map(message => ["Occupancy Conflict", message]),
         ...(selected ? [["Channel ID", selected.channelId], ["Rate", mode?.branchRate], ["State", selected.state],
           ["Destination", portLabel(selected.destination)]] : channels.map(channel => [
           lane(channel), `${channel.state || "unverified"} / ${portLabel(channel.destination)}`

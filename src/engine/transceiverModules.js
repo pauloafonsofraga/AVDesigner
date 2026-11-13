@@ -334,7 +334,7 @@ export function transceiverModulePresentation(connector = {}) {
   const { rawValue, name, profile, capabilities: caps, hasModule, effectiveType } = resolveInstalledModule(connector);
   if (!hasModule) return "Empty / No module";
   const label = name || profile?.label || rawValue || "Historical module";
-  const identity = integratedEndIdentityCheck(connector, profile, rawValue);
+  const identity = installedModuleIdentityCheck(connector, profile, rawValue);
   const check = !identity.valid ? identity : profile?.value && effectiveType !== profile.activeType
     ? { valid: false, reason: "Installed module identity and effective connector disagree." }
     : transceiverModuleValidation(connector, caps, profile);
@@ -346,14 +346,30 @@ export function transceiverModulePresentation(connector = {}) {
     !check.valid ? check.reason : [...check.warnings, ...identity.warnings].join(" ")].filter(Boolean).join(" | ");
 }
 
-function integratedEndIdentityCheck(connector, profile, rawValue) {
-  if (!profile?.capabilities.cableAssembly) return { valid: true, warnings: [] };
+function installedModuleIdentityCheck(connector, profile, rawValue) {
+  if (!isTransceiverCage(connector)) return { valid: true, warnings: [] };
   const module = object(connector.installedModule) || object(connector.module) || object(connector.transceiverModule) || {};
-  const declared = [rawValue, connector.installedModuleType, connector.installedModuleId,
+  const identities = [rawValue, connector.installedModuleType, connector.installedModuleId,
     connector.moduleType, connector.moduleId, connector.transceiverModuleType, connector.transceiverModuleId,
+    module.type, module.value, module.id];
+  const nestedIdentities = [connector.installedModule, connector.module, connector.transceiverModule].flatMap(entry =>
+    object(entry) ? [entry.type, entry.value, entry.id] : typeof entry === "string" ? [entry] : []);
+  if (!profile?.capabilities.cableAssembly) {
+    // A generic description can coexist with a named profile if the known properties agree.
+    const known = [...new Set([...identities, ...nestedIdentities].map(value => transceiverModuleOption(value)).filter(item => item?.value))];
+    const contradict = values => new Set(values.filter(Boolean)).size > 1;
+    const specific = known.filter(item => item.capabilities.optical || list(item.capabilities.supportedRates).length);
+    if (specific.length > 1 || contradict(known.map(item => item.activeType))
+      || contradict(known.map(item => item.fiberMode && (item.fiberMode === "single-mode" ? "single-mode" : "multimode")))
+      || contradict(known.map(item => item.capabilities.direction))) {
+      return { valid: false, reason: "Installed transceiver identities contradict one another.", warnings: [] };
+    }
+    return { valid: true, warnings: [] };
+  }
+  const declared = [...identities,
     connector.installedModuleActiveType, connector.installedModuleEffectiveType,
     connector.moduleActiveType, connector.moduleEffectiveType, connector.transceiverModuleActiveType,
-    connector.transceiverModuleEffectiveType, module.type, module.value, module.id, module.activeType,
+    connector.transceiverModuleEffectiveType, module.activeType,
     module.effectiveType, module.connectorType];
   if ([...new Set(declared.filter(Boolean))].some(value => {
     const type = activeTypeForModuleValue(value, true);
@@ -378,7 +394,7 @@ export function transceiverConnectionValidation(source, target, sourceType, targ
     }
     const check = transceiverModuleValidation(connector, capabilities, profile);
     if (!check.valid) return { ...check, rule: "module-capability" };
-    const identity = integratedEndIdentityCheck(connector, profile, rawValue);
+    const identity = installedModuleIdentityCheck(connector, profile, rawValue);
     if (!identity.valid) return { ...identity, rule: "module-capability" };
     warnings.push(...check.warnings, ...identity.warnings);
   }
@@ -523,6 +539,33 @@ export function integratedCableWireValidation(wire, source, target) {
   }
   if (incomplete) warnings.push("Saved cable assembly details are incomplete or unverified.");
   return { valid: true, reason: "", warnings: [...new Set(warnings)], compatibilityStatus: warnings.length ? "unverified" : "compatible" };
+}
+
+export function integratedCableReplugValidation(wire, source, target, [oldSource, oldTarget]) {
+  const assembly = wire.cableAssembly;
+  const savedRates = list(assembly?.supportedRates);
+  const hasSavedEnds = ["from", "to"].every(end => {
+    const record = assembly?.ends?.[end];
+    return record?.formFactor && record.moduleType && Array.isArray(record.capabilities?.supportedRates);
+  });
+  if (wire.cableType !== "dac-qsfp" || assembly?.version !== 1 || !hasSavedEnds || !savedRates.length || !oldSource || !oldTarget) {
+    return integratedCableWireValidation(wire, source, target);
+  }
+  const original = integratedCableWireValidation(wire, oldSource, oldTarget);
+  if (!original.valid) return original;
+  const oldRates = integratedCableAssemblyForConnectors(oldSource, oldTarget, wire.cableType).supportedRates;
+  if (!oldRates.length || !oldRates.every(rate => hasRate(savedRates, rate)) || !savedRates.every(rate => hasRate(oldRates, rate))) {
+    // A narrower historical list may be a cable declaration, not a derived host intersection.
+    return integratedCableWireValidation(wire, source, target);
+  }
+  let proposed;
+  try { proposed = integratedCableAssemblyForConnectors(source, target, wire.cableType); }
+  catch (error) { return { valid: false, reason: error.message, compatibilityStatus: "incompatible" }; }
+  const supportedRates = proposed.supportedRates.length ? commonRates([proposed.supportedRates,
+    assembly.ends?.from?.capabilities?.supportedRates, assembly.ends?.to?.capabilities?.supportedRates]).rates : [];
+  const updated = { ...assembly, supportedRates };
+  const check = integratedCableWireValidation({ ...wire, cableAssembly: updated }, source, target);
+  return check.valid ? { ...check, cableAssembly: { ...updated, warnings: check.warnings } } : check;
 }
 
 // Keep the existing DAC helpers available to older consumers.

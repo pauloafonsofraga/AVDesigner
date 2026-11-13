@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { buildCableSchedule, cableScheduleCsv, cableScheduleSignalChains, signalChainsForConnector } from "../src/engine/cableSchedule.js";
 import { createQsfpBreakoutAssembly, qsfpBreakoutLinkId } from "../src/engine/qsfpBreakoutModel.js";
-import { activeQsfpBreakoutLinks } from "../src/engine/qsfpBreakoutValidation.js";
+import { activeQsfpBreakoutLinks, validateQsfpBreakoutProject, validateQsfpBreakoutTransition } from "../src/engine/qsfpBreakoutValidation.js";
 import { setQsfpBreakoutBranch, projectQsfpBreakouts } from "../src/engine/qsfpBreakoutCanvasCore.js";
 import { qsfpBreakoutPlaybackStep } from "../src/engine/qsfpBreakoutPlayback.js";
 import { buildEngineOutputScene } from "../src/engine/outputSceneSnapshot.js";
@@ -11,6 +11,7 @@ import { renderEngineOutputSvg } from "../src/engine/outputSvgRenderer.js";
 import { createOutputViewerModel, outputCableTrace, outputSelectionDetails } from "../src/engine/outputViewerModel.js";
 import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
 import { SceneGraph } from "../src/engine/sceneGraph.js";
+import { ProjectMutationAdapter } from "../src/engine/projectMutations.js";
 import { createCableScheduleXlsx } from "../src/engine/cableScheduleXlsx.js";
 import ExcelJS from "exceljs/dist/exceljs.min.js";
 
@@ -32,6 +33,57 @@ const fixture = () => {
     { instanceId: "spare", name: "Spare", templateId: lab.id, x: 820, y: 660 }
   ], connections: [], breakoutAssemblies: [assembly] };
 };
+
+test("historical flat wires reserve the same sockets as nested wires and cannot double-book a breakout lane", () => {
+  const project = fixture();
+  const flat = { id: "legacy-flat", cableType: "aoc-sfp28",
+    fromDeviceId: "spare", fromConnectorId: "sfp28-2", toDeviceId: "sink", toConnectorId: "sfp28-2" };
+  const imported = { ...project, connections: [flat] };
+  const next = validateQsfpBreakoutTransition(project, imported);
+  assert.ok(next.some(issue => issue.code === "port-occupied" && issue.branchId === branchId(2)));
+  const validation = validateQsfpBreakoutProject(imported);
+  assert.equal(validation.valid, false);
+  assert.deepEqual(activeQsfpBreakoutLinks(imported, validation).map(link => link.branchId).sort(), [branchId(1), branchId(4)]);
+  const contract = buildEngineOutputScene(imported);
+  assert.equal(contract.wires.find(wire => wire.id === flat.id).toConnectorId, flat.toConnectorId);
+  assert.equal(contract.qsfpBreakouts.plans[0].branches.find(branch => branch.id === branchId(2)).color, "#ed716e");
+  assert.match(buildCableSchedule(imported).find(row => row.breakoutAssemblyId).breakoutDetails, /physical port conflict/);
+  const lane = { type: "qsfp-breakout", id: "lab-trunk", branchId: branchId(2) };
+  const viewer = createOutputViewerModel(contract);
+  assert.deepEqual(outputCableTrace(viewer, lane), []);
+  assert.match(outputSelectionDetails(viewer.scene, lane).rows.flat().join(" "), /physical port is already occupied/i);
+  const roundTrip = JSON.parse(new ProjectMutationAdapter(normalizeAvDesignerProject(imported)).exportJson());
+  assert.deepEqual(roundTrip.connections, [flat]);
+  assert.deepEqual(roundTrip.breakoutAssemblies, project.breakoutAssemblies);
+  const nested = { ...flat, to: port(3) };
+  assert.equal(validateQsfpBreakoutProject({ ...project, connections: [nested] }).valid, true,
+    "the canonical endpoint takes precedence over a stale flat alias");
+  assert.ok(validateQsfpBreakoutTransition(imported, { ...imported, connections: [flat, { ...flat, id: "another-wire" }] })
+    .some(issue => issue.code === "port-occupied"), "existing conflicts do not permit a third connection");
+  assert.deepEqual(validateQsfpBreakoutTransition(imported, project), [], "removing the conflicting cable is allowed");
+});
+
+test("null, malformed and duplicate breakout records survive .avd round trips without crashing output", () => {
+  const project = fixture(), [valid] = project.breakoutAssemblies;
+  const ambiguous = { ...structuredClone(valid), id: "duplicate", source: { ...source, deviceId: "spare" },
+    branches: valid.branches.map(branch => ({ ...branch, destination: null })) };
+  const brokenMapping = { ...structuredClone(valid), id: "broken-map", source: null,
+    channels: [null, { id: "bad-lane", lanes: ["2", null], state: {} }], branches: [{ channelId: "bad-lane", destination: "not-a-port" }] };
+  project.breakoutAssemblies.push(null, null, false, { id: 42 }, ambiguous, structuredClone(ambiguous), brokenMapping);
+  const contract = buildEngineOutputScene(project);
+  assert.deepEqual(contract.qsfpBreakouts.plans.map(plan => plan.id), [valid.id]);
+  assert.ok(contract.diagnostics.warnings.some(warning => /stable ID/i.test(warning)));
+  assert.ok(contract.diagnostics.warnings.some(warning => /identity is already in use/i.test(warning)));
+  assert.ok(contract.modelData.reports.diagnostics.some(issue => issue.code === "assembly-id-conflict"));
+  assert.ok(renderEngineOutputSvg(contract).svg.includes(valid.id));
+  assert.equal(buildCableSchedule(project, { assignNumbers: "readOnly" }).filter(row => row.cableNumber === ambiguous.id).length, 0);
+  const reopened = JSON.parse(new ProjectMutationAdapter(normalizeAvDesignerProject(project)).exportJson());
+  assert.deepEqual(reopened.breakoutAssemblies, project.breakoutAssemblies);
+  const wrongCollection = { ...project, breakoutAssemblies: { archived: valid } };
+  assert.match(buildEngineOutputScene(wrongCollection).diagnostics.warnings.join(" "), /must be a list/);
+  assert.deepEqual(JSON.parse(new ProjectMutationAdapter(normalizeAvDesignerProject(wrongCollection)).exportJson()).breakoutAssemblies,
+    wrongCollection.breakoutAssemblies);
+});
 
 test("one physical cable row retains shared length and all lane states after replug/reopen", () => {
   const project = fixture(), assembly = project.breakoutAssemblies[0];

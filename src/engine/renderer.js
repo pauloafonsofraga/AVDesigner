@@ -3852,7 +3852,7 @@ function verticesForDevice(device, offsets = null, options = DEFAULT_RENDER_OPTI
 
 function pushQsfpBreakout(vertices, plan, zoom, selected, editable) {
   const trunkSelected = selected && !selected.branchId;
-  pushPolyline(vertices, plan.trunk, WIRE_BASE_WIDTH * 2, trunkSelected ? "#fb9d4e" : "#82cde9");
+  pushPolyline(vertices, plan.trunk, WIRE_BASE_WIDTH * 2, plan.color || (trunkSelected ? "#fb9d4e" : "#82cde9"));
   for (const branch of plan.branches) {
     const active = selected?.branchId === branch.id;
     if (active) pushPolyline(vertices, branch.points, WIRE_BASE_WIDTH + 5, "rgba(251,121,4,.42)");

@@ -12,7 +12,8 @@ import { adapterCenter, adapterRotationHandle, snapAdapterRotation, adapterRotat
 import { ObjectSnapSession } from "./objectSnapping.js";
 import { CONNECTOR_RELATIONSHIP_FIELDS, applyConnectorRelationshipFieldPatch } from "./connectorRelationshipMetadata.js";
 import { multiCoreCanvasMethods } from "./multiCoreCanvas.js";
-import { transceiverModulePatch, integratedCableAssemblyForConnectors, isIntegratedCableType, integratedCableWireValidation } from "./transceiverModules.js";
+import { transceiverModulePatch, integratedCableAssemblyForConnectors, isIntegratedCableType, integratedCableReplugValidation } from "./transceiverModules.js";
+import { hasQsfpBreakoutData, qsfpBreakoutWarningMessages } from "./qsfpBreakoutValidation.js";
 import {
   ENGINE_DEFAULT_FIBER_MODE,
   effectiveConnectorTypeForEngine,
@@ -1021,7 +1022,11 @@ class ProductionEngineBridge {
       this.renderEngineInspector();
       this.showError("");
       const multiCoreErrors = (normalized.meta.multiCoreDiagnostics || []).filter(d => d.severity === "error");
-      if (multiCoreErrors.length) this.showError(`Multi-Core data retained with diagnostics: ${multiCoreErrors.slice(0, 3).map(d => d.message).join(" ")}`);
+      const breakoutWarnings = hasQsfpBreakoutData(this.mutations.root)
+        ? qsfpBreakoutWarningMessages(this.qsfpBreakoutValidation()) : [];
+      const loadWarnings = [...breakoutWarnings.slice(0, 3), ...(multiCoreErrors.length
+        ? [`Multi-Core data retained with diagnostics: ${multiCoreErrors.slice(0, 3).map(d => d.message).join(" ")}`] : [])];
+      if (loadWarnings.length) this.showError(loadWarnings.join(" "));
       this.hud.setMetric("load build", `${(performance.now() - loadStart).toFixed(1)} ms`);
       this.setLoadingPhase("Rendering first engine frame...");
       this.finishLoadingAfterOptionalDelay(loadStart);
@@ -5056,7 +5061,7 @@ class ProductionEngineBridge {
     }
     updated = this.applyJumpWireMetadataFromScene(updated.id, compatibility) || updated;
     if (isIntegratedCableType(updated.cableType) && updated.cableAssembly && compatibility.valid) {
-      updated.cableAssembly = { ...updated.cableAssembly, warnings: compatibility.warnings };
+      updated.cableAssembly = compatibility.cableAssembly || { ...updated.cableAssembly, warnings: compatibility.warnings };
     }
     const mutationMs = this.mutations?.commitRewiredWire(this.scene, updated.id) || 0;
     if (beforeWire.loomId || updated.loomId || state.loomId) this.refreshLoomComposition();
@@ -6730,7 +6735,8 @@ class ProductionEngineBridge {
         engineCompatibilityHitForWireEndpoint(targetHit, rewire.originalWire, "to")
       );
       if (summary.valid && (integrated || isIntegratedCableType(summary.selectedCableType))) {
-        const check = integrated ? integratedCableWireValidation(rewire.originalWire, sourceHit.connector, targetHit.connector)
+        const check = integrated ? integratedCableReplugValidation(rewire.originalWire, sourceHit.connector, targetHit.connector,
+          ["from", "to"].map(end => hitForSceneWireEndpoint(this.scene, rewire.originalWire, end)?.connector))
           : { valid: false, compatibilityStatus: "incompatible", reason: "A detachable cable cannot be replugged as an integrated assembly." };
         return { ...summary, ...check, ...(!check.valid ? { rule: "assembly-endpoint" } : {}) };
       }

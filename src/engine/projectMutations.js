@@ -557,7 +557,7 @@ export class ProjectMutationAdapter {
     } else {
       // A normal endpoint rewire changes only from/to. Cable type, length,
       // fiber mode, notes, labels, custom colors, and route arrays stay intact.
-      // Integrated cables may also refresh their derived compatibility warnings.
+      // Integrated cables may also refresh their derived compatibility and host rates.
       entry.item.from = endpointToProject(scene, wire, "from");
       entry.item.to = endpointToProject(scene, wire, "to");
       if (isIntegratedCableType(wire.cableType) && entry.item.cableAssembly && wire.cableAssembly) {

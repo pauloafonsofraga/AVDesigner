@@ -1,4 +1,4 @@
-import { normalizeAvDesignerDevice } from "./projectAdapter.js";
+import { normalizeAvDesignerDevice, projectWireEndpoint } from "./projectAdapter.js";
 import { connectorIsNotWorking, exclusiveConnectionRejectionReason } from "./deviceDefinitionV2.js";
 import { isIntegratedCableType, isTransceiverCage, resolveInstalledModule, transceiverModuleValidation } from "./transceiverModules.js";
 import {
@@ -123,17 +123,21 @@ function isCage(connector, type) {
 function cableOccupancy(root) {
   const entries = [];
   const add = (wire, deviceId = endpoint => endpoint?.deviceId) => {
-    for (const endpoint of [wire?.from, wire?.to]) {
-      const ref = { deviceId: deviceId(endpoint), connectorId: endpoint?.connectorId };
+    for (const end of ["from", "to"]) {
+      const endpoint = projectWireEndpoint(wire, end);
+      if (endpoint.multiCoreId || endpoint.jumpNodeId || endpoint.surfaceId) continue;
+      const ref = { deviceId: String(deviceId(endpoint) || ""), connectorId: String(endpoint.connectorId || "") };
       if (position(ref)) entries.push([breakoutPortKey(ref), wire.id]);
     }
   };
   list(root.connections).forEach(wire => add(wire));
-  for (const rack of list(root.racks)) {
+  const racks = list(root.racks), rackById = new Map(racks.map(rack => [rack?.id, rack]));
+  for (const rack of racks) {
     const placed = new Map(list(root.devices).filter(device => device?.rackId === rack?.id && id(device.sourceRackDeviceId))
       .map(device => [device.sourceRackDeviceId, instanceId(device)]));
-    list(rack?.internalConnections).forEach(wire => add(wire, endpoint => rack.sourceDeviceMap?.[endpoint?.deviceId]
-      || placed.get(endpoint?.deviceId)));
+    const source = rackById.get(rack?.sourceRackId);
+    list(source?.internalConnections ?? rack?.internalConnections).forEach(wire => add(wire, endpoint =>
+      placed.get(endpoint.deviceId) || rack?.sourceDeviceMap?.[endpoint.deviceId]));
   }
   return index(entries, ([key]) => key);
 }
@@ -283,12 +287,18 @@ export function validateQsfpBreakoutProject(project) {
       const next = diagnostic(assemblyId, code, message, options);
       if (!diagnostics.slice(start).some(existing => same(existing, next))) diagnostics.push(next);
     };
-    if (entries.length !== 1 || occupiedIds.has(assemblyId)) add("assembly-id-conflict", "Breakout assembly identity is already in use.");
+    if (id(assemblyId) && (entries.length !== 1 || occupiedIds.has(assemblyId))) add("assembly-id-conflict", "Breakout assembly identity is already in use.");
     entries.forEach(assembly => validateAssembly(assembly, { resolve, selections, add }));
     for (const entry of byAssembly.get(assemblyId) || []) {
       const key = breakoutPortKey(entry.endpoint);
-      if (byPort.get(key).length !== 1 || occupied.has(key)) {
-        add("port-occupied", "A physical port is already occupied by another wire or breakout end.", { ...entry, deviceId: entry.endpoint.deviceId });
+      const otherEnds = (byPort.get(key) || []).filter(item => item !== entry);
+      const wireIds = (occupied.get(key) || []).map(([, wireId]) => wireId);
+      if (otherEnds.length || wireIds.length) {
+        add("port-occupied", "A physical port is already occupied by another wire or breakout end.", {
+          ...entry, deviceId: entry.endpoint.deviceId,
+          conflictingWires: [...new Set(wireIds)].sort(),
+          conflictingBreakouts: otherEnds.map(item => JSON.stringify([item.assemblyId, item.branchId || ""])).sort()
+        });
       }
       const port = resolve(entry.endpoint);
       const reason = port && exclusiveConnectionRejectionReason(occupancy(entry), port);
@@ -299,6 +309,11 @@ export function validateQsfpBreakoutProject(project) {
       : related.length ? "unverified" : "compatible" });
   }
   return { valid: !diagnostics.some(d => d.severity === "error"), assemblies, diagnostics };
+}
+
+export function qsfpBreakoutWarningMessages({ diagnostics }) {
+  return [...new Set(diagnostics.filter(issue => issue.severity === "error" || issue.blocksAuthoring)
+    .map(issue => `QSFP breakout${id(issue.assemblyId) ? ` ${issue.assemblyId}` : ""}: ${issue.message}`))];
 }
 
 export function hasQsfpBreakoutData(project) {

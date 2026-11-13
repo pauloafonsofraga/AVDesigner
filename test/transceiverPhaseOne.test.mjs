@@ -2,8 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { cardSafetyFixture } from "./helpers/cardSafetyFixture.mjs";
-import { dacAssemblyForConnectors, dacWireValidation, transceiverModulePatch, transceiverModulePresentation,
-  transceiverModuleOptionsForConnector } from "../src/engine/transceiverModules.js";
+import { dacAssemblyForConnectors, dacWireValidation, integratedCableReplugValidation, transceiverModulePatch,
+  transceiverModulePresentation, transceiverModuleOptionsForConnector } from "../src/engine/transceiverModules.js";
 import { engineCompatibilitySummary, engineConnectorFiberMode, installedModuleDetailsForEngine } from "../src/engine/connectorCompatibility.js";
 import { matrixEndpointsForEngineDevice } from "../src/engine/matrixRouting.js";
 import { validateModularCardChanges } from "../src/engine/modularCardSafety.js";
@@ -23,6 +23,33 @@ const sceneFor = project => {
   scene.setData(normalizeAvDesignerProject(project));
   return scene;
 };
+
+test("replugging a legacy QSFP DAC recomputes a derived aggregate but preserves actual cable capabilities", () => {
+  const port = rates => install(cage("qsfp-cage", {
+    cageCapabilities: { supportedRates: rates, supportedModuleTypes: ["dac-qsfp"] }
+  }), "dac-qsfp");
+  const source = port(["40G", "100G"]), original = port(["40G", "100G"]), target = port(["40,000 Mb/s"]);
+  const wire = { cableType: "dac-qsfp", cableAssembly: dacAssemblyForConnectors(source, original, "dac-qsfp") };
+  const before = structuredClone(wire);
+  assert.equal(compare(source, target).valid, true);
+  const { valid, cableAssembly } = integratedCableReplugValidation(wire, source, target, [source, original]);
+  assert.equal(valid, true);
+  assert.deepEqual(cableAssembly.supportedRates, ["40G"]);
+  assert.deepEqual(cableAssembly.ends, wire.cableAssembly.ends);
+  assert.equal(dacWireValidation({ ...wire, cableAssembly }, source, target).valid, true);
+  const wider = integratedCableReplugValidation({ ...wire, cableAssembly }, source, original, [source, target]);
+  assert.deepEqual(wider.cableAssembly.supportedRates, ["40G", "100G"]);
+  assert.deepEqual(wire, before);
+  assert.equal(integratedCableReplugValidation(wire, source, port(["25G"]), [source, original]).valid, false);
+  const declared = structuredClone(wire);
+  declared.cableAssembly.ends.to.capabilities.supportedRates = ["100G"];
+  declared.cableAssembly.supportedRates = ["100G"];
+  assert.equal(integratedCableReplugValidation(declared, source, target, [source, original]).valid, false);
+  const damaged = { ...wire, cableAssembly: { ...wire.cableAssembly, version: 999 } };
+  assert.equal(integratedCableReplugValidation(damaged, source, target, [source, original]).valid, false);
+  const partial = { ...wire, cableAssembly: { ...wire.cableAssembly, ends: undefined } };
+  assert.equal(integratedCableReplugValidation(partial, source, target, [source, original]).valid, false);
+});
 
 test("RX-first SDI remains a valid committed topology and card replacement, not a bypass for incompatible ports", () => {
   for (const bothCages of [false, true]) for (const reverse of [false, true]) {

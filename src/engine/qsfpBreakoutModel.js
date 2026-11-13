@@ -27,6 +27,15 @@ export const breakoutId = value => typeof value === "string" && value.length <= 
   && Boolean(value.trim()) && value === value.trim() && !["__proto__", "constructor", "prototype"].includes(value);
 export const breakoutPortKey = ({ deviceId, connectorId }) => JSON.stringify([deviceId, connectorId]);
 
+// Ambiguous or missing identities stay in the project but cannot identify one physical object.
+export function uniquelyIdentifiedQsfpBreakouts(assemblies) {
+  const byId = new Map();
+  for (const assembly of breakoutList(assemblies)) {
+    if (breakoutId(assembly?.id)) byId.set(assembly.id, byId.has(assembly.id) ? null : assembly);
+  }
+  return [...byId.values()].filter(Boolean);
+}
+
 // Import/export keeps optional, incomplete and future-version records intact.
 // Validation never creates IDs, assigns lanes, or normalizes a destination.
 export function breakoutProjectFields(project, { cloneValues = true } = {}) {
@@ -63,11 +72,14 @@ export const qsfpBreakoutLengthLabel = length => Number.isFinite(length?.value) 
 
 export function qsfpBreakoutChannels(assembly) {
   if (assembly?.schemaVersion !== QSFP_BREAKOUT_VERSION) return [];
-  return breakoutList(assembly.channels).filter(Boolean).map(channel => {
+  return breakoutList(assembly.channels).filter(channel => breakoutId(channel?.id)).map(channel => {
     const branches = breakoutList(assembly.branches).filter(branch => branch?.channelId === channel.id);
     const branch = branches.length === 1 ? branches[0] : null;
-    return { channelId: channel.id, lanes: breakoutList(channel.lanes), state: channel.state,
-      branchId: branch?.id, destination: branch?.destination };
+    const endpoint = branch?.destination;
+    return { channelId: channel.id, lanes: breakoutList(channel.lanes).filter(Number.isSafeInteger),
+      state: BREAKOUT_CHANNEL_STATES.includes(channel.state) ? channel.state : undefined,
+      branchId: breakoutId(branch?.id) ? branch.id : undefined,
+      destination: breakoutId(endpoint?.deviceId) && breakoutId(endpoint?.connectorId) ? endpoint : null };
   }).sort((a, b) => (a.lanes[0] ?? Infinity) - (b.lanes[0] ?? Infinity));
 }
 

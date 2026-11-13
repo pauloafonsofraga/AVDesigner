@@ -1,7 +1,7 @@
 import { hitTestConnector, hitTestDevice, screenToWorld } from "./hitTest.js";
 import { layerEditable } from "./projectLayers.js";
 import { QSFP_BREAKOUT_LENGTH_UNITS, QSFP_BREAKOUT_MAX_ROUTE_POINTS, breakoutReservations,
-  breakoutList as list, createQsfpBreakoutAssembly, qsfpBreakoutLinkId, qsfpBreakoutMode } from "./qsfpBreakoutModel.js";
+  breakoutList as list, createQsfpBreakoutAssembly, qsfpBreakoutLinkId, qsfpBreakoutMode, uniquelyIdentifiedQsfpBreakouts } from "./qsfpBreakoutModel.js";
 import { activeQsfpBreakoutLinks, qsfpBreakoutHostCableTypes, qsfpBreakoutHostModes, validateQsfpBreakoutProject } from "./qsfpBreakoutValidation.js";
 import { qsfpBreakoutPlaybackStep } from "./qsfpBreakoutPlayback.js";
 import { hitTestQsfpBreakout, projectQsfpBreakouts, qsfpBreakoutAfterDeviceDeletion,
@@ -22,13 +22,23 @@ const consume = event => { event.preventDefault(); event.stopImmediatePropagatio
 
 export const qsfpBreakoutCanvasMethods = {
   qsfpBreakout(id) {
-    return list(this.mutations?.root?.breakoutAssemblies).find(assembly => assembly?.id === id);
+    return uniquelyIdentifiedQsfpBreakouts(this.mutations?.root?.breakoutAssemblies).find(assembly => assembly.id === id);
+  },
+
+  qsfpBreakoutValidation() {
+    const mutations = this.mutations;
+    const cached = this.qsfpBreakoutValidationCache;
+    if (cached?.mutations === mutations && cached.count === mutations.mutationCount
+      && cached.assemblies === mutations.root.breakoutAssemblies) return cached.result;
+    const result = validateQsfpBreakoutProject(mutations.root);
+    this.qsfpBreakoutValidationCache = { mutations, count: mutations.mutationCount, assemblies: mutations.root.breakoutAssemblies, result };
+    return result;
   },
 
   qsfpBreakoutPlans(gesture = this.qsfpBreakoutGesture) {
     const assemblies = this.mutations?.root?.breakoutAssemblies;
-    return assemblies?.length ? projectQsfpBreakouts(this.scene, assemblies, {
-      gesture, offsets: this.dragSession?.offsetMap()
+    return list(assemblies).length ? projectQsfpBreakouts(this.scene, assemblies, {
+      gesture, offsets: this.dragSession?.offsetMap(), diagnostics: this.qsfpBreakoutValidation().diagnostics
     }) : [];
   },
 
@@ -139,8 +149,10 @@ export const qsfpBreakoutCanvasMethods = {
       item.endpoint.deviceId === source.deviceId && item.endpoint.connectorId === connectorId);
     const modes = qsfpBreakoutHostModes(root, source);
     if (!modes.length && !reservation) return;
+    const inspectable = reservation && this.qsfpBreakout(reservation.assemblyId);
     panel.insertAdjacentHTML("beforeend", `<section class="connector-inspector-section" data-breakout-port><h4 class="connector-inspector-heading">QSFP Breakout</h4>${
-      reservation ? button("inspect", reservation.role === "source" ? "Select Assembly" : "Select Branch")
+      reservation ? inspectable ? button("inspect", reservation.role === "source" ? "Select Assembly" : "Select Branch")
+        : '<p class="field-hint">This port is reserved by an invalid or ambiguous breakout record.</p>'
       : `<label class="field">Breakout mode<select data-breakout-mode>${modes.map(id => option(id, modeName(id),
           root.devices.find(d => qsfpBreakoutDeviceId(d) === source.deviceId)?.breakoutPortModes?.find?.(entry => entry.connectorId === connectorId)?.modeId === id)).join("")}</select></label>
          <label class="field">Cable assembly<select data-breakout-type></select></label>
@@ -150,7 +162,7 @@ export const qsfpBreakoutCanvasMethods = {
     if (reservation) {
       const module = panel.querySelector("#connectorModule");
       if (module) module.disabled = true;
-      section.querySelector("button").onclick = () => this.selectQsfpBreakout(reservation.assemblyId, reservation.branchId);
+      if (inspectable) section.querySelector("button").onclick = () => this.selectQsfpBreakout(reservation.assemblyId, reservation.branchId);
       return;
     }
     const modeControl = section.querySelector("[data-breakout-mode]");
@@ -183,7 +195,7 @@ export const qsfpBreakoutCanvasMethods = {
     const assembly = this.qsfpBreakout(selected?.assemblyId);
     if (!assembly) return false;
     const plan = this.qsfpBreakoutPlans(null).find(item => item.id === assembly.id);
-    const { assemblies, diagnostics } = validateQsfpBreakoutProject(this.mutations.root);
+    const { assemblies, diagnostics } = this.qsfpBreakoutValidation();
     const state = assemblies.find(item => item.id === assembly.id)?.status || "unverified";
     const details = diagnostics.filter(item => item.assemblyId === assembly.id);
     const activeLinks = new Set(activeQsfpBreakoutLinks(this.mutations.root, { diagnostics })
@@ -213,7 +225,7 @@ export const qsfpBreakoutCanvasMethods = {
       ${details.length ? `<p class="field-hint">${escape([...new Set(details.map(item => item.message))].slice(0, 4).join(" "))}</p>` : ""}
       <div class="connector-inspector-section">${branch
         ? button("trunk", "Select Trunk") + button("connect", branch.destination ? "Replug Branch" : "Connect Branch", !branchEditable || channel?.state === "disabled")
-          + (branch.destination ? button("disconnect", "Disconnect Branch", !branchEditable) : "")
+          + (branch.destination ? button("disconnect", "Disconnect Branch", !plan?.branches.some(item => item.id === branch.id && item.editable)) : "")
           + (playable(branch.id) ? button("play", "Play Cable") : "")
           + (activeLinks.has(branch.id) ? button("signal-chain", "Signal Chain") : "")
         : `<label class="field">Branch<select data-breakout-branch>${option("", "Select a branch")}${branches.map(item =>

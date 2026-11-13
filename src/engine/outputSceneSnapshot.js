@@ -9,7 +9,7 @@ import { adapterWorldPoint } from "./adapterRotation.js";
 import { multiCoreConnectivityModelSnapshot } from "./multiCoreConnectivity.js";
 import { buildMultiCoreReports } from "./multiCoreReports.js";
 import { projectQsfpBreakouts } from "./qsfpBreakoutCanvasCore.js";
-import { activeQsfpBreakoutLinks } from "./qsfpBreakoutValidation.js";
+import { activeQsfpBreakoutLinks, qsfpBreakoutWarningMessages, validateQsfpBreakoutProject } from "./qsfpBreakoutValidation.js";
 import { breakoutList } from "./qsfpBreakoutModel.js";
 
 import { OUTPUT_SCENE_VERSION, OUTPUT_SCENE_SOURCE, OUTPUT_SCENE_SCHEMA_FINGERPRINT } from "./outputSceneContract.js";
@@ -80,9 +80,11 @@ export function buildEngineOutputScene(projectSnapshot = {}) {
   const root = project.state || project.project || project;
   const model = multiCoreConnectivityModelSnapshot(root);
   const assemblies = breakoutList(root.breakoutAssemblies);
-  const breakoutLinks = assemblies.length ? activeQsfpBreakoutLinks(root) : [];
-  const reports = assemblies.length || model ? buildMultiCoreReports(root, {
-    ...(assemblies.length ? { breakoutLinks } : { connectivity: model.connectivity })
+  const breakoutValidation = Object.hasOwn(root, "breakoutAssemblies") ? validateQsfpBreakoutProject(root) : null;
+  const breakoutWarnings = breakoutValidation ? qsfpBreakoutWarningMessages(breakoutValidation) : [];
+  const breakoutLinks = assemblies.length ? activeQsfpBreakoutLinks(root, breakoutValidation) : [];
+  const reports = assemblies.length || breakoutWarnings.length || model ? buildMultiCoreReports(root, {
+    ...(breakoutValidation ? { breakoutLinks, breakoutValidation } : { connectivity: model.connectivity })
   }) : undefined;
   const modelData = reports ? { ...(model || { version: 1, diagnostics: [] }), reports } : undefined;
   const scene = new SceneGraph();
@@ -138,10 +140,11 @@ export function buildEngineOutputScene(projectSnapshot = {}) {
   const rackExposure = scene.racks.map(rack => scene.rackConnectorDiagnostics(rack.id));
   const looms = scene.looms;
   const loomPlans = scene.loomPlans;
-  const breakoutPlans = projectQsfpBreakouts(scene, assemblies);
+  const breakoutPlans = projectQsfpBreakouts(scene, assemblies, breakoutValidation || {});
   const { calcMs, ...hopDiagnostics } = hopResult.stats;
   const warnings = empty ? [] : [...(scene.meta.jumpLinkWarnings || []), ...(scene.meta.jumpLinkIndexWarnings || [])];
   warnings.push(...(scene.meta.multiCoreDiagnostics || []).map(d => d.message).filter(Boolean));
+  warnings.push(...breakoutWarnings);
   const skippedWires = empty ? (root.connections || []).length : normalized.meta.skippedWires || 0;
   const visibleScene=scene.meta.projectLayers?.length ? layerSceneView(scene,null) : scene;
   const visibleDeviceIds=new Set(visibleScene.devices.map(d=>d.id));
@@ -149,7 +152,8 @@ export function buildEngineOutputScene(projectSnapshot = {}) {
   if (!empty && normalized.wires.length !== scene.wires.length) warnings.push("SceneGraph rejected normalized wire endpoints.");
   const data = plainData({
     ...(modelData ? { modelData } : {}),
-    ...(assemblies.length ? { qsfpBreakouts: { version: 1, assemblies, plans: breakoutPlans, links: breakoutLinks } } : {}),
+    ...(assemblies.length || breakoutWarnings.length ? { qsfpBreakouts: { version: 1, assemblies, plans: breakoutPlans, links: breakoutLinks,
+      ...(breakoutWarnings.length ? { warnings: breakoutWarnings, diagnostics: breakoutValidation.diagnostics } : {}) } } : {}),
     version: OUTPUT_SCENE_VERSION, schemaFingerprint: OUTPUT_SCENE_SCHEMA_FINGERPRINT, sceneDataSource: OUTPUT_SCENE_SOURCE,
     coordinateSpace: "engine-world", devices, connectors, wires, racks: scene.racks,
     ...(scene.meta.projectLayers ? {layers:scene.meta.projectLayers} : {}),

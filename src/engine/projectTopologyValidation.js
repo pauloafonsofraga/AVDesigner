@@ -1,4 +1,4 @@
-import {normalizeAvDesignerProject} from './projectAdapter.js';
+import {normalizeAvDesignerProject, projectWireEndpoint} from './projectAdapter.js';
 import {SceneGraph} from './sceneGraph.js';
 import {engineCompatibilitySummary, engineConnectorCompatibilityType, engineConnectorForSavedCableValidation, engineSyntheticCableEndDirection, isEngineCageConnector} from './connectorCompatibility.js';
 import {validateConnectorTopology, normalizeConnectorRelationships, exclusiveConnectionRejectionReason, connectorVisualAnchors} from './deviceDefinitionV2.js';
@@ -79,9 +79,9 @@ export function projectTopologyDiagnostics(input) {
       return {device,connector};
     });
     for (let i=0;i<2;i++) {
-      const end = i ? 'to' : 'from', ref = raw[end], hit = hits[i];
+      const end = i ? 'to' : 'from', ref = projectWireEndpoint(raw,end), hit = hits[i];
       if(ref?.deviceId && deviceIds.has(ref.deviceId) && (typeof ref.connectorId!=='string' || !ref.connectorId))add('cables',raw.id,`${end}-identity`,'Physical endpoint requires a stable connector identity.');
-      if (!ref || !hit.device || (!wire[`${end}SurfaceId`] && !hit.connector)) add('cables',raw.id,`${end}-endpoint`,'Missing object or connector.');
+      if ((!raw[end] && !ref.deviceId && !ref.surfaceId) || !hit.device || (!wire[`${end}SurfaceId`] && !hit.connector)) add('cables',raw.id,`${end}-endpoint`,'Missing object or connector.');
       if (ref?.anchorId && hit.connector && !connectorVisualAnchors(hit.connector,hit.device).some(a=>a.id===ref.anchorId)) add('cables',raw.id,`${end}-anchor`,'Missing connector anchor.');
       if (!hit.connector || !hit.device || wire[`${end}SurfaceId`]) continue;
       const multiple = hit.connector.adapterMultipleExternalConnections || hit.device.visual?.adapterMapping?.multipleExternalConnections;

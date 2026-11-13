@@ -22,6 +22,11 @@ export function buildMultiCoreReports(input, options = {}) {
   const byWire = new Map(cableRows.flatMap(row => row.wireIds.map(id => [id, row])));
   const graph = connectivity || cableScheduleConnectivity(cableRows);
   const channels = [], assemblies = [], diagnostics = graph ? [...graph.diagnostics, ...multiCoreJumpDiagnostics(project)] : [];
+  if (options.breakoutValidation) {
+    diagnostics.push(...options.breakoutValidation.diagnostics.filter(issue => issue.severity === "error" || issue.blocksAuthoring)
+      .map(issue => ({ severity: issue.severity, code: issue.code, multiCoreId: issue.assemblyId, circuitId: issue.branchId,
+        message: `QSFP breakout: ${issue.message}` })));
+  }
   for (const [index, mc] of list(project.multiCores).entries()) {
     const supported = mc && (mc.schemaVersion === undefined || mc.schemaVersion === 1);
     const sourceChannels = supported ? list(mc.circuits) : [];

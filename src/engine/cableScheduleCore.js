@@ -9,7 +9,7 @@ import { createMultiCoreConnectivity, isMultiCoreEndpointReference, projectHasSt
 import { multiCoreReportEndpoint, presentMultiCorePath } from "./multiCoreReportPresentation.js";
 import {groupedCoaxMetadata, groupedCoaxLabel, multibandColors} from "./multibandSignals.js";
 import {CABLE_NUMBER_PREFIXES, parseCableNumber, formatCableNumber} from "./cableNumbering.js";
-import { breakoutList, qsfpBreakoutChannels, qsfpBreakoutMode, qsfpBreakoutModeLabel, qsfpBreakoutLinkId,
+import { uniquelyIdentifiedQsfpBreakouts, qsfpBreakoutChannels, qsfpBreakoutMode, qsfpBreakoutModeLabel, qsfpBreakoutLinkId,
   qsfpBreakoutCableLabel, qsfpBreakoutLengthLabel } from "./qsfpBreakoutModel.js";
 export { multiCorePathMarkup } from "./multiCoreReportPresentation.js";
 
@@ -362,8 +362,8 @@ export function buildCableSchedule(input, options = {}) {
     || a.cableNumber.localeCompare(b.cableNumber));
   const activeKeys = new Set(breakoutLinks.map(link => qsfpBreakoutLinkId(link.assemblyId, link.branchId)));
   const endpoint = ref => endpointDisplay(project, ref, options.getBreakoutConnector || options.getConnector, nodeColors, nodeDefinitions);
-  for (const assembly of breakoutList(project.breakoutAssemblies)) {
-    if (!assembly?.id) continue;
+  for (const assembly of uniquelyIdentifiedQsfpBreakouts(project.breakoutAssemblies)) {
+    if (options.breakoutValidation?.diagnostics.some(issue => issue.assemblyId === assembly.id && issue.code === "assembly-id-conflict")) continue;
     const mode = qsfpBreakoutMode(assembly.modeId), source = endpoint(assembly.source);
     const breakoutChannels = qsfpBreakoutChannels(assembly).map(channel => {
       const linkId = qsfpBreakoutLinkId(assembly.id, channel.branchId);
@@ -377,7 +377,9 @@ export function buildCableSchedule(input, options = {}) {
         `Lane ${channel.lanes.join(", ") || "?"} [${channel.channelId}]`, channel.rate,
         channel.state || "unverified", channel.state === "connected" && !channel.active ? "not traceable" : "",
         channel.destination && (channel.destination.deviceId ? `${channel.destination.device} / ${channel.destination.port}`
-          : `Unresolved: ${channel.destination.reference.deviceId} / ${channel.destination.reference.connectorId}`)
+          : `Unresolved: ${channel.destination.reference.deviceId} / ${channel.destination.reference.connectorId}`),
+        options.breakoutValidation?.diagnostics.some(issue => issue.assemblyId === assembly.id && issue.code === "port-occupied"
+          && (!issue.branchId || issue.branchId === channel.branchId)) ? "physical port conflict" : ""
       ].filter(Boolean).join(" / ")).join("\n"),
       breakoutSource: source, sourceDevice: source.device, sourcePort: source.port, sourceDeviceId: source.deviceId,
       sourceConnectorId: source.connectorId, sourceNodeTypeId: source.typeId, sourceNodeColor: source.color,

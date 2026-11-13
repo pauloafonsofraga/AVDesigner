@@ -1285,19 +1285,18 @@ function normalizeTitleBlocks(blocks) {
   });
 }
 
+export function projectWireEndpoint(wire, end) {
+  return wire?.[end] || {
+    deviceId: wire?.[`${end}DeviceId`],
+    surfaceId: wire?.[`${end}SurfaceId`],
+    connectorId: wire?.[`${end}ConnectorId`],
+    anchorId: wire?.[`${end}AnchorId`]
+  };
+}
+
 function normalizeProjectWire(wire, index, context) {
-  const from = normalizeEndpoint(wire.from || {
-    deviceId: wire.fromDeviceId,
-    surfaceId: wire.fromSurfaceId,
-    connectorId: wire.fromConnectorId,
-    anchorId: wire.fromAnchorId
-  }, "from", wire, context);
-  const to = normalizeEndpoint(wire.to || {
-    deviceId: wire.toDeviceId,
-    surfaceId: wire.toSurfaceId,
-    connectorId: wire.toConnectorId,
-    anchorId: wire.toAnchorId
-  }, "to", wire, context);
+  const from = normalizeEndpoint(projectWireEndpoint(wire, "from"), "from", wire, context);
+  const to = normalizeEndpoint(projectWireEndpoint(wire, "to"), "to", wire, context);
   if (!from || !to || !endpointExists(from, context) || !endpointExists(to, context)) return null;
   const metadata = effectiveJumpDeviceWireMetadata(wire, from, to, context, index);
   const cableType = metadata.cableType;
@@ -1493,8 +1492,9 @@ function normalizeRackInternalWires(root, context) {
       if (sourceId && canvasId) sourceMap[sourceId] = canvasId;
     });
     internalConnections.forEach((connection, index) => {
-      const fromDeviceId = String(connection?.from?.deviceId || "");
-      const toDeviceId = String(connection?.to?.deviceId || "");
+      const from = projectWireEndpoint(connection, "from"), to = projectWireEndpoint(connection, "to");
+      const fromDeviceId = String(from.deviceId || "");
+      const toDeviceId = String(to.deviceId || "");
       const fromCanvasId = String(sourceMap[fromDeviceId] || "");
       const toCanvasId = String(sourceMap[toDeviceId] || "");
       if (!fromCanvasId || !toCanvasId) return;
@@ -1503,13 +1503,13 @@ function normalizeRackInternalWires(root, context) {
         id: `rack-internal-${rackId}-${connection.id || index}`,
         from: {
           deviceId: fromCanvasId,
-          connectorId: connection.from?.connectorId || "",
-          anchorId: connection.from?.anchorId || connection.fromAnchorId || ""
+          connectorId: from.connectorId || "",
+          anchorId: from.anchorId || connection.fromAnchorId || ""
         },
         to: {
           deviceId: toCanvasId,
-          connectorId: connection.to?.connectorId || "",
-          anchorId: connection.to?.anchorId || connection.toAnchorId || ""
+          connectorId: to.connectorId || "",
+          anchorId: to.anchorId || connection.toAnchorId || ""
         },
         routePoints: transformedRackRoutePointsForEngine(connection, rack, sourceRack, sourceMap, context),
         orthogonalRoutePoints: Array.isArray(connection.orthogonalRoutePoints)

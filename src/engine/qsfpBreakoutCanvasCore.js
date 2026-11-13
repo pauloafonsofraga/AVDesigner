@@ -1,6 +1,6 @@
 import { layerVisible, layerEditable } from "./projectLayers.js";
 import { wirePolylineFromPoints } from "./wirePath.js";
-import { QSFP_BREAKOUT_VERSION, breakoutId, breakoutList as list, qsfpBreakoutMode } from "./qsfpBreakoutModel.js";
+import { QSFP_BREAKOUT_VERSION, breakoutId, breakoutList as list, qsfpBreakoutMode, uniquelyIdentifiedQsfpBreakouts } from "./qsfpBreakoutModel.js";
 import { validateQsfpBreakoutTransition } from "./qsfpBreakoutValidation.js";
 
 const finitePoint = point => Number.isFinite(point?.x) && Number.isFinite(point?.y);
@@ -65,7 +65,7 @@ export function qsfpBreakoutAfterDeviceDeletion(assemblies, deviceIds) {
 }
 
 function endpointPoint(scene, endpoint, offsets) {
-  if (!endpoint?.anchorId) return null;
+  if (!breakoutId(endpoint?.deviceId) || !breakoutId(endpoint?.connectorId) || !breakoutId(endpoint?.anchorId)) return null;
   const device = scene.getDevice(endpoint.deviceId);
   const connector = device && scene.getConnector(device.id, endpoint.connectorId);
   if (!connector || !layerVisible(device) || !list(connector.anchors).some(anchor => anchor.id === endpoint.anchorId)) return null;
@@ -78,16 +78,14 @@ function endpointPoint(scene, endpoint, offsets) {
 
 const samePoint = (a, b) => a.x === b.x && a.y === b.y;
 
-export function projectQsfpBreakouts(scene, assemblies, { offsets, gesture } = {}) {
+export function projectQsfpBreakouts(scene, assemblies, { offsets, gesture, diagnostics = [] } = {}) {
   const plans = [];
-  const ids = new Set();
-  const ambiguous = new Set();
-  for (const assembly of list(assemblies)) {
-    if (ids.has(assembly?.id)) ambiguous.add(assembly.id);
-    ids.add(assembly?.id);
-  }
-  for (const assembly of list(assemblies)) {
-    if (assembly?.schemaVersion !== QSFP_BREAKOUT_VERSION || !breakoutId(assembly.id) || ambiguous.has(assembly.id)) continue;
+  for (const assembly of uniquelyIdentifiedQsfpBreakouts(assemblies)) {
+    if (assembly.schemaVersion !== QSFP_BREAKOUT_VERSION) continue;
+    const issues = diagnostics.filter(issue => issue.assemblyId === assembly.id);
+    if (issues.some(issue => issue.code === "assembly-id-conflict")) continue;
+    const conflict = issues.filter(issue => issue.code === "port-occupied");
+    const sourceConflict = conflict.some(issue => !issue.branchId);
     const mode = qsfpBreakoutMode(assembly.modeId);
     const source = endpointPoint(scene, assembly.source, offsets);
     if (!source || !mode) continue;
@@ -109,8 +107,8 @@ export function projectQsfpBreakouts(scene, assemblies, { offsets, gesture } = {
       if (!breakoutId(branch?.id) || assembly.branches.filter(b => b?.id === branch.id).length !== 1) continue;
       const channels = list(assembly.channels).filter(channel => channel?.id === branch.channelId);
       const channel = channels.length === 1 ? channels[0] : null;
-      const lane = channel?.lanes?.length === 1 ? channel.lanes[0] : null;
-      if (!mode.lanes.includes(lane) || assembly.channels.filter(c => list(c?.lanes).includes(lane)).length !== 1) continue;
+      const lane = list(channel?.lanes).length === 1 ? channel.lanes[0] : null;
+      if (!mode.lanes.includes(lane) || list(assembly.channels).filter(c => list(c?.lanes).includes(lane)).length !== 1) continue;
       const tip = { x: hub.x + 80 * direction, y: hub.y + (mode.lanes.indexOf(lane) - (mode.lanes.length - 1) / 2) * 25 };
       const destination = endpointPoint(scene, branch.destination, offsets);
       // A hidden or unresolved attached endpoint is not an unplugged end.
@@ -120,13 +118,15 @@ export function projectQsfpBreakouts(scene, assemblies, { offsets, gesture } = {
       const tail = wirePolylineFromPoints({}, [hub, tip], { bezierSteps: 14 });
       const outward = { x: direction, y: 0 };
       const extension = target ? wirePolylineFromPoints({}, [tip, target], { fromDirection: outward }) : [];
+      const branchConflict = sourceConflict || conflict.some(issue => issue.branchId === branch.id);
       branches.push({ id: branch.id, channelId: branch.channelId, lane, state: channel.state, tip, target,
         destination: branch.destination || null,
         points: [...tail, ...extension.slice(1)], editable: layerEditable(source.device) && (!destination || layerEditable(destination.device)),
-        color: move?.kind === "branch" && move.branchId === branch.id && move.targetError ? "#ed716e"
+        color: branchConflict || (move?.kind === "branch" && move.branchId === branch.id && move.targetError) ? "#ed716e"
           : channel.state === "disabled" ? "#76838f" : destination?.color || "#60cee7" });
     }
     plans.push({ id: assembly.id, source: assembly.source, layerId: source.device.layerId, origin, hub, trunk, corners, branches,
+      ...(sourceConflict ? { color: "#ed716e" } : {}),
       editable: layerEditable(source.device) });
   }
   return plans;

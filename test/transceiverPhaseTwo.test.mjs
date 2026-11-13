@@ -21,6 +21,19 @@ const install = (value, type = "sfp-plus-cage", fields = {}, verifiedHost = true
 const hit = (id, connector) => ({ device: { id }, connector });
 const compare = (a, b) => engineCompatibilitySummary(hit("a", a), hit("b", b));
 const options = port => transceiverModuleOptionsForConnector(port).map(profile => profile.value);
+
+test("contradictory named optic identities are rejected without treating aliases or generic metadata as contradictions", () => {
+  const sr = install("10gbase-sr");
+  const conflicting = { ...sr, installedModuleId: "10gbase-lr" };
+  assert.equal(compare(conflicting, sr).compatibilityStatus, "incompatible");
+  assert.equal(compare(sr, conflicting).compatibilityStatus, "incompatible");
+  assert.match(transceiverModulePresentation(conflicting), /identities contradict/i);
+  assert.equal(compare({ ...sr, installedModuleId: "10GBASE SR" }, sr).compatibilityStatus, "compatible");
+  assert.equal(compare({ ...sr, installedModuleId: "lc-multimode" }, sr).compatibilityStatus, "compatible");
+  assert.equal(compare({ ...sr, installedModuleId: "historical-sr-serial" }, sr).compatibilityStatus, "compatible");
+  assert.equal(compare({ ...sr, installedModuleId: "lc-singlemode" }, sr).compatibilityStatus, "incompatible");
+  assert.equal(compare({ ...sr, module: { type: "10gbase-lr" } }, sr).compatibilityStatus, "incompatible");
+});
 const profiles = [
   ["1000base-sx", "sfp-cage", "sfp", "1G", "duplex-lc", "multimode", [850]],
   ["1000base-lx", "sfp-cage", "sfp", "1G", "duplex-lc", "single-mode", [1310]],
