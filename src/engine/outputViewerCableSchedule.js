@@ -1,5 +1,5 @@
 import { cableScheduleColumns, CABLE_SCHEDULE_FILTER_KEYS, cableScheduleFilterOptions,
-  cableScheduleVisibleRowIndexes, reportCsv } from "./cableSchedule.js";
+  cableScheduleVisibleRowIndexes, reportCsv } from "./cableScheduleCore.js";
 
 /** Read-only schedule over the same physical cable rows embedded for reports. */
 export function installOutputCableSchedule(viewer, rows = []) {
@@ -45,10 +45,11 @@ export function installOutputCableSchedule(viewer, rows = []) {
         const td = text("td", row[key]);
         if (key === "cableNumber") {
           const ids = (row.wireIds || []).filter(id => viewer.scene.getWire(id));
-          if (ids.length) {
+          if (ids.length || row.breakoutAssemblyId) {
             const link = text("button", row[key] || "Cable"); link.type = "button";
-            link.title = "View cable signal chain";
-            link.dataset.scheduleWireId = ids[0];
+            link.title = row.breakoutAssemblyId ? "Inspect breakout assembly" : "View cable signal chain";
+            if (row.breakoutAssemblyId) link.dataset.scheduleBreakoutId = row.breakoutAssemblyId;
+            else link.dataset.scheduleWireId = ids[0];
             td.replaceChildren(link);
           }
         }
@@ -60,6 +61,8 @@ export function installOutputCableSchedule(viewer, rows = []) {
     count.textContent = `${selected.length} of ${rows.length} cables`; download.disabled = selected.length === 0;
   }
   tbody.addEventListener("click", event => {
+    const assembly = event.target.closest("button[data-schedule-breakout-id]")?.dataset.scheduleBreakoutId;
+    if (assembly) { dialog.close(); viewer.select({ type: "qsfp-breakout", id: assembly }); return; }
     const link = event.target.closest("button[data-schedule-wire-id]"); if (!link) return;
     dialog.close(); viewer.select({type:"wire",id:link.dataset.scheduleWireId}); viewer.openSignalChain();
   }, {signal});

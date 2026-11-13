@@ -1,4 +1,4 @@
-import { buildCableSchedule, groupedCables } from "./cableSchedule.js";
+import { buildCableSchedule, groupedCables } from "./cableScheduleCore.js";
 import { buildPreviewOrthogonalWirePoints, ORTHOGONAL_EXIT_OFFSET } from "./orthogonalRouting.js";
 import { splinePolylineSegmentsThroughPoints, wirePolylineFromPoints } from "./wirePath.js";
 import { gatewayExitSide, loomCoreColors, orthogonalManualPoints } from "./routingPlacement.js";

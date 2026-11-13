@@ -1,0 +1,482 @@
+import { engineConnectorColor, engineConnectorDisplayLabel, engineConnectorCompatibilityType,
+  engineConnectorUserFacingTypeLabel } from "./connectorCompatibility.js";
+import { normalizeSignalDirection } from "./deviceDefinitionV2.js";
+import { effectiveTransceiverDirection, isTransceiverCage, integratedCableProfile, isDacCableType } from "./transceiverModules.js";
+import { rawWireJumpIds, resolvePlayableSignalPath } from "./jumpNodeModel.js";
+import { cableLengthDisplayLabel } from "./loomMetadata.js";
+import { resolveRackPatchPresentation } from "./rackPatchTopology.js";
+import { createMultiCoreConnectivity, isMultiCoreEndpointReference, projectHasStageboxChannels, traceMultiCoreSignalPath, traceInternalSignalPaths } from "./multiCoreConnectivity.js";
+import { multiCoreReportEndpoint, presentMultiCorePath } from "./multiCoreReportPresentation.js";
+import {groupedCoaxMetadata, groupedCoaxLabel, multibandColors} from "./multibandSignals.js";
+import {CABLE_NUMBER_PREFIXES, parseCableNumber, formatCableNumber} from "./cableNumbering.js";
+import { breakoutList, qsfpBreakoutChannels, qsfpBreakoutMode, qsfpBreakoutModeLabel, qsfpBreakoutLinkId,
+  qsfpBreakoutCableLabel, qsfpBreakoutLengthLabel } from "./qsfpBreakoutModel.js";
+export { multiCorePathMarkup } from "./multiCoreReportPresentation.js";
+
+const signalChainConnectivity = new WeakMap();
+export const cableScheduleConnectivity = rows => signalChainConnectivity.get(rows);
+
+export const CABLE_SCHEDULE_COLUMNS = Object.freeze([
+  ["cableNumber", "Cable ID"], ["sourceDevice", "Source Device"], ["sourcePort", "Source Port"],
+  ["destinationDevice", "Destination Device"], ["destinationPort", "Destination Port"],
+  ["signal", "Signal"], ["connector", "Connector"], ["cable", "Cable"],
+  ["length", "Length"], ["loom", "Loom"], ["rackLocation", "Rack / Location"], ["notes", "Notes"]
+]);
+
+export const CABLE_SCHEDULE_FILTER_KEYS = Object.freeze(["sourceDevice", "destinationDevice", "cable", "loom"]);
+
+export function cableScheduleColumns(rows) {
+  const columns = rows.some(row => row.multiCoreReferences?.length) ? [...CABLE_SCHEDULE_COLUMNS,
+    ["multiCoreId", "Multi-Core ID"], ["multiCoreEnd", "Multi-Core End"],
+    ["multiCorePort", "Multi-Core Port"], ["multiCoreChannel", "Multi-Core Channel"]] : CABLE_SCHEDULE_COLUMNS;
+  return rows.some(row => row.breakoutAssemblyId) ? [...columns, ["breakoutMode", "Breakout Mode"], ["breakoutDetails", "Breakout Channels"]] : columns;
+}
+
+export function cableScheduleFilterOptions(rows, key) {
+  if (!CABLE_SCHEDULE_FILTER_KEYS.includes(key)) return [];
+  return [...new Set(rows.flatMap(row => scheduleFilterValues(row, key)))].filter(Boolean)
+    .sort((left, right) => left.localeCompare(right, undefined, { numeric: true, sensitivity: "base" }));
+}
+
+export function cableScheduleVisibleRowIndexes(rows, filters = {}) {
+  const selected = CABLE_SCHEDULE_FILTER_KEYS.filter(key => filters[key]);
+  return rows.flatMap((row, index) => selected.every(key => scheduleFilterValues(row, key).includes(filters[key])) ? [index] : []);
+}
+
+const scheduleFilterValues = (row, key) => key === "destinationDevice" && row.breakoutChannels
+  ? row.breakoutChannels.map(channel => channel.destination?.device).filter(Boolean) : [String(row[key] || "")];
+
+export function deriveLoomReportNotes(notes, loom) {
+  const existing = String(notes ?? "");
+  if (!loom) return existing;
+  const name = String(loom.name || loom.id || "").trim();
+  if (!name) return existing;
+  const origin = String(loom.origin || "").trim();
+  const destination = String(loom.destination || "").trim();
+  const label = `Loom: ${name}${origin && destination ? ` — ${origin} → ${destination}` : ""}`;
+  const length = String(loom.trunkLength || "").trim();
+  const derived = [label];
+  if (length) derived.push(`Loom length: ${length} — Derived from ${name}`);
+  return [existing.trimEnd(), ...derived].filter(Boolean).join("\n");
+}
+
+export function parseComparableCableLengthMeters(value) {
+  const match = String(value ?? "").trim().match(/^([+-]?(?:\d+(?:[.,]\d*)?|[.,]\d+))\s*(mm|millimeters?|cm|centimeters?|m|meters?|metres?|km|kilometers?|kilometres?|in|inches?|ft|feet|foot|yd|yards?)$/i);
+  if (!match) return null;
+  const amount = Number(match[1].replace(",", "."));
+  if (!Number.isFinite(amount) || amount < 0) return null;
+  const unit = match[2].toLowerCase();
+  const factors = {
+    mm: 0.001, millimeter: 0.001, millimeters: 0.001,
+    cm: 0.01, centimeter: 0.01, centimeters: 0.01,
+    m: 1, meter: 1, meters: 1, metre: 1, metres: 1,
+    km: 1000, kilometer: 1000, kilometers: 1000, kilometre: 1000, kilometres: 1000,
+    in: 0.0254, inch: 0.0254, inches: 0.0254,
+    ft: 0.3048, foot: 0.3048, feet: 0.3048,
+    yd: 0.9144, yard: 0.9144, yards: 0.9144
+  };
+  return amount * factors[unit];
+}
+
+const families = Object.freeze({ V: "Video", N: "Network", A: "Audio", F: "Fibre", L: "Lighting", P: "Power", U: "USB", X: "Other" });
+const familyOrder = ["A", "F", "L", "N", "P", "U", "V", "X"];
+const typeFamilies = new Map(Object.entries({
+  sdi: "V", bnc: "V", hdmi: "V", dvi: "V", "display-port": "V", "mini-display-port": "V",
+  vga: "V", cxp: "V", "component-video":"V", rgbhv:"V", "led-signal": "V", "led-grid-signal": "V",
+  cat5e: "N", cat6: "N", cat6a: "N", ethercon: "N", ethernet: "N",
+  "xlr-3pin": "A", "xlr-5pin": "A", "trs-ts": "A", rca: "A", aes: "A",
+  "dmx-3pin": "L", "dmx-5pin": "L",
+  "usb-a": "U", "usb-b": "U", "usb-c": "U",
+  "speakon-nl2": "A", "speakon-nl4": "A", "speakon-nl8": "A", speakon: "A",
+  "fiber-lc": "F", "fiber-sc": "F", "fiber-st": "F", "fiber-mpo": "F", opticalcon: "F", fiberfox: "F",
+  iec: "P", schuko: "P", "uk-13a": "P", edison: "P", powercon: "P", "powercon-true1": "P",
+  "new-node": "P", "barrel-jack": "P",
+  "16a-cee": "P", "32a-cee": "P", "63a-cee": "P", "125a-cee": "P",
+  socapex: "P", harting: "P", powerlock: "P", nema: "P",
+  "16a-1ph-110v": "P", "16a-1ph": "P", "32a-1ph-110v": "P", "32a-1ph": "P",
+  "16a-3ph": "P", "32a-3ph": "P", "63a-3ph": "P", "125a-3ph": "P"
+}));
+const nodeDefinition = (definitions, id) => Array.isArray(definitions)
+  ? definitions.find(item => item.id === id) : definitions?.[id];
+
+export function cableFamily(typeId, nodeDefinitions = []) {
+  const key = String(typeId || "").trim().toLowerCase();
+  if (integratedCableProfile(key)) return "N";
+  if (typeFamilies.has(key)) return typeFamilies.get(key);
+  const node = nodeDefinition(nodeDefinitions, key);
+  const tags = Array.isArray(node?.tags) ? node.tags.map(tag => String(tag).toLowerCase()) : [];
+  if (tags.includes("lighting") || tags.includes("dmx")) return "L";
+  if (node?.compatibilityType && typeFamilies.has(node.compatibilityType)) return typeFamilies.get(node.compatibilityType);
+  for (const [tag, family] of [["fiber", "F"], ["fibre", "F"], ["power", "P"], ["network", "N"], ["audio", "A"], ["video", "V"], ["usb", "U"]]) {
+    if (tags.includes(tag)) return family;
+  }
+  return "X";
+}
+
+function projectRoot(project) {
+  return project?.state || project?.project || project || {};
+}
+
+function reportDevice(project, id) {
+  if (!id) return {};
+  const instance = (project.devices || []).find(item => (item.instanceId || item.id) === id);
+  if (!instance) return {};
+  const template = instance.templateOverride || (typeof instance.template === "object" && instance.template)
+    || (project.deviceLibrary || []).find(item => item.id === (instance.templateId || instance.template)) || instance;
+  return { instance, template };
+}
+
+function connectorFor(project, endpoint, getConnector) {
+  if (!endpoint?.deviceId) return null;
+  if (getConnector) return getConnector(endpoint.deviceId, endpoint.connectorId) || null;
+  const { template } = reportDevice(project, endpoint.deviceId);
+  return (template?.connectors || []).find(item => item.id === endpoint.connectorId) || null;
+}
+
+function realEndpoint(wire, jumpEnd) {
+  const first = wire?.from || {}, second = wire?.to || {};
+  if (jumpEnd === "from") return first.jumpNodeId ? second : first;
+  return second.jumpNodeId ? first : second;
+}
+
+export function groupedCables(project, getConnector) {
+  const wires = project.connections || [];
+  const byId = new Map(wires.map(wire => [String(wire.id), wire]));
+  const visited = new Set(), groups = [];
+  for (const wire of wires) {
+    const id = String(wire.id || "");
+    if (!id || visited.has(id)) continue;
+    const path = rawWireJumpIds(wire).length
+      ? resolvePlayableSignalPath({ startingWireId: id, project, getConnector })
+      : [];
+    const legs = path.filter(step => step.type === "wire" && byId.has(String(step.wireId)))
+      .map(step => byId.get(String(step.wireId)));
+    const group = legs.length > 1 ? legs : [wire];
+    group.forEach(item => visited.add(String(item.id)));
+    const first = group[0], last = group[group.length - 1];
+    const source = group.length > 1 ? realEndpoint(first, "from") : first.from;
+    const destination = group.length > 1 ? realEndpoint(last, "to") : last.to;
+    groups.push({ wires: group, source, destination, primary: first });
+  }
+  return groups;
+}
+
+function preferredNumber(group, family, claimed) {
+  for (const wire of group.wires) {
+    const number = formatCableNumber(wire.cableNumber, family);
+    const parsed = parseCableNumber(number);
+    if (parsed?.family === family && !claimed.has(number)) return number;
+  }
+  return "";
+}
+
+function groupFamily(project, group, options) {
+  const cableType = group.wires.find(wire => wire.cableType && wire.cableType !== "jump")?.cableType
+    || group.primary.cableType;
+  const cable = cableFamily(cableType, options.nodeDefinitions);
+  const endpoints = [group.source, group.destination].map(endpoint => {
+    const connector = connectorFor(project, endpoint, options.getConnector);
+    const node = nodeDefinition(options.nodeDefinitions, connector?.type);
+    return cableFamily(connector ? engineConnectorCompatibilityType({ ...connector,
+      compatibilityType: connector.compatibilityType || node?.compatibilityType }) : "", options.nodeDefinitions);
+  });
+  if (endpoints.includes("F")) return "F";
+  if (cable === "L" || endpoints.includes("L")) return "L";
+  return cable;
+}
+
+// This is the sole numbering mutation. It changes only persisted connection
+// metadata and high-water marks; it never creates an undo entry by itself.
+function numberCableGroups(project, groups, options, commit) {
+  const counters = { ...project.cableNumberCounters };
+  for (const family of familyOrder) counters[family] = Math.max(0, Number(counters[family]) || 0);
+  for (const wire of project.connections || []) {
+    const parsed = parseCableNumber(wire.cableNumber);
+    if (parsed) counters[parsed.family] = Math.max(counters[parsed.family], parsed.number);
+  }
+  for (const group of groups) if (groupFamily(project, group, options) === "U") {
+    for (const wire of group.wires) {
+      const parsed = parseCableNumber(wire.cableNumber);
+      if (parsed?.family === "X") counters.U = Math.max(counters.U, parsed.number);
+    }
+  }
+  const claimed = new Set();
+  for (const group of groups) {
+    const family = groupFamily(project, group, options);
+    let number = preferredNumber(group, family, claimed);
+    if (!number) number = `${CABLE_NUMBER_PREFIXES[family]}-${String(++counters[family]).padStart(3, "0")}`;
+    claimed.add(number);
+    group.family = family;
+    group.cableNumber = number;
+    if (commit) group.wires.forEach(wire => { wire.cableNumber = number; });
+  }
+  if (commit) project.cableNumberCounters = counters;
+  return groups;
+}
+
+export function ensureCableNumbers(input, options = {}) {
+  const project = projectRoot(input);
+  return numberCableGroups(project, groupedCables(project, options.getConnector), options, true);
+}
+
+function endpointDisplay(project, endpoint, getConnector, nodeColors, nodeDefinitions) {
+  const { instance, template } = reportDevice(project, endpoint?.deviceId);
+  const surface = (project.ledSurfaces || []).find(item => item.id === endpoint?.surfaceId);
+  const connector = connectorFor(project, endpoint, getConnector);
+  const node = nodeDefinition(nodeDefinitions, connector?.type);
+  const groupedConnector=connector && {...connector,compatibilityType:connector.compatibilityType || node?.compatibilityType};
+  const deviceName = String(instance?.name || template?.name || surface?.name || "Unconnected");
+  const ends = template?.isStageboxSnake && template.stageboxSnake?.ends;
+  const end = Array.isArray(ends) && (ends.find(item => item.connectorIds?.includes(endpoint?.connectorId)) || ends[0]);
+  const semanticDevice = end?.name ? `${deviceName} / ${end.name}` : deviceName;
+  const side = end?.id === "end-b" ? "b" : "a";
+  const channels = end && template.stageboxSnake.channels;
+  const stageboxChannels = (Array.isArray(channels) ? channels : [])
+    .filter(channel => channel?.[side]?.connectorId === endpoint?.connectorId)
+    .map(channel => {
+      const contact = channel[side].contact;
+      return [channel.name || channel.id, contact && `contact ${contact}`].filter(Boolean).join(" / ");
+    });
+  const semanticPort = String(connector?.nameText || (connector?.label !== connector?.type ? connector?.label : "")
+    || (connector ? engineConnectorDisplayLabel({ ...connector, typeLabel: node?.label || connector.typeLabel,
+      compatibilityType: connector.compatibilityType || node?.compatibilityType }) : "")
+    || (surface ? "LED Screen" : ""));
+  const patch = resolveRackPatchPresentation(project, endpoint);
+  return {
+    deviceId: String(instance?.instanceId || instance?.id || ""), surfaceId: String(surface?.id || ""),
+    connectorId: String(connector?.id || endpoint?.connectorId || ""),
+    direction: connector ? (isTransceiverCage(connector) ? effectiveTransceiverDirection(connector)
+      : normalizeSignalDirection(connector.signalDirection, connector.direction)) : "",
+    device: patch ? `${patch.rackName} / ${patch.panelLabel}` : semanticDevice,
+    port: patch ? `Port ${patch.slot}` : semanticPort,
+    realDevice: semanticDevice,
+    realPort: semanticPort,
+    stageboxChannels,
+    type: String(connector ? engineConnectorCompatibilityType({ ...connector,
+      compatibilityType: connector.compatibilityType || node?.compatibilityType }) || connector.physicalType || connector.type || "" : ""),
+    typeId: String(connector?.type || ""),
+    physicalCircuits: groupedCoaxMetadata(groupedConnector),
+    typeLabel: groupedCoaxLabel(groupedConnector) || (connector ? engineConnectorUserFacingTypeLabel({ ...connector,
+      typeLabel: node?.label !== connector.type ? node?.label : connector.typeLabel,
+      compatibilityType: connector.compatibilityType || node?.compatibilityType }) : ""),
+    rackId: patch?.rackId || String(instance?.rackId || ""),
+    patch,
+    color: connector ? engineConnectorColor(connector, nodeColors) : ""
+  };
+}
+
+function derivePatchReportNotes(notes, source, destination) {
+  const mappings = [
+    source.patch && `Source patch: ${source.patch.rackName} / ${source.patch.panelLabel} / Port ${source.patch.slot} ↔ ${source.realDevice} / ${source.realPort}`,
+    destination.patch && `Destination patch: ${destination.patch.rackName} / ${destination.patch.panelLabel} / Port ${destination.patch.slot} ↔ ${destination.realDevice} / ${destination.realPort}`
+  ].filter(Boolean);
+  return [...[String(notes || "").trimEnd()].filter(Boolean), ...mappings].join("\n");
+}
+
+export function buildCableSchedule(input, options = {}) {
+  const project = projectRoot(input);
+  const breakoutLinks = options.breakoutLinks || [];
+  const connectivity = options.connectivity || (project.multiCores?.length
+    || breakoutLinks.length
+    || project.deviceLibrary?.some(t => t.enableInternalRouting)
+    || project.devices?.some(d => [d, d.template, d.templateOverride].some(t => t?.enableInternalRouting))
+    || projectHasStageboxChannels(project)
+    || project.connections?.some(c => isMultiCoreEndpointReference(c.from) || isMultiCoreEndpointReference(c.to))
+    ? createMultiCoreConnectivity(project, { getConnector: options.getConnector, breakoutLinks }) : null);
+  const groups = options.assignNumbers === false ? groupedCables(project, options.getConnector)
+    : options.assignNumbers === "readOnly"
+      ? numberCableGroups(project, groupedCables(project, options.getConnector), options, false)
+      : ensureCableNumbers(project, options);
+  const nodeDefinitions = options.nodeDefinitions || project.nodeLibrary || [];
+  const node = id => nodeDefinition(nodeDefinitions, id);
+  const nodeColors = new Map((Array.isArray(nodeDefinitions) ? nodeDefinitions : Object.values(nodeDefinitions))
+    .filter(item => item?.id && item?.color).map(item => [item.id, item.color]));
+  const rackName = id => (project.racks || []).find(rack => rack.id === id)?.name || id;
+  const rows = groups.map(group => {
+    const primary = group.primary;
+    const value = key => group.wires.find(wire => String(wire[key] || "").trim())?.[key] || "";
+    const mcSource = multiCoreReportEndpoint(project, group.source, connectivity);
+    const mcDestination = multiCoreReportEndpoint(project, group.destination, connectivity);
+    const source = mcSource || endpointDisplay(project, group.source, options.getConnector, nodeColors, nodeDefinitions);
+    const destination = mcDestination || endpointDisplay(project, group.destination, options.getConnector, nodeColors, nodeDefinitions);
+    const refs = [mcSource, mcDestination].filter(Boolean);
+    const family = group.family || groupFamily(project, group, { ...options, nodeDefinitions });
+    const sourceRack = source.patch?.rackName || (source.rackId ? rackName(source.rackId) : "");
+    const destinationRack = destination.patch?.rackName || (destination.rackId ? rackName(destination.rackId) : "");
+    const rackLocation = source.rackId === destination.rackId
+      ? sourceRack : `${sourceRack} → ${destinationRack}`.trim();
+    const cableType = String(group.wires.find(wire => wire.cableType && wire.cableType !== "jump")?.cableType || value("cableType"));
+    const assemblyProfile = integratedCableProfile(cableType);
+    const assembly = primary.cableAssembly;
+    const cableNode = node(cableType);
+    const cableSignal={type:cableType,compatibilityType:cableNode?.compatibilityType};
+    const physicalCircuits = groupedCoaxMetadata(cableSignal);
+    const cableLabel = cableType ? engineConnectorUserFacingTypeLabel({ type: cableType,
+      typeLabel: cableNode?.label, compatibilityType: cableNode?.compatibilityType }, "Cable") : "Cable";
+    const loomId = String(value("loomId"));
+    const loomRecord = (project.looms || []).find(item => String(item.id) === loomId);
+    const fiberMode = family === "F" && value("fiberMode") ? ` - ${value("fiberMode")}` : "";
+    return {
+      ...(physicalCircuits ? {physicalCircuits:{...physicalCircuits,
+        sourceConnectorFamily:source.physicalCircuits?.connectorFamily || physicalCircuits.connectorFamily,
+        destinationConnectorFamily:destination.physicalCircuits?.connectorFamily || physicalCircuits.connectorFamily,
+        circuits:physicalCircuits.circuits.map(circuit=>({...circuit,
+          sourceConnectorFamily:source.physicalCircuits?.connectorFamily || circuit.connectorFamily,
+          destinationConnectorFamily:destination.physicalCircuits?.connectorFamily || circuit.connectorFamily}))}} : {}),
+      ...(refs.length ? { multiCoreReferences: refs, multiCoreId: refs.map(r => r.assemblyId).join(" / "),
+        multiCoreEnd: refs.map(r => r.role).join(" / "), multiCorePort: refs.map(r => r.port).join(" / "),
+        multiCoreChannel: refs.map(r => r.channel).join(" / ") } : {}),
+      cableNumber: formatCableNumber(group.cableNumber || primary.cableNumber),
+      sourceDevice: source.device, sourcePort: source.port,
+      destinationDevice: destination.device, destinationPort: destination.port,
+      sourceDeviceId: source.deviceId, sourceSurfaceId: source.surfaceId,
+      sourceConnectorId: source.connectorId, sourceDirection: source.direction,
+      sourceRealDevice: source.realDevice, sourceRealPort: source.realPort,
+      sourcePatch: source.patch,
+      destinationDeviceId: destination.deviceId, destinationSurfaceId: destination.surfaceId,
+      destinationConnectorId: destination.connectorId, destinationDirection: destination.direction,
+      destinationRealDevice: destination.realDevice, destinationRealPort: destination.realPort,
+      destinationPatch: destination.patch,
+      signal: families[family], connector: [source.typeLabel, destination.typeLabel].filter(Boolean).join(" → "),
+      cable: `${cableLabel}${fiberMode}`, length: cableLengthDisplayLabel(value("length"), loomRecord),
+      fiberMode: String(value("fiberMode")),
+      loomId, loom: String(loomRecord?.name || value("loom")), rackLocation,
+      notes: [derivePatchReportNotes(deriveLoomReportNotes(value("notes"), loomRecord), source, destination),
+        ...[source, destination].filter(end => end.stageboxChannels?.length)
+          .map(end => `${end.realDevice}: ${end.stageboxChannels.join(", ")}`),
+        physicalCircuits ? `${physicalCircuits.count} separate 75 ohm coaxial circuits: ${physicalCircuits.circuits.map(c=>c.id).join(", ")}. Grouped signal; all circuits required.` : "",
+        assemblyProfile ? [`Integrated ${isDacCableType(cableType) ? "DAC" : "AOC"} assembly`,
+          ...(Array.isArray(assembly?.supportedRates) ? assembly.supportedRates : []),
+          ...(Array.isArray(assembly?.warnings) ? assembly.warnings : []),
+          ...(!assembly ? ["Saved cable assembly details are unverified."] : [])].join(" | ") : ""].filter(Boolean).join("\n"),
+      wireIds: group.wires.map(wire => String(wire.id)),
+      sourceNodeTypeId: source.typeId, destinationNodeTypeId: destination.typeId,
+      sourceNodeTypeLabel: source.typeLabel, destinationNodeTypeLabel: destination.typeLabel,
+      sourceNodeColor: source.color, destinationNodeColor: destination.color,
+      cableTypeId: cableType, cableColor: String(value("customColor") || node(cableType)?.color || "#32b6ff"),
+      ...(multibandColors(cableSignal) ? {cableColors:multibandColors(cableSignal)} : {}),
+      cableCustomColor: String(value("customColor"))
+    };
+  }).sort((a, b) => familyOrder.indexOf(parseCableNumber(a.cableNumber)?.family) - familyOrder.indexOf(parseCableNumber(b.cableNumber)?.family)
+    || (parseCableNumber(a.cableNumber)?.number || 0) - (parseCableNumber(b.cableNumber)?.number || 0)
+    || a.cableNumber.localeCompare(b.cableNumber));
+  const activeKeys = new Set(breakoutLinks.map(link => qsfpBreakoutLinkId(link.assemblyId, link.branchId)));
+  const endpoint = ref => endpointDisplay(project, ref, options.getBreakoutConnector || options.getConnector, nodeColors, nodeDefinitions);
+  for (const assembly of breakoutList(project.breakoutAssemblies)) {
+    if (!assembly?.id) continue;
+    const mode = qsfpBreakoutMode(assembly.modeId), source = endpoint(assembly.source);
+    const breakoutChannels = qsfpBreakoutChannels(assembly).map(channel => {
+      const linkId = qsfpBreakoutLinkId(assembly.id, channel.branchId);
+      return { ...channel, rate: mode?.branchRate || "", active: activeKeys.has(linkId),
+        ...(activeKeys.has(linkId) ? { linkId } : {}), destination: channel.destination
+          ? { ...endpoint(channel.destination), reference: channel.destination } : null };
+    });
+    rows.push({
+      breakoutAssemblyId: assembly.id, cableNumber: assembly.id, breakoutMode: qsfpBreakoutModeLabel(mode),
+      breakoutChannels, breakoutDetails: breakoutChannels.map(channel => [
+        `Lane ${channel.lanes.join(", ") || "?"} [${channel.channelId}]`, channel.rate,
+        channel.state || "unverified", channel.state === "connected" && !channel.active ? "not traceable" : "",
+        channel.destination && (channel.destination.deviceId ? `${channel.destination.device} / ${channel.destination.port}`
+          : `Unresolved: ${channel.destination.reference.deviceId} / ${channel.destination.reference.connectorId}`)
+      ].filter(Boolean).join(" / ")).join("\n"),
+      breakoutSource: source, sourceDevice: source.device, sourcePort: source.port, sourceDeviceId: source.deviceId,
+      sourceConnectorId: source.connectorId, sourceNodeTypeId: source.typeId, sourceNodeColor: source.color,
+      destinationDevice: [...new Set(breakoutChannels.map(channel => channel.destination?.device).filter(Boolean))].join("; "),
+      signal: families.N, connector: source.typeLabel, cable: qsfpBreakoutCableLabel(assembly.cableType),
+      cableTypeId: assembly.cableType, cableColor: "#82cde9", length: qsfpBreakoutLengthLabel(assembly.length),
+      wireIds: []
+    });
+  }
+  if (connectivity) signalChainConnectivity.set(rows, connectivity);
+  return rows;
+}
+
+function signalChainFromRow(row) {
+  const endpoint = side => ({
+    device: row[`${side}RealDevice`] || row[`${side}Device`], deviceId: row[`${side}DeviceId`], surfaceId: row[`${side}SurfaceId`],
+    connectorId: row[`${side}ConnectorId`], port: row[`${side}RealPort`] || row[`${side}Port`],
+    patch: row[`${side}Patch`] || null,
+    typeId: row[`${side}NodeTypeId`], typeLabel: row[`${side}NodeTypeLabel`], color: row[`${side}NodeColor`],
+    direction: row[`${side}Direction`]
+  });
+  const reverse = row.sourceDirection === "input" && row.destinationDirection === "output";
+  const directed = reverse || row.sourceDirection === "output" && row.destinationDirection === "input";
+  return { ...row, from: endpoint(reverse ? "destination" : "source"),
+    to: endpoint(reverse ? "source" : "destination"), flow: directed ? "forward" : "bidirectional" };
+}
+
+export function signalChainForWire(rows, wireId, { connectivity = signalChainConnectivity.get(rows), reverse } = {}) {
+  const id = String(wireId || "");
+  const row = id && rows.find(item => item.wireIds.includes(id) || item.breakoutChannels?.some(channel => channel.linkId === id));
+  if (!row) return null;
+  if (row.breakoutAssemblyId) {
+    const channel = row.breakoutChannels.find(item => item.linkId === id);
+    const from = row.breakoutSource, to = channel.destination;
+    const paths = connectivity ? traceInternalSignalPaths(connectivity, id).filter(path => path.segments.length) : [];
+    const presentations = paths.map(path => presentMultiCorePath(path, rows, connectivity));
+    return { wireIds: [id], cableNumber: `${row.cableNumber} / Lane ${channel.lanes.join(", ")}`, cable: row.cable,
+      cableTypeId: row.cableTypeId, cableColor: row.cableColor, length: row.length, flow: "bidirectional",
+      breakoutAssemblyId: row.breakoutAssemblyId, branchId: channel.branchId, channelId: channel.channelId,
+      from, to, ...(paths.length ? { path: paths[0], paths, presentation: presentations.length === 1
+        ? presentations[0] : { ...presentations[0], branches: presentations } } : {}) };
+  }
+  const chain = signalChainFromRow(row);
+  if (!connectivity) return chain;
+  if (connectivity.edges.some(e => e.kind === "device-internal-route")) {
+    const paths = traceInternalSignalPaths(connectivity, id);
+    if (paths.some(p => p.segments.some(s => s.kind === "device-internal-route"))) {
+      const presentations = paths.map(p => presentMultiCorePath(p, rows, connectivity));
+      return { ...chain, path: paths[0], paths, presentation: presentations.length === 1 ? presentations[0]
+        : { ...presentations[0], branches: presentations } };
+    }
+  }
+  const startingCable = connectivity.cables.find(c => c.wireId === id);
+  const orientFromEquipment = isMultiCoreEndpointReference(startingCable?.from.reference)
+    && startingCable?.to.kind === "device";
+  const path = traceMultiCoreSignalPath(connectivity, id, { reverse: reverse ?? orientFromEquipment });
+  const concernsMultiCore = path.segments.some(s => s.kind === "multi-core-passive-channel")
+    || path.segments.some(s => s.kind === "qsfp-breakout-channel")
+    || connectivity.cables.some(c => (path.externalCableIds.includes(c.wireId) || row.wireIds.includes(c.wireId))
+      && [c.from, c.to].some(e => isMultiCoreEndpointReference(e.reference)))
+    || path.diagnostics.some(d => isMultiCoreEndpointReference(d.reference));
+  // wireIds still identifies a physical reporting row; path holds the expanded logical chain.
+  return concernsMultiCore ? { ...chain, path, presentation: presentMultiCorePath(path, rows, connectivity) } : chain;
+}
+
+export function signalChainsForConnector(rows, deviceId, connectorId) {
+  const owner = String(deviceId || ""), connector = String(connectorId || "");
+  if (!owner || !connector) return [];
+  const at = end => end?.deviceId === owner && end.connectorId === connector;
+  return rows.flatMap(row => row.breakoutAssemblyId
+    ? row.breakoutChannels.filter(channel => channel.active && (at(row.breakoutSource) || at(channel.destination)))
+      .map(channel => signalChainForWire(rows, channel.linkId))
+    : row.sourceDeviceId === owner && row.sourceConnectorId === connector
+      || row.destinationDeviceId === owner && row.destinationConnectorId === connector
+      ? [signalChainForWire(rows, row.wireIds[0])] : []);
+}
+
+export function cableScheduleSignalChains(rows, options) {
+  return rows.flatMap(row => (row.breakoutAssemblyId ? row.breakoutChannels.map(channel => channel.linkId).filter(Boolean)
+    : row.wireIds.slice(0, 1)).map(id => signalChainForWire(rows, id, options))).filter(Boolean);
+}
+
+export function signalChainsForPatchPort(rows, rackId, patchPanelId, patchPortId) {
+  const wanted = [String(rackId || ""), String(patchPanelId || ""), String(patchPortId || "")];
+  if (wanted.some(value => !value)) return [];
+  return rows.filter(row => [row.sourcePatch, row.destinationPatch].some(patch => patch
+    && [String(patch.rackId), String(patch.panelId), String(patch.portId)].every((value, index) => value === wanted[index])))
+    .map(row => signalChainForWire(rows, row.wireIds[0]));
+}
+
+export function cableScheduleCsv(rows) {
+  return reportCsv(cableScheduleColumns(rows), rows);
+}
+
+export function reportCsv(columns, rows) {
+  const quote = value => {
+    const text = String(value ?? "");
+    const safe = /^[\s\u0000-\u001f]*[=+@-]|^[\t\r\n]/.test(text) ? `'${text}` : text;
+    return `"${safe.replaceAll('"', '""')}"`;
+  };
+  return [columns.map(([, label]) => quote(label)), ...rows.map(row => columns.map(([key]) => quote(row[key])))].map(row => row.join(",")).join("\r\n") + "\r\n";
+}

@@ -1,24 +1,10 @@
-import { buildCableSchedule, signalChainForWire, reportCsv } from "./cableSchedule.js";
+import { buildCableSchedule, cableScheduleSignalChains, cableScheduleConnectivity, reportCsv } from "./cableSchedule.js";
 import { createMultiCoreConnectivity, isMultiCoreEndpointReference, projectHasStageboxChannels } from "./multiCoreConnectivity.js";
 import { multiCoreJumpDiagnostics } from "./multiCoreJumpRouting.js";
 import { reportText } from "./multiCoreReportPresentation.js";
+import { MULTI_CORE_ASSEMBLY_COLUMNS, MULTI_CORE_CHANNEL_COLUMNS, MULTI_CORE_DIAGNOSTIC_COLUMNS } from "./multiCoreReportSections.js";
+export * from "./multiCoreReportSections.js";
 
-export const MULTI_CORE_ASSEMBLY_COLUMNS = Object.freeze([
-  ["assemblyId", "Assembly ID"], ["name", "Multi-Core Name"], ["manufacturer", "Manufacturer"], ["model", "Model"],
-  ["endAStyle", "End A Style"], ["endBStyle", "End B Style"], ["length", "Trunk Length"], ["lengthUnit", "Length Unit"],
-  ["circuitCount", "Circuit Count"], ["occupied", "Occupied Channels"], ["spare", "Spare Channels"], ["disabled", "Disabled Channels"],
-  ["reserved", "Reserved Channels"], ["unresolved", "Unresolved Channels"], ["location", "Location"], ["notes", "Notes"]
-]);
-export const MULTI_CORE_CHANNEL_COLUMNS = Object.freeze([
-  ["assemblyId", "Assembly ID"], ["channel", "Channel Number"], ["circuitId", "Stable Circuit Reference"],
-  ["mediaFamily", "Media Family"], ["mediaSpec", "Media Specification"], ["endAPort", "End A Port"], ["endBPort", "End B Port"],
-  ["endAConnection", "End A Connection"], ["endBConnection", "End B Connection"], ["endACableId", "End A Cable ID"],
-  ["endBCableId", "End B Cable ID"], ["status", "Channel Status"], ["reservation", "Reservation"], ["notes", "Notes"], ["strands", "Strands"]
-]);
-export const MULTI_CORE_DIAGNOSTIC_COLUMNS = Object.freeze([
-  ["severity", "Severity"], ["code", "Code"], ["multiCoreId", "Assembly ID"], ["circuitId", "Circuit Reference"],
-  ["wireId", "Cable Reference"], ["message", "Message"], ["referenceText", "Unresolved Reference"]
-]);
 export const MULTI_CORE_STATUS_LABELS = Object.freeze({ unused: "Unused", reserved: "Reserved", "connected-a": "Connected at End A",
   "connected-b": "Connected at End B", "connected-both": "Connected at both ends", disabled: "Disabled", incompatible: "Incompatible", unresolved: "Unresolved" });
 const list = value => Array.isArray(value) ? value : [];
@@ -30,15 +16,16 @@ export function buildMultiCoreReports(input, options = {}) {
   const active = list(project.multiCores).length > 0 || list(project.connections).some(c => isMultiCoreEndpointReference(c?.from) || isMultiCoreEndpointReference(c?.to));
   const internalRouting = list(project.deviceLibrary).some(t => t.enableInternalRouting)
     || list(project.devices).some(d => d.templateOverride?.enableInternalRouting || d.template?.enableInternalRouting || d.enableInternalRouting);
-  const connectivity = options.connectivity || (active || internalRouting || projectHasStageboxChannels(project)
+  const connectivity = options.connectivity || (!project.breakoutAssemblies?.length && (active || internalRouting || projectHasStageboxChannels(project))
     ? createMultiCoreConnectivity(project, options) : null);
   const cableRows = buildCableSchedule(project, { ...options, connectivity, assignNumbers: "readOnly" });
   const byWire = new Map(cableRows.flatMap(row => row.wireIds.map(id => [id, row])));
-  const channels = [], assemblies = [], diagnostics = connectivity ? [...connectivity.diagnostics, ...multiCoreJumpDiagnostics(project)] : [];
+  const graph = connectivity || cableScheduleConnectivity(cableRows);
+  const channels = [], assemblies = [], diagnostics = graph ? [...graph.diagnostics, ...multiCoreJumpDiagnostics(project)] : [];
   for (const [index, mc] of list(project.multiCores).entries()) {
     const supported = mc && (mc.schemaVersion === undefined || mc.schemaVersion === 1);
     const sourceChannels = supported ? list(mc.circuits) : [];
-    const derived = connectivity.channels.filter(c => c.multiCoreId === mc?.id);
+    const derived = graph.channels.filter(c => c.multiCoreId === mc?.id);
     const rows = sourceChannels.map((c, channelIndex) => {
       const matches = derived.filter(d => d.circuitId === c?.id);
       const d = matches.length === 1 ? matches[0] : null;
@@ -74,17 +61,12 @@ export function buildMultiCoreReports(input, options = {}) {
       location: reportText(mc?.location), notes: reportText(mc?.notes), sourceIndex: index });
     if (mc?.trunk?.length == null) diagnostics.push({ severity: "warning", code: "missing-length", multiCoreId: mc?.id, message: "Physical trunk length is unknown; drawing distance is not used." });
   }
-  const signalPaths = cableRows.map(row => signalChainForWire(cableRows, row.wireIds[0], { connectivity }));
+  const signalPaths = cableScheduleSignalChains(cableRows);
   diagnostics.push(...signalPaths.flatMap(chain => chain?.path?.diagnostics || []));
   const unique = [...new Map(diagnostics.map(d => [JSON.stringify(d), { ...d, code: d.code || d.category, referenceText: reportText(d.reference) }])).values()];
   return freeze(JSON.parse(JSON.stringify({ version: 1, cableRows, assemblies, channels, signalPaths, diagnostics: unique })));
 }
 
-export function multiCoreReportSections(reports) {
-  return [["Multi-Core Assembly Register", MULTI_CORE_ASSEMBLY_COLUMNS, reports?.assemblies || []],
-    ["Channel Allocation Manifest", MULTI_CORE_CHANNEL_COLUMNS, reports?.channels || []],
-    ["Diagnostics", MULTI_CORE_DIAGNOSTIC_COLUMNS, reports?.diagnostics || []]].filter(([, , rows]) => rows.length);
-}
 export function multiCoreReportCsv(reports, section) {
   const columns = { assemblies: MULTI_CORE_ASSEMBLY_COLUMNS, channels: MULTI_CORE_CHANNEL_COLUMNS, diagnostics: MULTI_CORE_DIAGNOSTIC_COLUMNS }[section];
   if (!columns) throw new Error("Unknown Multi-Core report");

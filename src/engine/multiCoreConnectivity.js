@@ -7,6 +7,7 @@ import { resolveInstalledCardConnectors } from "./modularDeviceLayout.js";
 import { deriveLegacyPairJumpLinks, orientJumpPair, jumpConnectorBaseRole } from "./jumpNodeModel.js";
 import { normalizeInternalSignalRoutes } from "./matrixRouting.js?v=iteration54-4-0-matrix-routing-internal-routes";
 import { effectiveStageboxChannels } from "./stageboxSnake.js";
+import { qsfpBreakoutLinkId } from "./qsfpBreakoutModel.js";
 
 export const MULTI_CORE_CONNECTIVITY_VERSION = 1;
 const rootOf = project => project?.state || project?.project || project || {};
@@ -156,7 +157,7 @@ function referenceResult(reference, status, details = {}) {
 }
 
 /** Index once per detached project snapshot. The result is JSON-only and deeply frozen. */
-export function createMultiCoreConnectivity(projectInput, { getConnector, onStage } = {}) {
+export function createMultiCoreConnectivity(projectInput, { getConnector, onStage, breakoutLinks = [] } = {}) {
   const project = rootOf(projectInput), started = performance.now();
   let stageStart = started;
   const stage = name => { const now = performance.now(); onStage?.(name, now - stageStart); stageStart = now; };
@@ -319,6 +320,18 @@ export function createMultiCoreConnectivity(projectInput, { getConnector, onStag
     wireId: c.wireId, fromKey: c.from.key, toKey: c.to.key, length: c.connection.length ?? null }));
   edges.push(...passiveEdges);
   const logicalEndpoints = {};
+  const breakoutPorts = new Set();
+  for (const link of breakoutLinks) {
+    const from = resolve(link.source), to = resolve(link.destination);
+    if (!from.valid || !to.valid) continue;
+    logicalEndpoints[from.key] = from;
+    logicalEndpoints[to.key] = to;
+    breakoutPorts.add(from.key);
+    breakoutPorts.add(to.key);
+    edges.push({ kind: "qsfp-breakout-channel", key: qsfpBreakoutLinkId(link.assemblyId, link.branchId),
+      fromKey: from.key, toKey: to.key, assemblyId: link.assemblyId, channelId: link.channelId,
+      branchId: link.branchId, lanes: copy(link.lanes), length: link.length?.value ?? null, lengthUnit: link.length?.unit ?? null });
+  }
   const connectorsByDevice = new Map();
   for (const [portKey, connector] of ordinary.connectors) {
     const deviceId = JSON.parse(portKey)[1];
@@ -341,16 +354,25 @@ export function createMultiCoreConnectivity(projectInput, { getConnector, onStag
       }
       continue;
     }
-    if (template.enableInternalRouting !== true || template.isMatrixRouter) continue;
+    if (template.isMatrixRouter ? !breakoutPorts.size : template.enableInternalRouting !== true) continue;
     const connectors = connectorsByDevice.get(deviceId) || [];
-    const device = { visual: { enableInternalRouting: true }, connectors };
-    for (const route of normalizeInternalSignalRoutes(device, instance.internalSignalRoutes)) {
+    const device = { visual: { enableInternalRouting: template.enableInternalRouting === true }, connectors };
+    const matrixRoutes = template.isMatrixRouter && breakoutPorts.size && record(instance.matrixRoutes)
+      ? Object.entries(instance.matrixRoutes).filter(([out, input]) =>
+        breakoutPorts.has(key("device", deviceId, input)) || breakoutPorts.has(key("device", deviceId, out)))
+        .filter(([out, input]) => {
+          const a = connectors.find(c => c.id === input), b = connectors.find(c => c.id === out);
+          return a && b && a.includeInMatrix !== false && b.includeInMatrix !== false
+            && a.direction === "input" && b.direction === "output";
+        }).map(([outputId, inputId]) => ({ inputId, outputId, matrix: true })) : [];
+    const routes = template.isMatrixRouter ? matrixRoutes : normalizeInternalSignalRoutes(device, instance.internalSignalRoutes);
+    for (const route of routes) {
       const from = resolve({ deviceId, connectorId: route.inputId }), to = resolve({ deviceId, connectorId: route.outputId });
       if (!from.valid || !to.valid) continue;
       const deviceName = instance.name || template.name || deviceId;
       logicalEndpoints[from.key] = { ...from, deviceName }; logicalEndpoints[to.key] = { ...to, deviceName };
       edges.push({ kind: "device-internal-route", key: key("device-internal-route", deviceId, route.inputId, route.outputId),
-        deviceId, deviceName,
+        deviceId, deviceName, ...(route.matrix ? { matrix: true } : {}),
         inputId: route.inputId, outputId: route.outputId, fromKey: from.key, toKey: to.key });
     }
   }
@@ -438,7 +460,8 @@ function graphIndex(snapshot) {
       cablesAtEndpoint.get(endpoint.key).push(cable);
     }
     runtimeIndexes.set(snapshot, { edges: new Map(snapshot.edges.map(e => [e.key, e])),
-      cables: index(snapshot.cables, c => c.wireId), cablesAtEndpoint });
+      cables: index(snapshot.cables, c => c.wireId), cablesAtEndpoint,
+      breakoutSourceKeys: new Set(snapshot.edges.filter(edge => edge.kind === "qsfp-breakout-channel").map(edge => edge.fromKey)) });
   }
   return runtimeIndexes.get(snapshot);
 }
@@ -446,9 +469,12 @@ function graphIndex(snapshot) {
 /** Shared walker: devices are boundaries unless they declare explicit processing routes. */
 export function traceMultiCoreSignalPath(snapshot, wireId, { reverse = false, branchChoices = {} } = {}) {
   const graph = graphIndex(snapshot), candidates = graph.cables.get(wireId) || [], diagnostics = [];
-  if (candidates.length !== 1 || !candidates[0].valid) return freeze({ valid: false, segments: [], externalCableIds: [],
+  const breakout = graph.edges.get(wireId);
+  const start = breakout?.kind === "qsfp-breakout-channel" ? breakout : graph.edges.get(key("external-cable", wireId));
+  if (!start || (start.kind === "external-cable" && (candidates.length !== 1 || !candidates[0].valid))) return freeze({ valid: false, segments: [], externalCableIds: [],
     diagnostics: candidates.flatMap(c => c.diagnostics).concat(diagnostic("unresolved-cable", "Starting cable is missing, ambiguous or unresolved.", { wireId })) });
-  const start = graph.edges.get(key("external-cable", wireId)), visited = new Set([start.key]);
+  const visited = new Set([start.key]);
+  let tracedBreakout = start.kind === "qsfp-breakout-channel";
   const segment = (edge, fromKey) => ({ ...edge, fromKey, toKey: edge.fromKey === fromKey ? edge.toKey : edge.fromKey,
     reverse: edge.fromKey !== fromKey, ...(edge.kind === "multi-core-passive-channel" ? { direction: edge.fromKey === fromKey ? "A-to-B" : "B-to-A" } : {}) });
   const walk = (portKey, previous, forward) => {
@@ -459,9 +485,11 @@ export function traceMultiCoreSignalPath(snapshot, wireId, { reverse = false, br
       let choices = (snapshot.adjacency[portKey] || []).filter(k => k !== previous);
       if (endpoint?.kind === "device") {
         const arrivingInternally = graph.edges.get(previous)?.kind === "device-internal-route";
+        // A shared QSFP cage does not identify which of its lanes a device route uses.
         choices = choices.filter(k => {
           const edge = graph.edges.get(k);
           return arrivingInternally ? edge.kind === "external-cable"
+              || (edge.kind === "qsfp-breakout-channel" && !tracedBreakout && !graph.breakoutSourceKeys.has(portKey))
             : edge.kind === "device-internal-route" && (edge.passive || (forward ? edge.fromKey : edge.toKey) === portKey);
         });
         if (!choices.length) break;
@@ -487,6 +515,7 @@ export function traceMultiCoreSignalPath(snapshot, wireId, { reverse = false, br
       const edge = graph.edges.get(choices[0]);
       if (visited.has(edge.key)) { diagnostics.push(diagnostic("cycle", "Passive cycle detected; every edge is visited at most once.", { edgeKey: edge.key })); break; }
       visited.add(edge.key); const step = segment(edge, portKey); steps.push(step); previous = edge.key; portKey = step.toKey;
+      if (edge.kind === "qsfp-breakout-channel") tracedBreakout = true;
     }
     return steps;
   };
@@ -494,7 +523,8 @@ export function traceMultiCoreSignalPath(snapshot, wireId, { reverse = false, br
   let segments = [...left.reverse().map(s => segment(graph.edges.get(s.key), s.toKey)), segment(start, start.fromKey), ...right];
   if (reverse) segments = segments.reverse().map(s => segment(graph.edges.get(s.key), s.toKey));
   const from = snapshot.endpoints[segments[0].fromKey], to = snapshot.endpoints[segments.at(-1).toKey];
-  const equipment = segments.some(s => s.kind === "device-internal-route") ? null : equipmentCompatibility(from?.connector, to?.connector);
+  const equipment = segments.some(s => ["device-internal-route", "qsfp-breakout-channel"].includes(s.kind))
+    ? null : equipmentCompatibility(from?.connector, to?.connector);
   if (equipment && !equipment.valid) diagnostics.push(diagnostic("equipment-incompatible", equipment.reason, { rule: equipment.rule }));
   const externalCableIds = segments.filter(s => s.kind === "external-cable").map(s => s.wireId);
   for (const id of externalCableIds) {

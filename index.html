@@ -34215,6 +34215,8 @@
       });
 
       const logicalCables = reportCableScheduleModule.groupedCables(data);
+      const breakoutRows = data.breakoutAssemblies?.length
+        ? reportCableScheduleModule.buildCableSchedule(data, { assignNumbers: "readOnly" }).filter(row => row.breakoutAssemblyId) : [];
       const cableMap = new Map();
       logicalCables.forEach(group => {
         const connection = group.wires.find(wire => wire.cableType && wire.cableType !== "jump") || group.primary;
@@ -34227,6 +34229,13 @@
         row.wireIds.push(...group.wires.map(wire => wire.id));
         cableMap.set(key, row);
       });
+      for (const cable of breakoutRows) {
+        const key = `${cable.cableTypeId}|${cable.length}`;
+        const row = cableMap.get(key) || { typeId: cable.cableTypeId, type: `${cable.cable} / ${cable.breakoutMode}`,
+          length: cable.length, quantity: 0, wireIds: [] };
+        row.quantity += 1;
+        cableMap.set(key, row);
+      }
 
       const screenRows = screens.map(surface => {
         const dimensions = ledSurfacePixelDimensions(surface);
@@ -34258,7 +34267,7 @@
         adapterCount ? { label: "Adapters / Breakouts", value: adapterCount } : null,
         screens.length ? { label: "LED Screens", value: screens.length } : null,
         areas.length ? { label: "Areas / Rooms", value: areas.length } : null,
-        logicalCables.length ? { label: "Cables", value: logicalCables.length } : null,
+        logicalCables.length + breakoutRows.length ? { label: "Cables", value: logicalCables.length + breakoutRows.length } : null,
         ledPixels ? { label: "LED Screens total pixels", value: formatPixelCount(ledPixels) } : null,
         totalPowerWatts ? { label: `Power @ ${reportVoltage}V`, value: formatPowerPair(totalPowerWatts, reportVoltage) } : null
       ].filter(Boolean);
@@ -35427,11 +35436,11 @@ document.addEventListener("click", function(event) {
       const scheduleModule = await loadCableScheduleModule();
       const nodeDefinitions = Object.entries(cableTypes).map(([id, node]) => ({ ...node, id }));
       const signalRows = scheduleModule.buildCableSchedule(data, { assignNumbers: "readOnly", nodeDefinitions });
-      const signalChains = signalRows.map(row => {
-          const chain = scheduleModule.signalChainForWire(signalRows, row.wireIds[0]);
+      const signalChains = scheduleModule.cableScheduleSignalChains(signalRows).map(chain => {
           return { wireIds: chain.wireIds, cableNumber: chain.cableNumber, cable: chain.cable,
             length: chain.length, loom: chain.loom, cableColor: chain.cableColor,
             flow: chain.flow, from: chain.from, to: chain.to,
+            ...(chain.breakoutAssemblyId ? { breakoutAssemblyId: chain.breakoutAssemblyId, branchId: chain.branchId, channelId: chain.channelId } : {}),
             ...(chain.presentation ? { path: chain.path, paths: chain.paths, presentation: chain.presentation } : {}) };
         });
       const html = viewerModule.buildEngineViewerHtml(snapshot, { bundle, assets, title, cableGroups, signalChains, cableScheduleRows:signalRows });
@@ -37479,6 +37488,11 @@ document.addEventListener("click", function(event) {
     document.getElementById("downloadCableScheduleXlsx")?.addEventListener("click", () => downloadCableSchedule("xlsx"));
     cableScheduleBody?.addEventListener("click", event => {
       const row = cableScheduleRows[Number(event.target.closest("tr[data-cable-schedule-row]")?.dataset.cableScheduleRow)];
+      if (row?.breakoutAssemblyId) {
+        cableScheduleDialog.close();
+        activeEngineBridge()?.selectQsfpBreakout(row.breakoutAssemblyId);
+        return;
+      }
       if (!row?.wireIds?.length) return;
       const items = row.wireIds.map(id => ({ type: "wire", id }));
       cableScheduleDialog.close();
@@ -38266,6 +38280,7 @@ document.addEventListener("click", function(event) {
               if (assemblies === undefined) delete state.breakoutAssemblies;
               else state.breakoutAssemblies = assemblies;
             },
+            onEngineBreakoutSignalChain: openSignalChainForWire,
             onEngineLoomPortalCounterChange: counter => { state.loomPortalNumberCounter = counter; },
             setJumpNodeToolActive,
             getGridVisible: () => state.gridVisible !== false,

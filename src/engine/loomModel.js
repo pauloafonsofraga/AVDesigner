@@ -1,4 +1,4 @@
-import { buildCableSchedule, groupedCables } from "./cableSchedule.js";
+import { buildCableSchedule, groupedCables } from "./cableScheduleCore.js";
 import { normalizeLoomJumpRouting } from "./loomJumpAssociation.js";
 
 const rootOf = project => project?.state || project?.project || project || {};

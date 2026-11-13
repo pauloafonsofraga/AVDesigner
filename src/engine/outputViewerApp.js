@@ -9,6 +9,7 @@ import { isJumpNodeDevice, jumpNodeCenter } from "./jumpNodeModel.js";
 import { multiCorePathMarkup } from "./multiCoreReportPresentation.js";
 import {multibandCss} from "./multibandSignals.js";
 import { continuousStageboxPoints } from "./stageboxSignalPath.js";
+import { hitTestQsfpBreakout } from "./qsfpBreakoutHitTest.js";
 
 export class EngineOutputViewer {
   constructor(host, snapshot, options = {}) {
@@ -17,7 +18,7 @@ export class EngineOutputViewer {
     this.icons = { light: "icons/lightmode.png", dark: "icons/darkmode.png", ...options.icons };
     this.model = createOutputViewerModel(snapshot, options);
     this.scene = this.model.scene;
-    this.signalChains = Array.isArray(options.signalChains) ? options.signalChains : [];
+    this.signalChains = Array.isArray(options.signalChains) ? options.signalChains : this.model.contract.modelData?.reports?.signalPaths || [];
     this.camera = { x: 0, y: 0, zoom: 1 };
     this.metrics = { normalizationMs: this.model.normalizationMs, frames: 0, frameMs: [], assetFailures: 0 };
     this.abort = new AbortController();
@@ -96,6 +97,8 @@ export class EngineOutputViewer {
       if (action === "inspector") this.toggleInspector();
       if (action === "play") this.play();
       if (action === "wire") this.select({ type: "wire", id: button.dataset.id });
+      if (action === "breakout-channel") this.select({ type: "qsfp-breakout", id: button.dataset.id, branchId: button.dataset.branchId });
+      if (action === "breakout-trunk") this.select({ type: "qsfp-breakout", id: button.dataset.id });
       if (action === "connected-node") {
         clearTimeout(this.connectedNodeClickTimer);
         const { deviceId, connectorId } = button.dataset;
@@ -276,11 +279,21 @@ export class EngineOutputViewer {
     const jump = this.jumpAt(world);
     if (jump) return this.select({ type: "device", id: jump.id });
     const connector = hitTestConnector(this.scene, world, tolerance, this.camera.zoom).connector;
-    if (connector) return this.select({ type: "connector", deviceId: connector.device.id, id: connector.connector.id });
+    if (connector) {
+      const matches = (this.model.contract.qsfpBreakouts?.plans || []).flatMap(plan => plan.branches.filter(branch =>
+        branch.destination?.deviceId === connector.device.id && branch.destination.connectorId === connector.connector.id
+        && branch.destination.anchorId === connector.anchorId).map(branch => ({ id: plan.id, branchId: branch.id })));
+      return this.select(matches.length === 1 ? { type: "qsfp-breakout", ...matches[0] }
+        : { type: "connector", deviceId: connector.device.id, id: connector.connector.id });
+    }
     const link = this.visibleJumpLinkOverlays().find(l => distanceToPolyline(l.points, world).distance < tolerance);
     if (link) return this.select({ type: "jump-link", id: link.id });
     const loom = hitTestLoom(this.scene, world, tolerance);
     if (loom && loom.part !== "trunk") return this.select({ type: "loom", id: loom.loomId });
+    if (this.model.contract.qsfpBreakouts && !hitTestDevice(this.scene, world, d => d.kind !== "area" && !d.visual?.referenceImage).device) {
+      const hit = hitTestQsfpBreakout(this.model.contract.qsfpBreakouts.plans, world, tolerance, null, { readOnly: true });
+      if (hit) return this.select({ type: "qsfp-breakout", id: hit.assemblyId, branchId: hit.branchId });
+    }
     const wire = hitTestWire(this.scene, world, tolerance).wire;
     if (wire) return this.select({ type: "wire", id: wire.wire.id });
     if (loom) return this.select({ type: "loom", id: loom.loomId });
@@ -315,7 +328,18 @@ export class EngineOutputViewer {
       fields.append(dt, dd);
     });
     const cables = this.inspector.querySelector(".output-cables"); cables.replaceChildren();
-    if (selection?.type === "device" || selection?.type === "connector") {
+    if (selection?.type === "qsfp-breakout") {
+      const button = (label, action, branchId) => {
+        const control = document.createElement("button"); control.type = "button";
+        control.textContent = label; control.dataset.action = action; control.dataset.id = selection.id;
+        if (branchId) control.dataset.branchId = branchId;
+        cables.append(control);
+      };
+      if (selection.branchId) button("Select Trunk", "breakout-trunk");
+      else for (const channel of details.breakoutChannels || []) if (channel.branchId) {
+        button(`Lane ${channel.lanes.join(", ") || "?"} / ${channel.state || "unverified"}`, "breakout-channel", channel.branchId);
+      }
+    } else if (selection?.type === "device" || selection?.type === "connector") {
       const items = outputConnectedNodeItems(this.scene, selection.deviceId || selection.id,
         selection.type === "connector" ? selection.id : "");
       if (items.length) {
@@ -349,6 +373,8 @@ export class EngineOutputViewer {
     this.requestRender();
   }
   signalChainsForSelection() {
+    if (this.selection?.type === "qsfp-breakout") return this.signalChains.filter(chain =>
+      chain.breakoutAssemblyId === this.selection.id && chain.branchId === this.selection.branchId);
     if (this.selection?.type === "wire") return this.signalChains.filter(chain => chain.wireIds?.includes(this.selection.id));
     if (this.selection?.type !== "connector") return [];
     return this.signalChains.filter(chain => [chain.from, chain.to].some(end =>
@@ -465,6 +491,9 @@ export class EngineOutputViewer {
     this.refreshHover();
     if (!this.pointers.size && this.hoverPoint) this.showDeviceHint(this.hoverPoint);
     const interactionState = { selectedConnectors: this.scene.selectedConnectorKeys,
+      qsfpBreakoutPlans: this.model.contract.qsfpBreakouts?.plans,
+      selectedQsfpBreakout: this.selection?.type === "qsfp-breakout"
+        ? { assemblyId: this.selection.id, branchId: this.selection.branchId } : null,
       hoveredWireId: this.hoveredWireId,
       hoveredConnector: this.hoveredStageboxConnector,
       jumpLinkOverlays: this.visibleJumpLinkOverlays() };
@@ -474,6 +503,7 @@ export class EngineOutputViewer {
       const point = polylinePointAtDistance(step.points, polylineLength(step.points) * wirePlaybackEase(progress));
       this.centerPlaybackCamera(point);
       interactionState.wirePlayback = { active: true, dot: point, progress, points: step.points, color: step.color,
+        breakoutEndpoints: step.breakoutEndpoints,
         jumpLinkId: step.type === "jump-link" ? step.id : "" };
       if (progress === 1) {
         this.playback.index++; this.playback.start = performance.now();

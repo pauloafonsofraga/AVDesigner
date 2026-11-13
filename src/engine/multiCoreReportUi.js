@@ -1,5 +1,5 @@
-import { multiCoreReportSections } from "./multiCoreReports.js";
-import { reportCsv } from "./cableSchedule.js";
+import { multiCoreReportSections } from "./multiCoreReportSections.js";
+import { reportCsv } from "./cableScheduleCore.js";
 
 /** Shared read-only report tables for the editor and embedded technician viewer. */
 export function renderMultiCoreReports(host, reports, { download } = {}) {

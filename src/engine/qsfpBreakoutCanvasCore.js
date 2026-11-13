@@ -1,4 +1,3 @@
-import { distanceToSegment } from "./hitTest.js";
 import { layerVisible, layerEditable } from "./projectLayers.js";
 import { wirePolylineFromPoints } from "./wirePath.js";
 import { QSFP_BREAKOUT_VERSION, breakoutId, breakoutList as list, qsfpBreakoutMode } from "./qsfpBreakoutModel.js";
@@ -122,41 +121,15 @@ export function projectQsfpBreakouts(scene, assemblies, { offsets, gesture } = {
       const outward = { x: direction, y: 0 };
       const extension = target ? wirePolylineFromPoints({}, [tip, target], { fromDirection: outward }) : [];
       branches.push({ id: branch.id, channelId: branch.channelId, lane, state: channel.state, tip, target,
+        destination: branch.destination || null,
         points: [...tail, ...extension.slice(1)], editable: layerEditable(source.device) && (!destination || layerEditable(destination.device)),
         color: move?.kind === "branch" && move.branchId === branch.id && move.targetError ? "#ed716e"
           : channel.state === "disabled" ? "#76838f" : destination?.color || "#60cee7" });
     }
-    plans.push({ id: assembly.id, layerId: source.device.layerId, origin, hub, trunk, corners, branches,
+    plans.push({ id: assembly.id, source: assembly.source, layerId: source.device.layerId, origin, hub, trunk, corners, branches,
       editable: layerEditable(source.device) });
   }
   return plans;
 }
 
-export function hitTestQsfpBreakout(plans, point, tolerance, selected) {
-  const at = (target, radius = tolerance) => Math.hypot(point.x - target.x, point.y - target.y) <= radius;
-  for (const plan of [...plans].reverse()) {
-    if (!plan.editable) continue;
-    if (selected?.assemblyId === plan.id && !selected.branchId) {
-      const index = plan.corners.findIndex(corner => at(corner));
-      if (index !== -1) return { assemblyId: plan.id, kind: "corner", index };
-      if (at(plan.hub)) return { assemblyId: plan.id, kind: "hub" };
-    }
-    const branch = plan.branches.filter(item => item.editable && at(item.tip))
-      .sort((a, b) => Math.hypot(point.x-a.tip.x, point.y-a.tip.y)-Math.hypot(point.x-b.tip.x, point.y-b.tip.y))[0];
-    if (branch) return { assemblyId: plan.id, branchId: branch.id, kind: "tip" };
-  }
-  let best = null, min = tolerance;
-  for (const plan of plans) {
-    if (!plan.editable) continue;
-    for (const [points, branchId] of [[plan.trunk, null], ...plan.branches.filter(b => b.editable).map(b => [b.points, b.id])]) {
-      for (let i = 1; i < points.length; i++) {
-        const { distance } = distanceToSegment(point, points[i - 1], points[i]);
-        if (distance <= min) {
-          min = distance;
-          best = { assemblyId: plan.id, branchId, kind: branchId ? "branch" : "trunk" };
-        }
-      }
-    }
-  }
-  return best;
-}
+export { hitTestQsfpBreakout } from "./qsfpBreakoutHitTest.js";

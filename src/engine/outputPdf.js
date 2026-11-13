@@ -4,7 +4,7 @@ import { pdfPageLayout } from "./outputPdfLayout.js";
 import { addJumpLink } from "./outputPdfNavigation.js";
 import { buildOutputJumpNavigation } from "./outputNavigation.js";
 import { expandInlineSvgImages } from "./pdfInlineSvgImages.js";
-import { multiCoreReportSections } from "./multiCoreReports.js";
+import { multiCoreReportSections } from "./multiCoreReportSections.js";
 
 const dark = "#20262d", text = "#17202a", rule = "#cbd3dc";
 const sections = report => [
@@ -135,7 +135,7 @@ function multiCoreReportPages(doc, reports, layout) {
     }
     return result;
   };
-  for (const [title, columns, records] of multiCoreReportSections(reports)) {
+  for (const [title, columns, records] of multiCoreReportSections(reports, { includeBreakoutSchedule: true })) {
     page(title);
     for (const record of records) {
       const groupSize = Math.ceil(columns.length / 3);

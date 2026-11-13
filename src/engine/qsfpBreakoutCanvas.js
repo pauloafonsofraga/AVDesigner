@@ -1,8 +1,9 @@
 import { hitTestConnector, hitTestDevice, screenToWorld } from "./hitTest.js";
 import { layerEditable } from "./projectLayers.js";
 import { QSFP_BREAKOUT_LENGTH_UNITS, QSFP_BREAKOUT_MAX_ROUTE_POINTS, breakoutReservations,
-  breakoutList as list, createQsfpBreakoutAssembly, qsfpBreakoutMode } from "./qsfpBreakoutModel.js";
-import { qsfpBreakoutHostCableTypes, qsfpBreakoutHostModes, validateQsfpBreakoutProject } from "./qsfpBreakoutValidation.js";
+  breakoutList as list, createQsfpBreakoutAssembly, qsfpBreakoutLinkId, qsfpBreakoutMode } from "./qsfpBreakoutModel.js";
+import { activeQsfpBreakoutLinks, qsfpBreakoutHostCableTypes, qsfpBreakoutHostModes, validateQsfpBreakoutProject } from "./qsfpBreakoutValidation.js";
+import { qsfpBreakoutPlaybackStep } from "./qsfpBreakoutPlayback.js";
 import { hitTestQsfpBreakout, projectQsfpBreakouts, qsfpBreakoutAfterDeviceDeletion,
   qsfpBreakoutDeviceId, qsfpBreakoutEdit, qsfpBreakoutEndpoint, setQsfpBreakoutBranch } from "./qsfpBreakoutCanvasCore.js";
 
@@ -29,6 +30,14 @@ export const qsfpBreakoutCanvasMethods = {
     return assemblies?.length ? projectQsfpBreakouts(this.scene, assemblies, {
       gesture, offsets: this.dragSession?.offsetMap()
     }) : [];
+  },
+
+  playQsfpBreakout(assemblyId, branchId) {
+    const step = qsfpBreakoutPlaybackStep(this.qsfpBreakoutPlans(null), activeQsfpBreakoutLinks(this.mutations.root), assemblyId, branchId);
+    if (!step) return false;
+    return this.startWirePlaybackPlan({ semanticSteps: [step], steps: [step] }, {
+      startingWireId: step.id, actionSource: "qsfp-breakout-inspector"
+    });
   },
 
   applyQsfpBreakoutFields(fields, deviceId, label) {
@@ -177,6 +186,9 @@ export const qsfpBreakoutCanvasMethods = {
     const { assemblies, diagnostics } = validateQsfpBreakoutProject(this.mutations.root);
     const state = assemblies.find(item => item.id === assembly.id)?.status || "unverified";
     const details = diagnostics.filter(item => item.assemblyId === assembly.id);
+    const activeLinks = new Set(activeQsfpBreakoutLinks(this.mutations.root, { diagnostics })
+      .filter(link => link.assemblyId === assembly.id).map(link => link.branchId));
+    const playable = branchId => branchId && activeLinks.has(branchId) && plan?.branches.some(item => item.id === branchId && item.target);
     const editable = Boolean(plan?.editable && !details.some(item => item.severity === "error" || item.blocksAuthoring));
     const reservations = breakoutReservations({ breakoutAssemblies: [assembly] });
     const deletable = reservations.every(item => {
@@ -196,11 +208,14 @@ export const qsfpBreakoutCanvasMethods = {
       <dl class="details"><dt>Assembly</dt><dd>${modeName(assembly.modeId)} ${cableName(assembly.cableType)}</dd>
       <dt>Compatibility</dt><dd data-breakout-status="${state}">${state[0].toUpperCase() + state.slice(1)}</dd>
       ${branch ? `<dt>Branch</dt><dd>${stateLabel(channel?.state)}${mode ? ` / ${mode.branchRate}` : ""}</dd>
+      <dt>Channel ID</dt><dd>${escape(channel?.id)}</dd>
       <dt>Destination</dt><dd>${escape(this.qsfpBreakoutDestinationName(branch.destination))}</dd>` : ""}</dl>
       ${details.length ? `<p class="field-hint">${escape([...new Set(details.map(item => item.message))].slice(0, 4).join(" "))}</p>` : ""}
       <div class="connector-inspector-section">${branch
         ? button("trunk", "Select Trunk") + button("connect", branch.destination ? "Replug Branch" : "Connect Branch", !branchEditable || channel?.state === "disabled")
           + (branch.destination ? button("disconnect", "Disconnect Branch", !branchEditable) : "")
+          + (playable(branch.id) ? button("play", "Play Cable") : "")
+          + (activeLinks.has(branch.id) ? button("signal-chain", "Signal Chain") : "")
         : `<label class="field">Branch<select data-breakout-branch>${option("", "Select a branch")}${branches.map(item =>
           option(item.id, `Lane ${laneLabel(item.channel)} - ${stateLabel(item.channel?.state)}`)).join("")}</select></label>
           <label class="field">Trunk routing<select data-breakout-routing${!editable ? " disabled" : ""}>${option("bezier", "Curved", assembly.routeStyle !== "orthogonal")}${option("orthogonal", "Orthogonal", assembly.routeStyle === "orthogonal")}</select></label>
@@ -230,6 +245,8 @@ export const qsfpBreakoutCanvasMethods = {
           case "trunk": this.selectQsfpBreakout(assembly.id); break;
           case "connect": this.beginQsfpBreakoutGesture({ kind: "branch", assemblyId: assembly.id, branchId: branch.id }); break;
           case "disconnect": this.disconnectQsfpBreakoutBranch(assembly.id, branch.id); break;
+          case "play": this.playQsfpBreakout(assembly.id, branch.id); break;
+          case "signal-chain": this.api.onEngineBreakoutSignalChain?.(qsfpBreakoutLinkId(assembly.id, branch.id)); break;
           case "add-point": this.beginQsfpBreakoutGesture({ kind: "add-point", assemblyId: assembly.id }); break;
           case "reset": editAssembly("Reset breakout trunk route", item => { item.routePoints = []; delete item.fanoutOffset; }); break;
           case "delete": this.deleteQsfpBreakoutSelection({ assemblyId: assembly.id }); break;

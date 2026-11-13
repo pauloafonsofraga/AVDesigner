@@ -47,5 +47,19 @@ server. Older application builds are not lossless editors of new breakout
 projects. Device-only clipboard copies preserve instance mode preferences but
 do not duplicate an installed assembly. A WNX definition carries only host
 capabilities, not attached project assemblies. Interactive edits are undoable.
-Full assembly clipboard duplication, logical tracing, schedules, and
-presentation in the Technician Viewer, PDF and HTML are not implemented.
+Full assembly clipboard duplication is not implemented.
+
+## Playback and outputs (Phase 3B.3)
+
+Select a connected branch (or choose a lane after selecting the trunk) to play
+its route. Playback follows only the source cage, trunk and selected branch
+to its destination. Signal Chain also follows explicitly authored device
+routes; the shared cage is never treated as an Ethernet switch. Unused,
+disconnected, disabled and invalid links are not playable.
+
+The schedule counts one physical assembly and one length, with lane IDs,
+rates, destinations and states in the channel details. HTML embeds the same
+projected geometry and signal links in a read-only viewer. PDF prints the
+trunk and lane labels in the drawing and the full channel details in a
+dedicated schedule section. Older exports without the optional breakout
+scene section still open as before.

@@ -1,4 +1,4 @@
-import { cableScheduleColumns } from "./cableSchedule.js";
+import { cableScheduleColumns } from "./cableScheduleCore.js";
 import { renderMultiCoreReports } from "./multiCoreReportUi.js";
 
 export function installOutputReport(viewer, report = {}, cableGroups = [], multiCoreReports = null) {

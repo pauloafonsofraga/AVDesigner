@@ -8,6 +8,9 @@ import { jumpNodeCenter, jumpLinkBezierPolyline } from "./jumpNodeModel.js";
 import { adapterWorldPoint } from "./adapterRotation.js";
 import { multiCoreConnectivityModelSnapshot } from "./multiCoreConnectivity.js";
 import { buildMultiCoreReports } from "./multiCoreReports.js";
+import { projectQsfpBreakouts } from "./qsfpBreakoutCanvasCore.js";
+import { activeQsfpBreakoutLinks } from "./qsfpBreakoutValidation.js";
+import { breakoutList } from "./qsfpBreakoutModel.js";
 
 import { OUTPUT_SCENE_VERSION, OUTPUT_SCENE_SOURCE, OUTPUT_SCENE_SCHEMA_FINGERPRINT } from "./outputSceneContract.js";
 export { OUTPUT_SCENE_VERSION, OUTPUT_SCENE_SOURCE, OUTPUT_SCENE_SCHEMA_FINGERPRINT } from "./outputSceneContract.js";
@@ -76,7 +79,12 @@ export function buildEngineOutputScene(projectSnapshot = {}) {
   const project = plainData(projectSnapshot);
   const root = project.state || project.project || project;
   const model = multiCoreConnectivityModelSnapshot(root);
-  const modelData = model ? { ...model, reports: buildMultiCoreReports(root, { connectivity: model.connectivity }) } : undefined;
+  const assemblies = breakoutList(root.breakoutAssemblies);
+  const breakoutLinks = assemblies.length ? activeQsfpBreakoutLinks(root) : [];
+  const reports = assemblies.length || model ? buildMultiCoreReports(root, {
+    ...(assemblies.length ? { breakoutLinks } : { connectivity: model.connectivity })
+  }) : undefined;
+  const modelData = reports ? { ...(model || { version: 1, diagnostics: [] }), reports } : undefined;
   const scene = new SceneGraph();
   // The interactive adapter supplies a demo graph for an empty document. An
   // output contract must describe the empty document, not that demonstration.
@@ -130,6 +138,7 @@ export function buildEngineOutputScene(projectSnapshot = {}) {
   const rackExposure = scene.racks.map(rack => scene.rackConnectorDiagnostics(rack.id));
   const looms = scene.looms;
   const loomPlans = scene.loomPlans;
+  const breakoutPlans = projectQsfpBreakouts(scene, assemblies);
   const { calcMs, ...hopDiagnostics } = hopResult.stats;
   const warnings = empty ? [] : [...(scene.meta.jumpLinkWarnings || []), ...(scene.meta.jumpLinkIndexWarnings || [])];
   warnings.push(...(scene.meta.multiCoreDiagnostics || []).map(d => d.message).filter(Boolean));
@@ -140,6 +149,7 @@ export function buildEngineOutputScene(projectSnapshot = {}) {
   if (!empty && normalized.wires.length !== scene.wires.length) warnings.push("SceneGraph rejected normalized wire endpoints.");
   const data = plainData({
     ...(modelData ? { modelData } : {}),
+    ...(assemblies.length ? { qsfpBreakouts: { version: 1, assemblies, plans: breakoutPlans, links: breakoutLinks } } : {}),
     version: OUTPUT_SCENE_VERSION, schemaFingerprint: OUTPUT_SCENE_SCHEMA_FINGERPRINT, sceneDataSource: OUTPUT_SCENE_SOURCE,
     coordinateSpace: "engine-world", devices, connectors, wires, racks: scene.racks,
     ...(scene.meta.projectLayers ? {layers:scene.meta.projectLayers} : {}),
@@ -148,6 +158,7 @@ export function buildEngineOutputScene(projectSnapshot = {}) {
     bounds: geometryBounds([...visibleScene.devices.map(deviceBounds), ...visibleScene.racks.map(rack => rack.bounds)],
       [...wires.filter(wire => layerVisible(wire) && !scene.isWireHiddenByLoom(wire.id)).flatMap(wire => wire.renderPolyline),
         ...jumpLinks.filter(layerVisible).flatMap(link => link.polyline),
+        ...breakoutPlans.flatMap(plan => [...plan.trunk, ...plan.branches.flatMap(branch => branch.points)]),
         ...loomPlans.filter(layerVisible).flatMap(plan => [
           ...(plan.visibleTrunkSections || [plan.trunk]).flat(),
           ...(plan.portalPair ? [plan.portalPair.portalA, plan.portalPair.portalB] : []),

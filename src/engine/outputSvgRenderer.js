@@ -1,7 +1,7 @@
 import { createOutputViewerModel } from "./outputViewerModel.js";
 import {layerSceneView} from './projectLayers.js';
 import { drawDeviceVisual } from "./deviceVisualBuilder.js";
-import { engineOutputPrimitives, drawEngineOutputLabels, SHARED_BUS_LINE_STYLE } from "./renderer.js";
+import { engineOutputPrimitives, drawEngineOutputLabels, drawQsfpBreakoutLabels, SHARED_BUS_LINE_STYLE } from "./renderer.js";
 import { outputAssetSources, isInlineOutputImage } from "./outputViewerAssets.js";
 import { OutputSvgContext, svgEscape, svgNumber } from "./outputSvgContext.js";
 import { buildOutputJumpNavigation } from "./outputNavigation.js";
@@ -91,6 +91,7 @@ export function collectEnginePrintTextMetrics(snapshot, images, measureText) {
   const visibleScene=scene.meta.projectLayers?.length ? layerSceneView(scene,null) : scene;
   visibleScene.devices.filter(d => d.kind !== "jump").forEach(d => artwork(ctx,d));
   if (contract.bounds) drawEngineOutputLabels(ctx,visibleScene,contract.bounds);
+  for (const plan of contract.qsfpBreakouts?.plans || []) drawQsfpBreakoutLabels(ctx, plan, { x: 0, y: 0, zoom: 1 });
   return metrics;
 }
 
@@ -111,6 +112,7 @@ export function renderEngineOutputSvg(snapshot, { images = {}, textMetrics = {},
   meshes(primitives.racks.filter(item => !contract.racks.some(rack => rack.id === item.id && rack.presentationMode === "compact")),"data-rack-id");
   meshes(primitives.wires,"data-wire-id");
   meshes(primitives.looms,"data-loom-id");
+  meshes(primitives.breakouts,"data-breakout-id");
   scene.devices.filter(d => !["area","jump"].includes(d.kind) && !d.visual?.referenceImage).forEach(d=>artwork(ctx,d));
   meshes(primitives.matrix,"data-matrix-id");
   meshes(primitives.relationships,"data-relationships-device-id");
@@ -128,10 +130,15 @@ export function renderEngineOutputSvg(snapshot, { images = {}, textMetrics = {},
   primitives.connectors.forEach(item=>ctx.group({ "data-connector-id":item.connectorId,"data-device-id":item.deviceId,
     "data-anchor-id":item.anchorId,"data-x":item.point.x,"data-y":item.point.y },()=>ctx.mesh(item.vertices)));
   ctx.group({ "data-layer":"labels" },()=>drawEngineOutputLabels(ctx,scene,bounds));
+  for (const plan of contract.qsfpBreakouts?.plans || []) {
+    ctx.group({ "data-breakout-lanes": plan.id }, () => drawQsfpBreakoutLabels(ctx, plan, { x: 0, y: 0, zoom: 1 }));
+  }
   };
   if (scene.meta.projectLayers?.length) for (const layer of scene.meta.projectLayers) {
     const view=layerSceneView(scene,layer.id), ids=new Set(view.devices.map(d=>d.id)), wireIds=new Set(view.wires.map(w=>w.id));
     drawLayer(view,{...contract,devices:view.devices,racks:view.racks,wires:contract.wires.filter(w=>wireIds.has(w.id)),
+      ...(contract.qsfpBreakouts ? { qsfpBreakouts: { ...contract.qsfpBreakouts,
+        plans: contract.qsfpBreakouts.plans.filter(plan => (plan.layerId || "layer-default") === layer.id) } } : {}),
       connectors:contract.connectors.filter(c=>ids.has(c.deviceId)),jumpLinks:view.jumpLinks,
       sharedBuses:contract.sharedBuses.filter(bus=>ids.has(bus.deviceId))});
   } else drawLayer(scene,contract);

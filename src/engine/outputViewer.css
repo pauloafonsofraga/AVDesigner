@@ -74,6 +74,7 @@
 .output-cable-schedule table { min-width: 1900px; }
 .output-cable-schedule th { position: sticky; top: 0; background: var(--panel); z-index: 1; vertical-align: top; }
 .output-cable-schedule td { white-space: pre-wrap; min-width: 105px; max-width: 260px; }
+.output-cable-schedule td:last-child { overflow-wrap: anywhere; }
 .output-cable-schedule select { display: block; width: 100%; min-width: 130px; max-width: 230px; margin-top: 6px; padding: 5px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--text); font: inherit; }
 .output-cable-schedule > footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-top: 1px solid var(--border); }
 .output-cable-schedule > footer span { color: var(--muted); }

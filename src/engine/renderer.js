@@ -1199,19 +1199,7 @@ export class WebglGraphRenderer {
         for (const plan of interaction.qsfpBreakoutPlans) {
           if (this.activeProjectLayerId && (plan.layerId || "layer-default") !== this.activeProjectLayerId) continue;
           const selected = interaction.selectedQsfpBreakout?.assemblyId === plan.id ? interaction.selectedQsfpBreakout : null;
-          const trunkSelected = selected && !selected.branchId;
-          pushPolyline(breakoutVertices, plan.trunk, WIRE_BASE_WIDTH * 2, trunkSelected ? "#fb9d4e" : "#82cde9");
-          for (const branch of plan.branches) {
-            const active = selected?.branchId === branch.id;
-            if (active) pushPolyline(breakoutVertices, branch.points, WIRE_BASE_WIDTH + 5, "rgba(251,121,4,.42)");
-            pushPolyline(breakoutVertices, branch.points, WIRE_BASE_WIDTH, branch.color);
-            const radius = Math.min(9, Math.max(4, 5 / camera.zoom));
-            pushCircle(breakoutVertices, branch.tip, radius, "#17242e");
-            pushCircleOutline(breakoutVertices, branch.tip, radius, 1.6 / camera.zoom, active ? "#fb9d4e" : branch.color);
-          }
-          if (trunkSelected) for (const point of [plan.hub, ...plan.corners]) {
-            pushCircle(breakoutVertices, point, 4 / camera.zoom, "#fb9d4e");
-          }
+          pushQsfpBreakout(breakoutVertices, plan, camera.zoom, interaction.wirePlayback?.active ? null : selected, !scene.readOnly);
         }
         if (breakoutVertices.length) this.drawBuffer(this.liveBuffer, upload(gl, this.liveBuffer, breakoutVertices));
       }
@@ -1510,14 +1498,7 @@ export class WebglGraphRenderer {
     if (renderOptions.wires && !renderOptions.hideStaticWires && camera.zoom >= 0.35) {
       for (const plan of options.interactionState?.qsfpBreakoutPlans || []) {
         if (this.activeProjectLayerId && (plan.layerId || "layer-default") !== this.activeProjectLayerId) continue;
-        ctx.save();
-        ctx.fillStyle = "#ecf5fb";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.font = "bold 8px system-ui";
-        for (const branch of plan.branches) ctx.fillText(String(branch.lane),
-          (branch.tip.x - camera.x) * camera.zoom, (branch.tip.y - camera.y) * camera.zoom);
-        ctx.restore();
+        drawQsfpBreakoutLabels(ctx, plan, camera);
       }
     }
     if (renderOptions.connectorMarkers) drawStageboxNodeBadges(ctx, visibleDevices(scene, camera, this.resolution)
@@ -2561,6 +2542,9 @@ function pushWirePlaybackOverlay(vertices, playback = null) {
   if (!playback?.active) return 0;
   const points = Array.isArray(playback.points) ? playback.points.filter(validPoint) : [];
   let count = 0;
+  for (const point of playback.breakoutEndpoints || []) {
+    pushCircleOutline(vertices, point, 18, 3, "#32b6ff");
+  }
   let dot = playback.dot && validPoint(playback.dot) ? playback.dot : null;
   if (points.length >= 2) {
     const progress = wirePlaybackEase(playback.progress ?? 0);
@@ -3866,6 +3850,34 @@ function verticesForDevice(device, offsets = null, options = DEFAULT_RENDER_OPTI
   return vertices;
 }
 
+function pushQsfpBreakout(vertices, plan, zoom, selected, editable) {
+  const trunkSelected = selected && !selected.branchId;
+  pushPolyline(vertices, plan.trunk, WIRE_BASE_WIDTH * 2, trunkSelected ? "#fb9d4e" : "#82cde9");
+  for (const branch of plan.branches) {
+    const active = selected?.branchId === branch.id;
+    if (active) pushPolyline(vertices, branch.points, WIRE_BASE_WIDTH + 5, "rgba(251,121,4,.42)");
+    pushPolyline(vertices, branch.points, WIRE_BASE_WIDTH, branch.color);
+    const radius = Math.min(9, Math.max(4, 5 / zoom));
+    pushCircle(vertices, branch.tip, radius, "#17242e");
+    pushCircleOutline(vertices, branch.tip, radius, 1.6 / zoom, active ? "#fb9d4e" : branch.color);
+  }
+  if (trunkSelected && editable) for (const point of [plan.hub, ...plan.corners]) {
+    pushCircle(vertices, point, 4 / zoom, "#fb9d4e");
+  }
+}
+
+export function drawQsfpBreakoutLabels(ctx, plan, camera) {
+  ctx.save();
+  ctx.textPaintMode = "exact";
+  ctx.fillStyle = "#ecf5fb";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = "bold 8px sans-serif";
+  for (const branch of plan.branches) ctx.fillText(String(branch.lane),
+    (branch.tip.x - camera.x) * camera.zoom, (branch.tip.y - camera.y) * camera.zoom);
+  ctx.restore();
+}
+
 // Read-only backends share the live renderer's primitives and label routines.
 // No selection, hover, camera culling, or editing state enters this interface.
 export function engineOutputPrimitives(scene, contract) {
@@ -3880,6 +3892,8 @@ export function engineOutputPrimitives(scene, contract) {
     wires: contract.wires.filter(wire => !scene.isWireHiddenByLoom(wire.id)).map(wire => ({ id: wire.id, vertices: mesh(vertices =>
       pushWireColorSegments(vertices, wire.renderPolyline, WIRE_STATIC_WIDTH, wire, wireColor(wire))) })),
     looms: scene.loomPlans.map(plan => ({ id: plan.loomId, vertices: verticesForLoomPlan(scene, plan) })),
+    breakouts: (contract.qsfpBreakouts?.plans || []).map(plan => ({ id: plan.id,
+      vertices: mesh(vertices => pushQsfpBreakout(vertices, plan, 1, null, false)) })),
     connectors: contract.connectors.flatMap(record => {
       const device = scene.getDevice(record.deviceId);
       const connector = scene.getConnector(record.deviceId, record.connectorId);

@@ -52,6 +52,25 @@ export function breakoutDeviceReserved(project, deviceId) {
   return breakoutReservations(project).some(({ endpoint }) => endpoint.deviceId === deviceId);
 }
 
+export const qsfpBreakoutLinkId = (assemblyId, branchId) => JSON.stringify(["qsfp-breakout-lane", assemblyId, branchId]);
+export const qsfpBreakoutModeLabel = mode => mode ? `4 x ${mode.branchRate}` : "Unverified";
+export const qsfpBreakoutCableLabel = type => {
+  const profile = qsfpBreakoutCableProfile(type);
+  return profile ? `QSFP Breakout ${profile.mediaType === "active-optical" ? "AOC" : "DAC"}` : "QSFP Breakout";
+};
+export const qsfpBreakoutLengthLabel = length => Number.isFinite(length?.value) && typeof length.unit === "string"
+  ? `${length.value} ${length.unit}` : "";
+
+export function qsfpBreakoutChannels(assembly) {
+  if (assembly?.schemaVersion !== QSFP_BREAKOUT_VERSION) return [];
+  return breakoutList(assembly.channels).filter(Boolean).map(channel => {
+    const branches = breakoutList(assembly.branches).filter(branch => branch?.channelId === channel.id);
+    const branch = branches.length === 1 ? branches[0] : null;
+    return { channelId: channel.id, lanes: breakoutList(channel.lanes), state: channel.state,
+      branchId: branch?.id, destination: branch?.destination };
+  }).sort((a, b) => (a.lanes[0] ?? Infinity) - (b.lanes[0] ?? Infinity));
+}
+
 export function createQsfpBreakoutAssembly({ id, source, modeId, cableType, routeStyle = "bezier" }) {
   const mode = qsfpBreakoutMode(modeId);
   if (!mode || qsfpBreakoutCableProfile(cableType)?.modeId !== modeId) throw new Error("Choose a compatible breakout assembly.");

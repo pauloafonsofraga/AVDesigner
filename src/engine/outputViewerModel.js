@@ -1,6 +1,6 @@
 import { SceneGraph } from "./sceneGraph.js";
 import {formatCableNumber} from "./cableNumbering.js";
-import {cableFamily} from "./cableSchedule.js";
+import {cableFamily} from "./cableScheduleCore.js";
 import { deviceHeaderLabel } from "./deviceDisplayName.js";
 import {sharedBusTypeLabels} from './sharedBusLabels.js';
 import { resolvePlayableSignalPath, jumpNodeRoleLabel } from "./jumpNodeModel.js";
@@ -11,6 +11,8 @@ import { normalizeRackShell, rackShellStyle } from "./rackShell.js";
 import { multiCorePortReference } from "./multiCoreProjection.js";
 import { integratedCableWireValidation, isDacCableType, isIntegratedCableType, isTransceiverCage, transceiverModulePresentation } from "./transceiverModules.js";
 import { stageboxSignalPath } from "./stageboxSignalPath.js";
+import { qsfpBreakoutChannels, qsfpBreakoutMode, qsfpBreakoutModeLabel, qsfpBreakoutCableLabel, qsfpBreakoutLengthLabel } from "./qsfpBreakoutModel.js";
+import { qsfpBreakoutPlaybackStep } from "./qsfpBreakoutPlayback.js";
 
 function freeze(value) {
   if (value && typeof value === "object") { Object.values(value).forEach(freeze); Object.freeze(value); }
@@ -24,6 +26,7 @@ export function createOutputViewerModel(snapshot, { assets } = {}) {
   const contract = freeze(JSON.parse(JSON.stringify(source)));
   const scene = new SceneGraph();
   scene.readOnly=true;
+  scene.qsfpBreakouts = contract.qsfpBreakouts;
   const racks = contract.racks.map(rack => {
     const shell = normalizeRackShell(rack.rackShell);
     const source = rackShellStyle(shell).src;
@@ -86,6 +89,25 @@ export function outputConnectedNodeItems(scene, deviceId, connectorId = "") {
 
 export function outputSelectionDetails(scene, selection) {
   if (!selection) return { title: "Inspector", rows: [], wireIds: [] };
+  if (selection.type === "qsfp-breakout") {
+    const assembly = scene.qsfpBreakouts?.assemblies.find(item => item?.id === selection.id);
+    if (!assembly) return outputSelectionDetails(scene, null);
+    const mode = qsfpBreakoutMode(assembly.modeId), cable = qsfpBreakoutCableLabel(assembly.cableType);
+    const portLabel = ref => {
+      const device = scene.getDevice(ref?.deviceId), connector = scene.getConnector(ref?.deviceId, ref?.connectorId);
+      return ref ? `${device?.label || ref.deviceId} / ${connector ? connectedPortName(connector, device) : ref.connectorId}` : "None";
+    };
+    const channels = qsfpBreakoutChannels(assembly);
+    const selected = channels.find(channel => selection.branchId && channel.branchId === selection.branchId);
+    const lane = channel => `Lane ${channel.lanes.join(", ") || "?"}`;
+    return { title: selected ? `${cable} / ${lane(selected)}` : cable, wireIds: [], breakoutChannels: channels,
+      rows: [["Assembly ID", assembly.id], ["Mode", qsfpBreakoutModeLabel(mode)],
+        ["Source", portLabel(assembly.source)], ["Physical Length", qsfpBreakoutLengthLabel(assembly.length)],
+        ...(selected ? [["Channel ID", selected.channelId], ["Rate", mode?.branchRate], ["State", selected.state],
+          ["Destination", portLabel(selected.destination)]] : channels.map(channel => [
+          lane(channel), `${channel.state || "unverified"} / ${portLabel(channel.destination)}`
+        ]))] };
+  }
   if (selection.type === "multi-wire") return { title: "Cables", rows: [["Selected", selection.ids.length]], wireIds: selection.ids };
   if (selection.type === "loom") {
     const loom = scene.looms.find(item => item.id === selection.id);
@@ -164,6 +186,11 @@ export function outputSelectionDetails(scene, selection) {
 
 export function outputCableTrace(model, selection) {
   if (!selection) return [];
+  if (selection.type === "qsfp-breakout") {
+    const section = model.contract.qsfpBreakouts;
+    const step = section && qsfpBreakoutPlaybackStep(section.plans, section.links, selection.id, selection.branchId);
+    return step ? [step] : [];
+  }
   const link = selection.type === "jump-link" ? model.contract.jumpLinks.find(l => l.id === selection.id)
     : selection.type === "device" ? model.contract.jumpLinks.find(l => l.inputJumpId === selection.id || l.outputJumpId === selection.id) : null;
   if (link) return [{ id: link.id, type: "jump-link", points: link.polyline, color: "#32b6ff" }];

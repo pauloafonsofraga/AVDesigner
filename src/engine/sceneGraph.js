@@ -21,7 +21,7 @@ import { multiCoreForJump } from "./multiCoreJumpRouting.js";
 import { rackPatchPanelVisualHeight } from "./rackPatchPanels.js";
 import { normalizeRackShell } from "./rackShell.js";
 import { createRackCompactLayout, compactConnectorSide } from "./rackCompactLayout.js?v=iteration54-38-76-rack-styles";
-import { buildCableSchedule, groupedCables } from "./cableSchedule.js";
+import { buildCableSchedule, groupedCables } from "./cableScheduleCore.js";
 import { isTransceiverCage } from "./transceiverModules.js";
 import { adapterMappingForDevice } from "./adapterMapping.js";
 import { adapterRotationBounds, adapterWorldPoint, normalizeAdapterRotation } from "./adapterRotation.js";

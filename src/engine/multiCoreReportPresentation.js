@@ -25,6 +25,8 @@ export function multiCoreReportEndpoint(project, reference, connectivity) {
 /** Formats the Phase 3 path, never adds edges or guesses device processing. */
 export function presentMultiCorePath(path, rows, connectivity) {
   const byWire = new Map(rows.flatMap(row => row.wireIds.map(id => [id, row])));
+  const breakoutById = new Map(rows.filter(row => row.breakoutAssemblyId).map(row => [row.breakoutAssemblyId, row]));
+  const breakoutEnds = [...breakoutById.values()].flatMap(row => [row.breakoutSource, ...row.breakoutChannels.map(channel => channel.destination)]).filter(Boolean);
   const endpoint = key => {
     const e = connectivity.endpoints[key], ref = e?.reference || {};
     if (e?.kind === "multi-core-port") {
@@ -34,12 +36,19 @@ export function presentMultiCorePath(path, rows, connectivity) {
     }
     const row = rows.find(r => ref.deviceId && (r.sourceDeviceId === ref.deviceId && r.sourceConnectorId === ref.connectorId
       || r.destinationDeviceId === ref.deviceId && r.destinationConnectorId === ref.connectorId));
+    const breakout = breakoutEnds.find(end => end.deviceId === ref.deviceId && end.connectorId === ref.connectorId);
     const side = row?.sourceDeviceId === ref.deviceId && row?.sourceConnectorId === ref.connectorId ? "source" : "destination";
-    return { key, reference: ref, kind: e?.kind || "unresolved", title: row?.[`${side}Device`] || e?.deviceName || ref.jumpNodeId || ref.deviceId || "Unresolved endpoint",
-      detail: row?.[`${side}Port`] || e?.connector?.nameText || e?.connector?.label || ref.connectorId || "", status: e?.status || "unresolved" };
+    return { key, reference: ref, kind: e?.kind || "unresolved", title: row?.[`${side}Device`] || breakout?.device || e?.deviceName || ref.jumpNodeId || ref.deviceId || "Unresolved endpoint",
+      detail: row?.[`${side}Port`] || breakout?.port || e?.connector?.nameText || e?.connector?.label || ref.connectorId || "", status: e?.status || "unresolved" };
   };
   const segments = path.segments.map(segment => {
     const from = endpoint(segment.fromKey), to = endpoint(segment.toKey);
+    if (segment.kind === "qsfp-breakout-channel") {
+      const row = breakoutById.get(segment.assemblyId);
+      const channel = row?.breakoutChannels.find(item => item.branchId === segment.branchId);
+      return { ...segment, from, to, title: `${row?.cable || "QSFP Breakout"} / Lane ${segment.lanes.join(", ")}`,
+        detail: [segment.assemblyId, segment.channelId, channel?.rate, row?.length && `${row.length} shared cable`].filter(Boolean).join(" / ") };
+    }
     if (segment.kind === "external-cable") {
       const row = byWire.get(segment.wireId);
       return { ...segment, from, to, title: row?.cableNumber || segment.wireId,
@@ -52,7 +61,7 @@ export function presentMultiCorePath(path, rows, connectivity) {
       title: `${segment.deviceName} / ${segment.channelName || segment.channelId}`,
       detail: [segment.aContact && `A contact ${segment.aContact}`, segment.bContact && `B contact ${segment.bContact}`].filter(Boolean).join(" / ") };
     if (segment.kind === "device-internal-route") return { ...segment, from, to,
-      title: `${segment.deviceName} / Internal Signal Routing`, detail: `${from.detail} → ${to.detail}` };
+      title: `${segment.deviceName} / ${segment.matrix ? "Matrix Routing" : "Internal Signal Routing"}`, detail: `${from.detail} → ${to.detail}` };
     return { ...segment, from, to, title: "Jump continuation", detail: segment.jumpLinkId };
   });
   const diagnostics = path.diagnostics.map(d => ({ ...d, display: d.code === "open-termination"

@@ -176,6 +176,110 @@ try {
   assert.deepEqual(await snapshot(), afterReplug);
   await assertLane2Endpoint(newPort, oldPort);
 
+  if (process.env.AVDESIGNER_VERIFY_BREAKOUT_OUTPUT === "1") {
+    const assembly = afterReplug[1];
+    for (const lane of [1, 2, 4]) {
+      await click("port", ["host", "qsfp28"]);
+      await action("inspect").click();
+      assert.equal(await action("play").count(), 0, "The trunk requires an explicit lane");
+      await inspector.locator("[data-breakout-branch]").selectOption(assembly.branches[lane - 1].id);
+      await action("play").click();
+      const result = await page.evaluate(() => {
+        const bridge = activeEngineBridge();
+        return { steps: bridge.wirePlayback?.steps, plans: bridge.qsfpBreakoutPlans(null) };
+      });
+      assert.equal(result.steps.length, 1);
+      const branch = result.plans[1].branches.find(branch => branch.lane === lane);
+      assert.equal(result.steps[0].branchId, branch.id);
+      assert.deepEqual(result.steps[0].points, [...result.plans[1].trunk, ...branch.points.slice(1)]);
+      assert.deepEqual(result.steps[0].breakoutEndpoints, [result.plans[1].origin, branch.target]);
+      await page.keyboard.press("Escape");
+      await action("signal-chain").click();
+      const chain = page.locator('li[data-path-kind="qsfp-breakout-channel"]');
+      await chain.waitFor();
+      assert.equal(await chain.count(), 1);
+      assert.ok((await chain.innerText()).includes(assembly.channels[lane - 1].id));
+      await page.locator("#closeSignalChain").click();
+      await page.evaluate(() => Object.assign(activeEngineBridge().camera, { x: -40, y: -20, zoom: .63 }));
+    }
+    await click("port", ["host", "qsfp28"]);
+    await action("inspect").click();
+    await inspector.locator("[data-breakout-branch]").selectOption(assembly.branches[2].id);
+    assert.equal(await action("play").count(), 0);
+    assert.equal(await action("signal-chain").count(), 0);
+    await page.locator("#cableScheduleButton").click();
+    const physicalRow = page.locator("#cableScheduleBody tr").filter({ hasText: assembly.id });
+    await physicalRow.waitFor();
+    assert.equal(await physicalRow.count(), 1);
+    assert.match(await physicalRow.innerText(), /25G[\s\S]*unused/);
+    await page.locator("#closeCableSchedule").click();
+
+    const exporting = page.waitForEvent("download");
+    await page.locator("#exportHtml").click();
+    const exported = await exporting;
+    const { mkdtemp, readFile } = await import("node:fs/promises");
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+    const { pathToFileURL } = await import("node:url");
+    const dir = await mkdtemp(join(tmpdir(), "wirenexus-breakout-exports-"));
+    const htmlPath = join(dir, "breakout.html");
+    await exported.saveAs(htmlPath);
+    const viewer = await browser.newPage({ viewport: { width: 1650, height: 970 } });
+    viewer.on("pageerror", error => errors.push(error.message));
+    await viewer.goto(pathToFileURL(htmlPath).href);
+    await viewer.waitForFunction(() => window.engineOutputReady);
+    await viewer.evaluate(() => window.engineOutputReady);
+    const contract = await viewer.evaluate(() => window.outputViewer.model.contract);
+    assert.deepEqual(contract.qsfpBreakouts.assemblies, afterReplug);
+    const clickViewerPoint = async point => {
+      const pos = await viewer.evaluate(point => {
+        const app = window.outputViewer;
+        const { x, y, zoom } = app.camera, rect = app.stage.getBoundingClientRect();
+        return { x: rect.x + (point.x - x) * zoom, y: rect.y + (point.y - y) * zoom };
+      }, point);
+      await viewer.mouse.click(pos.x, pos.y);
+    };
+    const plan = contract.qsfpBreakouts.plans.find(plan => plan.id === assembly.id);
+    await clickViewerPoint(plan.trunk[Math.floor(plan.trunk.length / 2)]);
+    const channels = viewer.locator('[data-action="breakout-channel"]');
+    assert.equal(await channels.count(), 4);
+    for (const lane of [1, 2, 4]) {
+      if (lane !== 1) await viewer.locator('[data-action="breakout-trunk"]').click();
+      await channels.filter({ hasText: `Lane ${lane} /` }).click();
+      await viewer.locator('[data-action="play"]').click();
+      const trace = await viewer.evaluate(() => window.outputViewer.playback?.steps);
+      assert.equal(trace.length, 1);
+      const branch = plan.branches.find(branch => branch.lane === lane);
+      assert.equal(trace[0].channelId, branch.channelId);
+      assert.deepEqual(trace[0].points, [...plan.trunk, ...branch.points.slice(1)]);
+      await viewer.locator('[data-action="play"]').click();
+      await viewer.locator('[data-action="signal-chain"]').click();
+      const link = viewer.locator('li[data-path-kind="qsfp-breakout-channel"]');
+      await link.waitFor();
+      assert.equal(await link.count(), 1);
+      assert.match(await link.innerText(), new RegExp(`Lane ${lane}\\b`));
+      await viewer.locator('[data-action="signal-chain-close"]').click();
+    }
+    await viewer.locator('[data-action="breakout-trunk"]').click();
+    await channels.filter({ hasText: "Lane 3 /" }).click();
+    assert.equal(await viewer.locator('[data-action="play"]').isVisible(), false);
+    assert.equal(await viewer.getByRole("button", { name: /Replug|Disconnect|Delete Assembly/ }).count(), 0);
+    await viewer.getByRole("button", { name: "Cable Schedule", exact: true }).click();
+    assert.equal(await viewer.locator("dialog.output-cable-schedule tbody tr").count(), 2);
+    await viewer.close();
+
+    await page.locator("#exportPdf").click();
+    const pdfDownload = page.waitForEvent("download", { timeout: 20000 });
+    await page.locator("#confirmPdfExport").click();
+    const pdf = await pdfDownload.catch(async error => {
+      throw new Error(`${error.message}; ${await page.locator("#statusText").textContent()}`);
+    });
+    const pdfPath = join(dir, "breakout.pdf");
+    await pdf.saveAs(pdfPath);
+    assert.equal((await readFile(pdfPath)).subarray(0, 4).toString(), "%PDF");
+    console.log(`Breakout output acceptance passed: lanes 1, 2 and 4 in Editor/HTML, lane 3 inactive, read-only Viewer and PDF download (${pdfPath}).`);
+  }
+
   await page.evaluate(() => {
     window.showSaveFilePicker = undefined;
     window.breakoutBeforeReload = state.breakoutAssemblies;

@@ -6367,7 +6367,8 @@ class ProductionEngineBridge {
         points: state.lastPoints || [],
         progress: 1,
         dot: state.lastPoint || null,
-        startingWireId: state.startingWireId
+        startingWireId: state.startingWireId,
+        ...(state.steps.at(-1)?.breakoutEndpoints ? { breakoutEndpoints: state.steps.at(-1).breakoutEndpoints } : {})
       };
     }
     const step = state.steps[state.stepIndex] || null;
@@ -6393,6 +6394,7 @@ class ProductionEngineBridge {
       progress: state.progress || 0,
       dot: null,
       color: step.color || "#32b6ff",
+      ...(step.breakoutEndpoints ? { breakoutEndpoints: step.breakoutEndpoints } : {}),
       startingWireId: state.startingWireId
     };
   }
@@ -8928,6 +8930,7 @@ class ProductionEngineBridge {
   }
 
   markCommitted(type, mutationMs = 0, extra = {}) {
+    if (this.wirePlayback?.steps?.some(step => step.type === "qsfp-breakout-channel")) this.stopWirePlayback("project edit");
     this.multiCoreConnectivityCache = null;
     this.synchronizeMonitorNames();
     const pending = this.deviceProtocolPending;
@@ -13318,6 +13321,10 @@ function playbackStepSummary(step = {}) {
     const { type, part, channelId, trunkId } = step;
     return { type, part, channelId, trunkId };
   }
+  if (step.type === "qsfp-breakout-channel") {
+    const { type, assemblyId, branchId, channelId } = step;
+    return { type, assemblyId, branchId, channelId };
+  }
   if (step.type === "teleport") {
     return {
       type: "teleport",
@@ -13342,6 +13349,7 @@ function playbackStepSummary(step = {}) {
 }
 
 function playbackPathLabel(step = {}) {
+  if (step.type === "qsfp-breakout-channel") return step.id;
   if (step.type === "stagebox") return `stagebox:${step.trunkId}:${step.channelId}:${step.part}`;
   if (step.type === "teleport") return `teleport:${step.fromJumpId}>${step.toJumpId}`;
   if (step.type === "jump-link") return `jump-link:${step.jumpLinkId}:${step.fromJumpId}>${step.toJumpId}`;

@@ -1,6 +1,6 @@
 import ExcelJS from "exceljs/dist/exceljs.min.js";
-import { cableScheduleColumns } from "./cableSchedule.js";
-import { multiCoreReportSections } from "./multiCoreReports.js";
+import { cableScheduleColumns } from "./cableScheduleCore.js";
+import { multiCoreReportSections } from "./multiCoreReportSections.js";
 import { cableGraphic, cableIdGraphic, cleanCableScheduleColor, nodeGraphic } from "./cableScheduleGraphics.js";
 
 function toArgb(color) {
@@ -14,7 +14,7 @@ export async function createCableScheduleXlsx(rows, { nodeDefinitions = [], load
   const sheet = workbook.addWorksheet("Cable Schedule", { views: [{ state: "frozen", ySplit: 1 }] });
   const columns = cableScheduleColumns(rows);
   sheet.columns = columns.map(([key, header], index) => ({
-    key, header, width: [19, 25, 38, 25, 38, 13, 25, 38, 13, 20, 26, 38][index] || 24
+    key, header, width: key === "breakoutDetails" ? 76 : [19, 25, 38, 25, 38, 13, 25, 38, 13, 20, 26, 38][index] || 24
   }));
   sheet.autoFilter = { from: { row: 1, column: 1 }, to: { row: Math.max(2, rows.length + 1), column: columns.length } };
   sheet.getRow(1).height = 28;
@@ -51,6 +51,10 @@ export async function createCableScheduleXlsx(rows, { nodeDefinitions = [], load
     const record = rows[index], rowNumber = index + 2;
     const row = sheet.addRow(Object.fromEntries(columns.map(([key]) => [key, String(record[key] ?? "")])));
     row.height = Math.max(36, String(record.notes || "").split("\n").length * 16);
+    if (record.breakoutAssemblyId) {
+      const detailLines = String(record.breakoutDetails || "").split("\n");
+      row.height = Math.max(row.height, 16 * detailLines.reduce((sum, line) => sum + Math.max(1, Math.ceil(line.length / 67)), 0));
+    }
     row.eachCell(cell => { cell.alignment = { vertical: "middle", wrapText: true }; });
     if (index % 2) row.eachCell(cell => { cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF1F5F7" } }; });
     const sourceId = record.sourceNodeTypeId, destinationId = record.destinationNodeTypeId;

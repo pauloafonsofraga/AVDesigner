@@ -21,4 +21,9 @@ export function assertOutputSceneContract(scene) {
   if (scene.modelData !== undefined && (!scene.modelData || scene.modelData.version !== 1 || !Array.isArray(scene.modelData.diagnostics))) {
     throw new TypeError("Unsupported non-rendered Multi-Core output model section.");
   }
+  // Optional v1 extension; previously exported v5 scenes still open unchanged.
+  if (scene.qsfpBreakouts !== undefined && (scene.qsfpBreakouts?.version !== 1
+    || !["assemblies", "plans", "links"].every(key => Array.isArray(scene.qsfpBreakouts[key])))) {
+    throw new TypeError("Unsupported QSFP breakout output section.");
+  }
 }
