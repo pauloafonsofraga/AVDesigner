@@ -5,6 +5,7 @@ import {readFileSync} from 'node:fs';
 import {normalizeAvDesignerProject} from '../src/engine/projectAdapter.js';
 import {SceneGraph} from '../src/engine/sceneGraph.js';
 import {resolvePlayableSignalPath,jumpNodeCenter,jumpLinkBezierPolyline} from '../src/engine/jumpNodeModel.js';
+import {continuousStageboxPoints,stageboxSignalPath} from '../src/engine/stageboxSignalPath.js';
 import {wirePlaybackDurationMs,wirePlaybackEase,polylineLength,polylinePointAtDistance} from '../src/engine/wirePlayback.js';
 import {outputPdfJumpFixture} from '../fixtures/output-pdf-jumps.mjs';
 
@@ -62,7 +63,8 @@ test('lost capture cancels a manual replug but does not cancel a multi-click dra
 test('editor Play Cable traverses the same visible Jump link in either starting leg without changing topology',()=>{
   const project=outputPdfJumpFixture(),before=structuredClone(project),scene=new SceneGraph();scene.setData(normalizeAvDesignerProject(project));
   const b=vm.runInNewContext(`({${['wirePlaybackPlanForWire','sceneWireForPlaybackId','connectorForPlaybackEndpoint','playbackPointsForWire'].map(method).join(',')}})`,
-    {resolvePlayableSignalPath,jumpLinkBezierPolyline,wirePlaybackDurationMs,uniqueItems:items=>[...new Set(items)]});
+    {resolvePlayableSignalPath,jumpLinkBezierPolyline,continuousStageboxPoints,stageboxSignalPath,
+      wirePlaybackDurationMs,uniqueItems:items=>[...new Set(items)]});
   Object.assign(b,{scene,mutations:{project},renderOptions:{cableHops:false},jumpNodeCenter});
   for(const id of ['physical-1','physical-2']){
     const plan=structuredClone(b.wirePlaybackPlanForWire(scene.getWire(id)));
