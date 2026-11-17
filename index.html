@@ -11400,10 +11400,20 @@
       if (!api) return "";
       const physical = connector.physicalType || connector.type || connector.id;
       const cage = cageConnectorTypes.has(physical);
+      const authored = owner !== "node";
+      const cageValue = authored ? api.cageDefinitionValue(connector) : physical;
+      const cageChoices = authored ? [...api.CAGE_DEFINITION_CHOICES, ...(cageValue === "qsfp-cage" ? [["qsfp-cage", "QSFP (form unspecified)"]] : [])]
+        : deviceEditorOnlyNodeTypeOrder.map(id => [id, cableTypes[id]?.label || id]);
+      const host = connector.cageCapabilities || {};
+      const restrictions = [["supportedRates", "Allowed line rates (semicolon-separated)"],
+        ["supportedSignalFamilies", "Allowed signal families"], ["supportedMediaTypes", "Allowed media"],
+        ["supportedModuleTypes", "Allowed module IDs"]];
       const ordinary = (owner === "node" ? nodeBuilderEntries() : orderedDeviceEditorNodeEntries()).filter(([id, node]) => !cageConnectorTypes.has(node.physicalType || id));
       return `<div data-sfp-owner="${owner}">
         <label class="checkbox-row"><input data-sfp-enabled type="checkbox" ${cage ? "checked" : ""}> Is an SFP Cage</label>
-        ${cage ? `<label class="field"><span>Cage Family</span><select data-sfp-family>${deviceEditorOnlyNodeTypeOrder.map(id => `<option value="${id}" ${physical === id ? "selected" : ""}>${escapeHtml(cableTypes[id]?.label || id)}</option>`).join("")}</select></label>` : ""}
+        ${cage ? `<label class="field"><span>Cage Family</span><select data-sfp-family>${cageChoices.map(([id, label]) => `<option value="${id}" ${cageValue === id ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}</select></label>` : ""}
+        ${cage && authored ? `<details><summary>Host restrictions</summary>${restrictions.map(([key, label]) =>
+          `<label class="field"><span>${label}</span><input type="text" data-sfp-restriction="${key}" value="${escapeAttr(Array.isArray(host[key]) ? host[key].join("; ") : "")}"></label>`).join("")}</details>` : ""}
         <div data-sfp-disable class="hidden"><label class="field"><span>Ordinary Connector</span><select data-sfp-ordinary><option value="">Select connector type</option>${ordinary.map(([id, node]) => `<option value="${escapeAttr(id)}">${escapeHtml(node.label || id)}</option>`).join("")}</select></label><button type="button" class="tool-button" data-sfp-cancel>Cancel</button></div>
       </div>`;
     }
@@ -11438,7 +11448,8 @@
 
     function changeSfpPhysicalType(owner, type) {
       const selection = sfpEditorSelection(owner);
-      const patch = engineTransceiverApi().connectorPhysicalTypePatch(selection.connector, type);
+      const api = engineTransceiverApi();
+      const patch = owner === "node" ? api.connectorPhysicalTypePatch(selection.connector, type) : api.cageDefinitionPatch(selection.connector, type);
       if (owner === "node") {
         delete patch.type;
         Object.assign(selection.node, patch);
@@ -13867,6 +13878,7 @@
         type: connector.type || "",
         physicalType: connector.physicalType || connector.type || "",
         signalDirection: connector.signalDirection || connector.direction || "",
+        host: connector.cageCapabilities || null,
         empty: connector.empty === true,
         module: { id: details.id, name: details.name, type: details.type, effectiveType: details.effectiveType },
         capabilities: api.installedModuleCapabilities(connector),
@@ -13876,7 +13888,11 @@
 
     function assertConnectedCageModuleUnchanged(deviceId, connectorId, before, after) {
       if (!engineTransceiverApi() || (!isCageConnector(before) && !isCageConnector(after))) return;
-      if (connectorHasCable(deviceId, connectorId) && cageModuleStateForEditor(before) !== cageModuleStateForEditor(after)) {
+      if (cageModuleStateForEditor(before) === cageModuleStateForEditor(after)) return;
+      const bridge = activeEngineBridge(), device = bridge?.resolveDeviceBySourceId(deviceId);
+      const port = device && bridge.scene.getConnector(device.id, connectorId);
+      const reserved = port && bridge.breakoutConnectorRejectionReason({ device, connector: port });
+      if (connectorHasCable(deviceId, connectorId) || reserved) {
         throw new Error("Disconnect connected cables before changing or removing this cage or its installed module.");
       }
     }
@@ -17222,10 +17238,11 @@
       const moduleSection = isCageConnector(connector) ? `
         <div class="connector-inspector-section">
           <h4 class="connector-inspector-heading">Module</h4>
-          ${transceiverModuleSelectHtml("selectedCardConnectorModule", connector).replace("<select", `<select data-card-field="installedModuleType" data-card-node-index="${connectorIndex}"`)}
+          ${engineTransceiverApi() ? `<div class="field-hint">${escapeHtml(engineTransceiverApi().transceiverModulePresentation(connector))}</div>`
+            : transceiverModuleSelectHtml("selectedCardConnectorModule", connector).replace("<select", `<select data-card-field="installedModuleType" data-card-node-index="${connectorIndex}"`)}
         </div>
       ` : "";
-      const fiberSection = isFiberCableType(effectiveConnectorType(connector) || connector.type) ? `
+      const fiberSection = (!engineTransceiverApi() || !isCageConnector(connector)) && isFiberCableType(effectiveConnectorType(connector) || connector.type) ? `
         <div class="connector-inspector-section">
           <h4 class="connector-inspector-heading">Fiber</h4>
           ${fiberModeSelectHtml("selectedCardConnectorFiberMode", connector.fiberMode || activeFiberModeForCageConnector(connector) || DEFAULT_FIBER_MODE, fiberModeOptionsForCageConnector(connector)).replace("<select", `<select data-card-field="fiberMode" data-card-node-index="${connectorIndex}"`)}
@@ -18048,10 +18065,11 @@
       const moduleSection = isCageConnector(connector) ? `
         <div class="connector-inspector-section">
           <h4 class="connector-inspector-heading">Module</h4>
-          ${transceiverModuleSelectHtml("selectedConnectorModule", connector)}
+          ${engineTransceiverApi() ? `<div class="field-hint">${escapeHtml(engineTransceiverApi().transceiverModulePresentation(connector))}</div>`
+            : transceiverModuleSelectHtml("selectedConnectorModule", connector)}
         </div>
       ` : "";
-      const fiberSection = isFiberCableType(effectiveConnectorType(connector) || connector.type) ? `
+      const fiberSection = (!engineTransceiverApi() || !isCageConnector(connector)) && isFiberCableType(effectiveConnectorType(connector) || connector.type) ? `
         <div class="connector-inspector-section">
           <h4 class="connector-inspector-heading">Fiber</h4>
           ${fiberModeSelectHtml("selectedConnectorFiberMode", connector.fiberMode || activeFiberModeForCageConnector(connector) || DEFAULT_FIBER_MODE, fiberModeOptionsForCageConnector(connector))}
@@ -33197,7 +33215,9 @@
       const template = templateForInstance(instance);
       const connector = connectorById(deviceId, connectorId);
       if (!instance || !template || !connector) return;
-      const scene=activeEngineBridge()?.scene, device=scene?.getDevice(deviceId);
+      const bridge = activeEngineBridge(), api = engineTransceiverApi();
+      const scene=bridge?.scene, device=scene?.getDevice(deviceId);
+      const configureModule = Boolean(api && device && isCageConnector(connector));
       const bus=device && scene.connectorDisplayLayoutForDevice(device)?.byConnectorId.get(connectorId)?.layout;
       const busDetails=bus ? sharedBusInspectorDetails({connectors:bus.members,connectorRelationships:[{
         type:"exclusive",members:bus.members.map(member=>member.id)
@@ -33214,14 +33234,27 @@
         </dl>
         ${busDetails}
         ${canvasConnectorFieldSectionMarkup(connector)}
-        ${isCageConnector(connector) ? transceiverModuleSelectHtml("connectorModule", connector) : ""}
-        ${isFiberCableType(activeType) ? fiberModeSelectHtml("connectorFiberMode", connectorFiberModeForEndpoint(deviceId, connectorId, connector), fiberModeOptionsForCageConnector(connector)) : ""}
+        ${configureModule ? '<div class="connector-inspector-section" data-transceiver-config></div>'
+          : isCageConnector(connector) ? transceiverModuleSelectHtml("connectorModule", connector) : ""}
+        ${!configureModule && isFiberCableType(activeType) ? fiberModeSelectHtml("connectorFiberMode", connectorFiberModeForEndpoint(deviceId, connectorId, connector), fiberModeOptionsForCageConnector(connector)) : ""}
         ${activeEngineBridge() && connectorHasCable(deviceId, connectorId) ? '<button class="tool-button" id="connectorSignalChain" type="button">Signal Chain</button>' : ""}
       `;
       document.getElementById("connectorSignalChain")?.addEventListener("click", () => openSignalChainForConnector(deviceId, connectorId));
+      if (configureModule) {
+        const port = scene.getConnector(deviceId, connectorId) || connector;
+        const occupied = [connectorId, port.pairedConnectorId].filter(Boolean).some(id => connectorHasCable(deviceId, id)
+          || scene.connectorWireIds(deviceId, id).size || bridge.breakoutConnectorRejectionReason({ device, connector: scene.getConnector(deviceId, id) || port }));
+        api.mountTransceiverInspector(inspectorBody.querySelector("[data-transceiver-config]"), port, {
+          disabled: !bridge.isReady() || occupied || device?.layerLocked || device?.layerHidden,
+          commit(config) {
+            bridge.commitConnectorInspectorFields(deviceId, connectorId, { transceiverConfiguration: config });
+            renderConnectorInspector(deviceId, connectorId);
+          }
+        });
+      }
       activeEngineBridge()?.renderQsfpBreakoutPortInspector(inspectorBody, deviceId, connectorId);
       bindCanvasConnectorFieldInputs(deviceId, connectorId);
-      const moduleControl = document.getElementById("connectorModule");
+      const moduleControl = !configureModule && document.getElementById("connectorModule");
       if (moduleControl) {
         moduleControl.addEventListener("change", event => {
           const engineBridge = activeEngineBridge();
@@ -35727,6 +35760,12 @@ document.addEventListener("click", function(event) {
           else root.querySelector("[data-sfp-disable]").classList.remove("hidden");
         } else if (event.target.matches("[data-sfp-family], [data-sfp-ordinary]")) {
           if (event.target.value) changeSfpPhysicalType(owner, event.target.value);
+        } else if (event.target.matches("[data-sfp-restriction]")) {
+          const selection = sfpEditorSelection(owner), key = event.target.dataset.sfpRestriction;
+          const values = [...new Set(event.target.value.split(";").map(value => value.trim()).filter(Boolean))];
+          const host = { ...selection.connector.cageCapabilities };
+          if (values.length) host[key] = values; else delete host[key];
+          commitEditorConnectorConfiguration(selection.template, selection.connector.id, { cageCapabilities: host }, selection.options);
         }
       } catch (error) { alert(error.message); refreshSfpEditor(owner); }
     });

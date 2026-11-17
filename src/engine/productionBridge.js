@@ -13,6 +13,7 @@ import { ObjectSnapSession } from "./objectSnapping.js";
 import { CONNECTOR_RELATIONSHIP_FIELDS, applyConnectorRelationshipFieldPatch } from "./connectorRelationshipMetadata.js";
 import { multiCoreCanvasMethods } from "./multiCoreCanvas.js";
 import { transceiverModulePatch, integratedCableAssemblyForConnectors, isIntegratedCableType, integratedCableReplugValidation } from "./transceiverModules.js";
+import { transceiverConfigurationPatch } from "./transceiverConfiguration.js";
 import { hasQsfpBreakoutData, qsfpBreakoutWarningMessages } from "./qsfpBreakoutValidation.js";
 import { collectSavedTransceiverStatuses, connectionStatusText } from "./savedCableStatus.js";
 import {
@@ -7636,16 +7637,21 @@ class ProductionEngineBridge {
       return true;
     }
     const affectedConnectorIds = connectorIdsForInspectorEdit(connector, fields);
-    if (fields.installedModuleType !== undefined) {
+    const installsModule = fields.installedModuleType !== undefined || fields.transceiverConfiguration !== undefined;
+    if (installsModule) {
       try {
-        affectedConnectorIds.forEach(id => transceiverModulePatch(this.scene.getConnector(device.id, id), fields.installedModuleType));
+        affectedConnectorIds.forEach(id => {
+          const current = this.scene.getConnector(device.id, id);
+          if (fields.transceiverConfiguration !== undefined) transceiverConfigurationPatch(current, fields.transceiverConfiguration);
+          else transceiverModulePatch(current, fields.installedModuleType);
+        });
       } catch (error) {
         globalThis.alert?.(error.message);
         this.updateSelectionHud();
         return true;
       }
     }
-    if (fields.installedModuleType !== undefined
+    if (installsModule
       && affectedConnectorIds.some(id => this.scene.connectorWireIds(device.id, id).size > 0
         || (this.mutations?.root?.breakoutAssemblies?.length
           && breakoutPortReserved(this.mutations.root, device.sourceId || device.id, id)))) {
@@ -13116,7 +13122,10 @@ function sanitizeConnectorInspectorFields(fields = {}) {
 
 function normalizeConnectorInspectorPatch(connector, fields = {}, { installModule = true } = {}) {
   let patch = sanitizeConnectorInspectorFields(fields);
-  if (installModule && fields.installedModuleType !== undefined && isEngineCageConnector(connector)) {
+  if (installModule && fields.transceiverConfiguration !== undefined) {
+    patch = transceiverConfigurationPatch(connector, fields.transceiverConfiguration) || {};
+    if (!Object.keys(patch).length) return patch;
+  } else if (installModule && fields.installedModuleType !== undefined && isEngineCageConnector(connector)) {
     patch = { ...patch, ...transceiverModulePatch(connector, fields.installedModuleType) };
   }
   if (fields.fiberMode !== undefined) patch.fiberMode = String(fields.fiberMode || ENGINE_DEFAULT_FIBER_MODE);
@@ -13138,7 +13147,7 @@ function normalizeConnectorInspectorPatch(connector, fields = {}, { installModul
 
 function connectorIdsForInspectorEdit(connector, fields = {}) {
   const ids = [String(connector?.id || "")].filter(Boolean);
-  if (fields.installedModuleType !== undefined && connector?.pairedConnectorId) ids.push(String(connector.pairedConnectorId));
+  if ((fields.installedModuleType !== undefined || fields.transceiverConfiguration !== undefined) && connector?.pairedConnectorId) ids.push(String(connector.pairedConnectorId));
   return uniqueItems(ids);
 }
 

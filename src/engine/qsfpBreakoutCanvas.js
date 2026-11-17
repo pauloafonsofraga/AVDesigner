@@ -160,7 +160,7 @@ export const qsfpBreakoutCanvasMethods = {
     }</section>`);
     const section = panel.querySelector("[data-breakout-port]");
     if (reservation) {
-      const module = panel.querySelector("#connectorModule");
+      const module = panel.querySelector("[data-transceiver-config] fieldset, #connectorModule");
       if (module) module.disabled = true;
       if (inspectable) section.querySelector("button").onclick = () => this.selectQsfpBreakout(reservation.assemblyId, reservation.branchId);
       return;

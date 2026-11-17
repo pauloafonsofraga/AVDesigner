@@ -7,6 +7,8 @@ import { breakoutProjectFields } from "./engine/qsfpBreakoutModel.js";
 import { isMultiCoreConnection } from "./engine/multiCoreConnectivity.js";
 import * as editorLifecycle from "./editorLifecycle.js";
 import * as transceivers from "./engine/transceiverModules.js";
+import { CAGE_DEFINITION_CHOICES, cageDefinitionValue, cageDefinitionPatch } from "./engine/transceiverConfiguration.js";
+import { mountTransceiverInspector } from "./engine/transceiverInspector.js";
 import { connectorIncludedInMatrixForEngine, defaultMatrixPortForEngineConnector } from "./engine/matrixRouting.js";
 import * as modularCardSafety from "./engine/modularCardSafety.js";
 import * as multibandSignals from "./engine/multibandSignals.js";
@@ -53,6 +55,7 @@ function start() {
     Object.defineProperty(window, "WireNexusWireRouting", { value: wireRouting });
     Object.defineProperty(window, "WireNexusModularCardSafety", { value: Object.freeze({ ...modularCardSafety, ...nodeReplacement }) });
     Object.defineProperty(window, "WireNexusTransceivers", { value: Object.freeze({ ...transceivers,
+      CAGE_DEFINITION_CHOICES, cageDefinitionValue, cageDefinitionPatch, mountTransceiverInspector,
       installedModuleDetailsForEngine, activeTypeForEngineCageConnector, isEngineCageConnector, isEngineDeadCageConnector,
       engineConnectorTypeDisplayName, engineConnectorCanvasLabelLines,
       connectorIncludedInMatrixForEngine, defaultMatrixPortForEngineConnector, engineCompatibilitySummary, normalizeEngineFiberMode }) });

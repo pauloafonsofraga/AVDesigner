@@ -9,6 +9,8 @@ import { breakoutProjectFields } from "../src/engine/qsfpBreakoutModel.js";
 import { isMultiCoreConnection } from "../src/engine/multiCoreConnectivity.js";
 import * as editorLifecycle from "../src/editorLifecycle.js";
 import * as transceivers from "../src/engine/transceiverModules.js";
+import { CAGE_DEFINITION_CHOICES, cageDefinitionValue, cageDefinitionPatch } from "../src/engine/transceiverConfiguration.js";
+import { mountTransceiverInspector } from "../src/engine/transceiverInspector.js";
 import * as modularCardSafety from "../src/engine/modularCardSafety.js";
 import * as multibandSignals from "../src/engine/multibandSignals.js";
 import * as wireRouting from "../src/engine/wireRoutingPolicy.js";
@@ -40,6 +42,7 @@ function harness({ fetchCatalogue = async () => Response.json(catalogue), initia
   const context = { window, document, URL, Error, FACTORY_AUTHORING, MULTI_CORE_PROJECT_FIELDS, multiCoreProjectFields, breakoutProjectFields, isMultiCoreConnection, editorLifecycle,
     transceivers, modularCardSafety, multibandSignals, wireRouting, nodeReplacement, ...connectorCompatibility,
     connectorIncludedInMatrixForEngine, defaultMatrixPortForEngineConnector,
+    CAGE_DEFINITION_CHOICES, cageDefinitionValue, cageDefinitionPatch, mountTransceiverInspector,
     createFactoryCatalogueLoader: options => createFactoryCatalogueLoader({ ...options, fetchCatalogue: (...args) => { calls.fetch++; return fetchCatalogue(...args); } }),
     imageAssets: {}, portableProjectData() {}, observeLibraryArtwork() { calls.observers++; },
     localStorage: { setItem() { assert.fail("bootstrap must not write storage"); }, clear() { assert.fail("bootstrap must not clear storage"); } }

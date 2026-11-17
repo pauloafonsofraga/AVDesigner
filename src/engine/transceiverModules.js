@@ -1,4 +1,5 @@
 import { opticalLinkCheck, opticalTransceiverProfiles } from "./transceiverOptics.js";
+import { CUSTOM_OPTICS, customOpticalIssue } from "./customTransceiverOptics.js";
 
 // Module profiles describe capability, not a guarantee of host-platform support.
 const SFP_CAGES = ["sfp-cage", "sfp-plus-cage", "sfp28-cage"];
@@ -139,6 +140,7 @@ const normalizeDirection = value => {
   if (["bidirectional", "io", "both"].includes(name)) return "bidirectional";
   return "";
 };
+export const transceiverConnectorRole = connector => normalizeDirection(connector?.signalDirection) || normalizeDirection(connector?.direction);
 function cageType(connector) {
   const type = String(connector?.type || "").trim();
   const legacyType = String(connector?.connectorType || "").trim();
@@ -247,7 +249,8 @@ export function transceiverModuleValidation(connector, capabilities = installedM
   if (profile?.value && !profile.cages.includes(cageType(connector))) {
     return reject("This module/cable end is not supported by this cage family.");
   }
-  const legacyQsfpFit = profile?.value === "dac-qsfp" && form === "qsfp"
+  const legacyQsfpFit = (profile?.value === "dac-qsfp" || (capabilities.optical?.configuration === CUSTOM_OPTICS
+    && ["fiber-lc", "fiber-mpo"].includes(profile?.activeType))) && form === "qsfp"
     && forms.some(candidate => ["qsfp-plus", "qsfp28"].includes(candidate));
   if (capabilities.formFactor && !forms.includes(capabilities.formFactor) && !legacyQsfpFit) return reject("Module and cage form factors are incompatible.");
   if (capabilities.cableAssembly && !profile?.capabilities.cableAssembly) return reject("An integrated cable requires a recognized DAC or AOC end.");
@@ -269,10 +272,22 @@ export function transceiverModuleValidation(connector, capabilities = installedM
   if (list(host.platforms).length && list(capabilities.platforms).length && !intersection(host.platforms, capabilities.platforms)) {
     return reject("Module platform compatibility does not match this cage.");
   }
-  const nodeDirection = normalizeDirection(connector.signalDirection) || normalizeDirection(connector.direction);
+  const nodeDirection = transceiverConnectorRole(connector);
   if (["input", "output"].includes(nodeDirection) && ["input", "output"].includes(capabilities.direction)
     && nodeDirection !== capabilities.direction) return reject("Module direction conflicts with the node direction.");
   const warnings = [];
+  if (capabilities.optical?.configuration === CUSTOM_OPTICS) {
+    if (profile?.capabilities.optical || !["fiber-lc", "fiber-mpo"].includes(profile?.activeType)
+      || (profile.activeType === "fiber-mpo") !== (capabilities.optical.interface === "mpo")) {
+      return reject("Custom fibre metadata requires a generic LC or MPO module.");
+    }
+    const issue = customOpticalIssue(capabilities.optical, capabilities.signalFamily, capabilities.direction);
+    if (issue) return reject(issue);
+    if (capabilities.signalFamily === "sdi" && nodeDirection !== capabilities.direction) {
+      return reject("Optical SDI direction must match the configured connector role.");
+    }
+    if (capabilities.optical.fiberFamily === "multimode" && !capabilities.optical.fiberGrade) warnings.push("Multimode fibre grade is unspecified.");
+  }
   if (!rates.length) warnings.push("Module data rate is unverified.");
   const explicitlySupported = (profile?.capabilities.optical || profile?.capabilities.cableAssembly)
     && list(host.supportedModuleTypes).some(value => key(value) === key(requestedType));
@@ -341,6 +356,10 @@ export function transceiverModulePresentation(connector = {}) {
   const optical = caps.optical;
   const nm = values => Array.isArray(values) && values.length ? values.join("/") + " nm" : "";
   return [label, list(caps.supportedRates).join(", "), caps.direction, optical?.interface, optical?.fiberFamily,
+    ...(optical?.configuration === CUSTOM_OPTICS ? [optical.arrangement, String(optical.fiberGrade || "").toUpperCase(),
+      optical.technology || "Optical technology unspecified", optical.fiberCount && `${optical.fiberCount} fibres`,
+      optical.mpoPolarity && `MPO polarity ${optical.mpoPolarity}`,
+      Array.isArray(optical.laneMapping) && optical.laneMapping.length && `Lane positions ${optical.laneMapping.join(", ")}`] : []),
     nm(optical?.txNm) && `TX ${nm(optical.txNm)}`, nm(optical?.rxNm) && `RX ${nm(optical.rxNm)}`, caps.manufacturer, caps.model,
     caps.physicalConstraints && (typeof caps.physicalConstraints === "string" ? caps.physicalConstraints : JSON.stringify(caps.physicalConstraints)),
     !check.valid ? check.reason : [...check.warnings, ...identity.warnings].join(" ")].filter(Boolean).join(" | ");
@@ -449,8 +468,10 @@ export function opticalEthernetDirection(connector, caps = installedModuleCapabi
 }
 
 export function effectiveTransceiverDirection(connector) {
+  const caps = isTransceiverCage(connector) && !connector.jumpModuleCompatibilityProxy ? installedModuleCapabilities(connector) : {};
+  if (caps.optical?.configuration === CUSTOM_OPTICS && caps.signalFamily === "ethernet") return "bidirectional";
   const node = normalizeDirection(connector?.signalDirection) || normalizeDirection(connector?.direction);
-  const direction = isTransceiverCage(connector) && !connector.jumpModuleCompatibilityProxy ? installedModuleCapabilities(connector).direction : "";
+  const direction = caps.direction;
   return ["input", "output"].includes(direction) ? direction : node;
 }
 
