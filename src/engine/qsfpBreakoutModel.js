@@ -83,6 +83,20 @@ export function qsfpBreakoutChannels(assembly) {
   }).sort((a, b) => (a.lanes[0] ?? Infinity) - (b.lanes[0] ?? Infinity));
 }
 
+export function qsfpBreakoutChannelStatus(assemblyId, channel, diagnostics = []) {
+  const issues = diagnostics.filter(issue => issue.assemblyId === assemblyId
+    && (!issue.branchId || issue.branchId === channel.branchId) && issue.code !== "assembly-length-unknown");
+  const invalid = issues.some(issue => issue.severity === "error");
+  const connected = channel.state === "connected";
+  const status = invalid && (connected || channel.destination) ? "incompatible"
+    : connected && issues.length ? "unverified" : BREAKOUT_CHANNEL_STATES.includes(channel.state) ? channel.state : "unverified";
+  const label = { incompatible: channel.state === "disabled" ? "Disabled (incompatible attachment)" : "Incompatible attachment",
+    unverified: connected ? "Connected (Unverified)" : "Unverified", connected: "Connected",
+    disconnected: "Disconnected", unused: "Unused", disabled: "Disabled" }[status];
+  return { status, label, messages: [...new Set(issues.map(issue => issue.message))],
+    active: connected && Boolean(channel.destination && channel.branchId) && !invalid && !issues.some(issue => issue.blocksAuthoring) };
+}
+
 export function createQsfpBreakoutAssembly({ id, source, modeId, cableType, routeStyle = "bezier" }) {
   const mode = qsfpBreakoutMode(modeId);
   if (!mode || qsfpBreakoutCableProfile(cableType)?.modeId !== modeId) throw new Error("Choose a compatible breakout assembly.");

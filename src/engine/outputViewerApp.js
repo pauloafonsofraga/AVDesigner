@@ -10,6 +10,7 @@ import { multiCorePathMarkup } from "./multiCoreReportPresentation.js";
 import {multibandCss} from "./multibandSignals.js";
 import { continuousStageboxPoints } from "./stageboxSignalPath.js";
 import { hitTestQsfpBreakout } from "./qsfpBreakoutHitTest.js";
+import { connectionStatusText } from "./savedCableStatus.js";
 
 export class EngineOutputViewer {
   constructor(host, snapshot, options = {}) {
@@ -337,7 +338,7 @@ export class EngineOutputViewer {
       };
       if (selection.branchId) button("Select Trunk", "breakout-trunk");
       else for (const channel of details.breakoutChannels || []) if (channel.branchId) {
-        button(`Lane ${channel.lanes.join(", ") || "?"} / ${channel.state || "unverified"}`, "breakout-channel", channel.branchId);
+        button(`Lane ${channel.lanes.join(", ") || "?"} / ${channel.validation.label}`, "breakout-channel", channel.branchId);
       }
     } else if (selection?.type === "device" || selection?.type === "connector") {
       const items = outputConnectedNodeItems(this.scene, selection.deviceId || selection.id,
@@ -407,6 +408,7 @@ export class EngineOutputViewer {
       });
       body.append(list);
     }
+    if (chain.connectionStatus?.status === "unverified") body.append(text("p", connectionStatusText(chain.connectionStatus)));
     if (chain.presentation) {
       const expanded = document.createElement("div"); expanded.innerHTML = multiCorePathMarkup(chain.presentation);
       body.append(expanded); return;

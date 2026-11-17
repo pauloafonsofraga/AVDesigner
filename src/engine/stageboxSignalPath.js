@@ -9,10 +9,10 @@ function endpoint(scene, wire, side) {
   return { device, connectorId: wire[`${side}ConnectorId`], point: scene.endpointForWire(wire, side) };
 }
 
-function patchesAt(scene, deviceId, connectorId) {
+function patchesAt(scene, deviceId, connectorId, canTraverse) {
   return [...(scene.wireIdsByDeviceId.get(deviceId) || [])].flatMap(id => {
     const wire = scene.getWire(id);
-    if (!available(wire) || wire.stageboxAssemblyId) return [];
+    if (!available(wire) || wire.stageboxAssemblyId || canTraverse?.(wire.id) === false) return [];
     return sides.filter(side => wire[`${side}DeviceId`] === deviceId && wire[`${side}ConnectorId`] === connectorId)
       .map(side => ({ wire, side }));
   });
@@ -59,7 +59,7 @@ function mappingSteps(device, node, mapping, peerNode, polyline) {
     step("mapping", spoke(peer, peerNode, points.at(-1)).reverse())];
 }
 
-export function stageboxSignalPath(scene, { wire, connectorHit, polyline = wire => scene.wireRenderPolyline(wire) } = {}) {
+export function stageboxSignalPath(scene, { wire, connectorHit, canTraverse, polyline = wire => scene.wireRenderPolyline(wire) } = {}) {
   const wireStep = (wire, reverse) => {
     const points = polyline(wire);
     return { type: "wire", wireId: wire.id, sourceWireId: wire.sourceId || wire.id,
@@ -67,18 +67,18 @@ export function stageboxSignalPath(scene, { wire, connectorHit, polyline = wire 
   };
   if (!wire && connectorHit?.device?.stageboxIdentity) {
     const { device, connector } = connectorHit;
-    const patches = patchesAt(scene, device.id, connector.id);
+    const patches = patchesAt(scene, device.id, connector.id, canTraverse);
     if (patches.length === 1) wire = patches[0].wire;
     else if (!patches.length) {
       const map = mappingAt(scene, device, connector.id);
       if (!map) return [];
-      const peer = patchesAt(scene, map.peer.id, map.peerId);
+      const peer = patchesAt(scene, map.peer.id, map.peerId, canTraverse);
       if (peer.length === 1) wire = peer[0].wire;
       else if (!peer.length) return mappingSteps(device, scene.connectorWorldPoint(device, connector), map,
         scene.connectorWorldPoint(map.peer, map.peerConnector), polyline);
     }
   }
-  if (!available(wire) || wire.stageboxAssemblyId) return [];
+  if (!available(wire) || wire.stageboxAssemblyId || canTraverse?.(wire.id) === false) return [];
   if (!sides.some(side => scene.getDevice(wire[`${side}DeviceId`])?.stageboxIdentity)) return [];
   const from = endpoint(scene, wire, "from"), to = endpoint(scene, wire, "to");
   const role = end => end.device?.stageboxIdentity
@@ -94,7 +94,7 @@ export function stageboxSignalPath(scene, { wire, connectorHit, polyline = wire 
       const key = JSON.stringify([map.trunk.id, map.channel.id]);
       if (channels.has(key)) break;
       channels.add(key);
-      const candidates = patchesAt(scene, map.peer.id, map.peerId);
+      const candidates = patchesAt(scene, map.peer.id, map.peerId, canTraverse);
       if (candidates.length > 1) break;
       const next = candidates[0];
       if (next && visited.has(next.wire.id)) break;

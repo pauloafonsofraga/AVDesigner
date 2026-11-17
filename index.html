@@ -33330,44 +33330,35 @@
       `;
     }
 
-    function transceiverWireDetailsHtml(connection, bridge) {
-      const api = engineTransceiverApi();
-      if (!api?.engineCompatibilitySummary || !bridge?.scene) return "";
-      const integrated = api.isIntegratedCableType(connection.cableType) || Boolean(connection.cableAssembly);
-      const hit = endpoint => ({
-        device: { id: endpoint?.deviceId }, connector: endpoint?.deviceId && bridge.scene.getConnector(endpoint.deviceId, endpoint.connectorId)
-      });
-      const from = hit(connection.from), to = hit(connection.to);
-      if (!integrated && (!from.connector || !to.connector || (!api.isTransceiverCage(from.connector) && !api.isTransceiverCage(to.connector)))) return "";
-      let result = from.connector && to.connector ? api.engineCompatibilitySummary(from, to) : null;
-      if (integrated && (!result || result.valid)) result = api.integratedCableWireValidation(connection, from.connector, to.connector);
-      let state = result.compatibilityStatus, details = result.valid ? (result.warnings || []).join(" ") : result.reason;
-      const cableMode = api.normalizeEngineFiberMode(connection.fiberMode);
-      if (result.valid && cableMode && result.allowedFiberModes?.length && !result.allowedFiberModes.includes(cableMode)) {
-        state = "incompatible";
-        details = "The saved cable's fibre mode does not match the endpoints.";
-      }
-      const label = { compatible: "Compatible", incompatible: "Incompatible", unverified: "Unverified" }[state];
-      return `<dt>Compatibility</dt><dd data-transceiver-link-status="${escapeHtml(state)}" style="overflow-wrap:anywhere">${escapeHtml(label)}${details ? `: ${escapeHtml(details)}` : ""}</dd>`;
+    function transceiverWireDetailsHtml(status) {
+      if (!status) return "";
+      const details = status.messages.join(" ");
+      return `<dt>Compatibility</dt><dd data-transceiver-link-status="${escapeAttr(status.status)}" style="overflow-wrap:anywhere">${escapeHtml(status.label)}${details ? `: ${escapeHtml(details)}` : ""}</dd>`;
     }
 
     function renderWireInspector(connectionId) {
       const connection = state.connections.find(item => item.id === connectionId);
       if (!connection) return;
+      // Resolve legacy endpoints for display without converting the saved record.
+      const endpoint = end => connection[end] || { deviceId: connection[`${end}DeviceId`],
+        connectorId: connection[`${end}ConnectorId`], surfaceId: connection[`${end}SurfaceId`] };
+      const from = endpoint("from"), to = endpoint("to");
       const bridge = activeEngineBridge();
+      const validation = bridge?.savedTransceiverStatuses().get(connectionId);
+      const canTrace = validation?.status !== "incompatible";
       const assignedLoom = (state.looms || []).find(loom => loom.id === connection.loomId);
       const inheritedLength = !String(connection.length || "").trim()
         ? String(assignedLoom?.trunkLength || "").trim()
         : "";
       const displayedLength = String(connection.length || inheritedLength || "");
       const jumpLink = bridge?.jumpLinkForPhysicalWire(connectionId);
-      const jumpLeg = Boolean(connection.from?.jumpNodeId || connection.to?.jumpNodeId);
-      const fromDevice = connection.from.deviceId ? instanceById(connection.from.deviceId) : null;
-      const toDevice = connection.to.deviceId ? instanceById(connection.to.deviceId) : null;
-      const fromSurface = connection.from.surfaceId ? ledSurfaceById(connection.from.surfaceId) : null;
-      const toSurface = connection.to.surfaceId ? ledSurfaceById(connection.to.surfaceId) : null;
-      const fromConnector = connection.from.deviceId ? connectorById(connection.from.deviceId, connection.from.connectorId) : null;
-      const toConnector = connection.to.deviceId ? connectorById(connection.to.deviceId, connection.to.connectorId) : null;
+      const jumpLeg = Boolean(from.jumpNodeId || to.jumpNodeId);
+      const fromDevice = from.deviceId ? instanceById(from.deviceId) : null;
+      const toDevice = to.deviceId ? instanceById(to.deviceId) : null;
+      const fromSurface = from.surfaceId ? ledSurfaceById(from.surfaceId) : null;
+      const toSurface = to.surfaceId ? ledSurfaceById(to.surfaceId) : null;
+      const fromConnector = from.deviceId ? connectorById(from.deviceId, from.connectorId) : null;
+      const toConnector = to.deviceId ? connectorById(to.deviceId, to.connectorId) : null;
       const multiCoreLabel = endpoint => {
         if (!endpoint.multiCoreId) return "";
         const mc = state.multiCores?.find(item => item.id === endpoint.multiCoreId);
@@ -33379,13 +33370,13 @@
         <dl class="details">
           <dt>Type</dt><dd>Wire</dd>
           ${engineTransceiverApi() ? `<dt>Cable</dt><dd>${escapeHtml(reportCableType(connection))}</dd>` : ""}
-          <dt>From</dt><dd>${escapeHtml(fromDevice ? `${fromDevice.name} / ${endpointConnectorName(connection.from)}` : fromSurface?.name || multiCoreLabel(connection.from) || "Missing")}</dd>
-          <dt>To</dt><dd>${escapeHtml(toDevice ? `${toDevice.name} / ${endpointConnectorName(connection.to)}` : toSurface?.name || multiCoreLabel(connection.to) || "Missing")}</dd>
+          <dt>From</dt><dd>${escapeHtml(fromDevice ? `${fromDevice.name} / ${endpointConnectorName(from)}` : fromSurface?.name || multiCoreLabel(from) || "Missing")}</dd>
+          <dt>To</dt><dd>${escapeHtml(toDevice ? `${toDevice.name} / ${endpointConnectorName(to)}` : toSurface?.name || multiCoreLabel(to) || "Missing")}</dd>
           ${wireAssemblyDetailsHtml(connection)}
-          ${transceiverWireDetailsHtml(connection, bridge)}
+          ${transceiverWireDetailsHtml(validation)}
         </dl>
-        ${activeEngineBridge() ? '<button class="tool-button" id="wireSignalChain" type="button">Signal Chain</button>' : ""}
-        <button class="tool-button" id="playWireTrace" type="button">▶ Play Cable</button>
+        ${activeEngineBridge() ? `<button class="tool-button" id="wireSignalChain" type="button"${canTrace ? "" : " disabled"}>Signal Chain</button>` : ""}
+        <button class="tool-button" id="playWireTrace" type="button"${canTrace ? "" : " disabled"}>▶ Play Cable</button>
         <div class="field">
           <label for="wireLabel">Label</label>
           <input id="wireLabel" value="${escapeAttr(jumpLink ? bridge.jumpLinkLabel(jumpLink.id) : connection.label || "")}">
@@ -33653,7 +33644,8 @@
     function signalChainRows(module) {
       const nodeDefinitions = Object.entries(cableTypes).map(([id, node]) => ({ ...node, id }));
       return module.buildCableSchedule({ ...state, deviceLibrary }, {
-        assignNumbers: "readOnly", getConnector: connectorById, nodeDefinitions
+        assignNumbers: "readOnly", getConnector: connectorById, nodeDefinitions,
+        wireStatuses: activeEngineBridge()?.savedTransceiverStatuses()
       });
     }
 
@@ -33703,7 +33695,9 @@
     }
 
     function signalChainMarkup(chain) {
-      if (chain.presentation) return window.wireNexusMultiCorePathMarkup(chain.presentation);
+      const status = chain.connectionStatus?.status === "unverified"
+        ? `<p class="field-hint">${escapeHtml(chain.connectionStatus.label)}: ${escapeHtml(chain.connectionStatus.messages.join(" "))}</p>` : "";
+      if (chain.presentation) return status + window.wireNexusMultiCorePathMarkup(chain.presentation);
       const cable = cableTypes[chain.cableTypeId];
       const colors = (Array.isArray(cable?.colors) && !chain.cableCustomColor ? cable.colors : [])
         .map(color => signalChainColor(color, "")).filter(Boolean);
@@ -33713,7 +33707,7 @@
       const loom = (state.looms || []).find(item => item.id === chain.loomId);
       const loomLabel = loom ? [loom.name, [loom.sideA?.label, loom.sideB?.label].filter(Boolean).join(" ↔ ")]
         .filter(Boolean).join(" · ") : chain.loom;
-      return `<div class="signal-chain-graph" data-signal-chain-wire-ids="${escapeAttr(chain.wireIds.join(","))}">
+      return `${status}<div class="signal-chain-graph" data-signal-chain-wire-ids="${escapeAttr(chain.wireIds.join(","))}">
         ${signalChainDeviceMarkup(chain.from)}
         ${signalChainNodeMarkup(chain.from, "from")}
         ${signalChainPatchMarkup(chain.from.patch, "from")}
@@ -33906,7 +33900,7 @@
       const revision = multiCoreReportRevision;
       const reports = currentMultiCoreReportRevision === revision && currentMultiCoreReports
         ? currentMultiCoreReports : reportsModule.buildMultiCoreReports({ ...state, deviceLibrary, nodeLibrary: nodeDefinitions }, {
-          getConnector: connectorById, nodeDefinitions });
+          getConnector: connectorById, nodeDefinitions, wireStatuses: activeEngineBridge()?.savedTransceiverStatuses() });
       const rows = reports.cableRows;
       const nodeById = new Map(nodeDefinitions.map(node => [node.id, node]));
       const visualNodeIds = [...new Set(rows.flatMap(row => [row.sourceNodeTypeId, row.destinationNodeTypeId]).filter(Boolean))];
@@ -35435,11 +35429,12 @@ document.addEventListener("click", function(event) {
         wireIds: data.connections.filter(w => (w.cableType || "") === row.typeId && normalizeCableLength(w.length) === row.length).map(w => w.id) }));
       const scheduleModule = await loadCableScheduleModule();
       const nodeDefinitions = Object.entries(cableTypes).map(([id, node]) => ({ ...node, id }));
-      const signalRows = scheduleModule.buildCableSchedule(data, { assignNumbers: "readOnly", nodeDefinitions });
+      const signalRows = scheduleModule.buildCableSchedule(data, { assignNumbers: "readOnly", nodeDefinitions,
+        wireStatuses: new Map(Object.entries(snapshot.engineScene.savedWireStatuses || {})) });
       const signalChains = scheduleModule.cableScheduleSignalChains(signalRows).map(chain => {
           return { wireIds: chain.wireIds, cableNumber: chain.cableNumber, cable: chain.cable,
             length: chain.length, loom: chain.loom, cableColor: chain.cableColor,
-            flow: chain.flow, from: chain.from, to: chain.to,
+            flow: chain.flow, from: chain.from, to: chain.to, connectionStatus: chain.connectionStatus,
             ...(chain.breakoutAssemblyId ? { breakoutAssemblyId: chain.breakoutAssemblyId, branchId: chain.branchId, channelId: chain.channelId } : {}),
             ...(chain.presentation ? { path: chain.path, paths: chain.paths, presentation: chain.presentation } : {}) };
         });

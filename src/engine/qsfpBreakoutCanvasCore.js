@@ -1,6 +1,6 @@
 import { layerVisible, layerEditable } from "./projectLayers.js";
 import { wirePolylineFromPoints } from "./wirePath.js";
-import { QSFP_BREAKOUT_VERSION, breakoutId, breakoutList as list, qsfpBreakoutMode, uniquelyIdentifiedQsfpBreakouts } from "./qsfpBreakoutModel.js";
+import { QSFP_BREAKOUT_VERSION, breakoutId, breakoutList as list, qsfpBreakoutMode, qsfpBreakoutChannelStatus, uniquelyIdentifiedQsfpBreakouts } from "./qsfpBreakoutModel.js";
 import { validateQsfpBreakoutTransition } from "./qsfpBreakoutValidation.js";
 
 const finitePoint = point => Number.isFinite(point?.x) && Number.isFinite(point?.y);
@@ -118,7 +118,8 @@ export function projectQsfpBreakouts(scene, assemblies, { offsets, gesture, diag
       const tail = wirePolylineFromPoints({}, [hub, tip], { bezierSteps: 14 });
       const outward = { x: direction, y: 0 };
       const extension = target ? wirePolylineFromPoints({}, [tip, target], { fromDirection: outward }) : [];
-      const branchConflict = sourceConflict || conflict.some(issue => issue.branchId === branch.id);
+      const branchConflict = qsfpBreakoutChannelStatus(assembly.id, { state: channel.state, branchId: branch.id,
+        destination: branch.destination }, issues).status === "incompatible";
       branches.push({ id: branch.id, channelId: branch.channelId, lane, state: channel.state, tip, target,
         destination: branch.destination || null,
         points: [...tail, ...extension.slice(1)], editable: layerEditable(source.device) && (!destination || layerEditable(destination.device)),

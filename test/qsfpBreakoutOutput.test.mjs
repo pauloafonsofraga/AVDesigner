@@ -108,6 +108,39 @@ test("one physical cable row retains shared length and all lane states after rep
   assert.equal(cableScheduleSignalChains([row]).length, 1);
 });
 
+test("invalid saved breakout destination remains documented, but every output labels it incompatible", () => {
+  const project = fixture(), assembly = project.breakoutAssemblies[0];
+  assembly.branches.find(branch => branch.id === branchId(2)).destination.connectorId = "sfp-plus-2";
+  const contract = buildEngineOutputScene(project), viewer = createOutputViewerModel(contract);
+  const selected = { type: "qsfp-breakout", id: assembly.id, branchId: branchId(2) };
+  const details = outputSelectionDetails(viewer.scene, selected);
+  assert.match(details.rows.find(([label]) => label === "State")[1], /Incompatible/);
+  assert.match(details.rows.flat().join(" "), /physical cage are incompatible/i);
+  assert.match(details.rows.find(([label]) => label === "Destination")[1], /Receiver/);
+  assert.equal(contract.qsfpBreakouts.plans[0].branches.find(branch => branch.id === branchId(2)).color, "#ed716e");
+  assert.deepEqual(outputCableTrace(viewer, selected), []);
+  assert.equal(signalChainsForConnector(buildCableSchedule(project), "host", "qsfp28").length, 2);
+  assert.match(contract.modelData.reports.cableRows[0].breakoutDetails, /Lane 2 .*Incompatible/);
+  assert.deepEqual(contract.qsfpBreakouts.assemblies, project.breakoutAssemblies);
+});
+
+test("a safe unverified breakout remains traceable, while unverified mapping is withheld", () => {
+  const project = fixture(), assembly = project.breakoutAssemblies[0];
+  const receiver = structuredClone(lab);
+  delete receiver.connectors.find(port => port.id === "sfp28-2").cageCapabilities.supportedModuleTypes;
+  project.devices[1].templateOverride = receiver;
+  const selected = { type: "qsfp-breakout", id: assembly.id, branchId: branchId(2) };
+  const viewer = createOutputViewerModel(buildEngineOutputScene(project));
+  assert.match(outputSelectionDetails(viewer.scene, selected).rows.find(([label]) => label === "State")[1], /Unverified/);
+  assert.equal(outputCableTrace(viewer, selected).length, 1);
+  assert.ok(signalChainsForConnector(buildCableSchedule(project), "host", "qsfp28").some(chain =>
+    chain.branchId === branchId(2) && chain.connectionStatus.status === "unverified"));
+  delete assembly.branches.find(branch => branch.id === branchId(2)).destination.anchorId;
+  const incomplete = createOutputViewerModel(buildEngineOutputScene(project));
+  assert.match(outputSelectionDetails(incomplete.scene, selected).rows.find(([label]) => label === "State")[1], /Unverified/);
+  assert.deepEqual(outputCableTrace(incomplete, selected), []);
+});
+
 test("shared trunk requires a lane; editor, output model and SVG use the same geometry", () => {
   const project = fixture(), scene = new SceneGraph();
   scene.setData(normalizeAvDesignerProject(project));

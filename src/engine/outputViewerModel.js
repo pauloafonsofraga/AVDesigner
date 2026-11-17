@@ -6,13 +6,15 @@ import {sharedBusTypeLabels} from './sharedBusLabels.js';
 import { resolvePlayableSignalPath, jumpNodeRoleLabel } from "./jumpNodeModel.js";
 import { resolveOutputDeviceAssets } from "./outputViewerAssets.js";
 import { assertOutputSceneContract } from "./outputSceneContract.js";
-import { engineCompatibilitySummary, engineConnectorTypeDisplayName, engineConnectorUserFacingTypeLabel } from "./connectorCompatibility.js";
+import { engineConnectorTypeDisplayName, engineConnectorUserFacingTypeLabel } from "./connectorCompatibility.js";
 import { normalizeRackShell, rackShellStyle } from "./rackShell.js";
 import { multiCorePortReference } from "./multiCoreProjection.js";
-import { integratedCableWireValidation, isDacCableType, isIntegratedCableType, isTransceiverCage, transceiverModulePresentation } from "./transceiverModules.js";
+import { isDacCableType, isIntegratedCableType, isTransceiverCage, transceiverModulePresentation } from "./transceiverModules.js";
 import { stageboxSignalPath } from "./stageboxSignalPath.js";
-import { qsfpBreakoutChannels, qsfpBreakoutMode, qsfpBreakoutModeLabel, qsfpBreakoutCableLabel, qsfpBreakoutLengthLabel } from "./qsfpBreakoutModel.js";
+import { qsfpBreakoutChannels, qsfpBreakoutChannelStatus, qsfpBreakoutMode, qsfpBreakoutModeLabel, qsfpBreakoutCableLabel, qsfpBreakoutLengthLabel } from "./qsfpBreakoutModel.js";
 import { qsfpBreakoutPlaybackStep } from "./qsfpBreakoutPlayback.js";
+import { collectSavedTransceiverStatuses, connectionStatusText } from "./savedCableStatus.js";
+import { cableLengthDisplayLabel } from "./loomMetadata.js";
 
 function freeze(value) {
   if (value && typeof value === "object") { Object.values(value).forEach(freeze); Object.freeze(value); }
@@ -38,6 +40,9 @@ export function createOutputViewerModel(snapshot, { assets } = {}) {
       looms:contract.looms, connections:contract.wires, racks:contract.racks, jumpLinks:contract.jumpLinks}
       : contract.modelData ? { multiCores: contract.modelData.multiCores } : null,
     meta: { cableHops: contract.diagnostics?.cableHops?.enabled !== false } });
+  scene.savedWireStatuses = contract.savedWireStatuses ? new Map(Object.entries(contract.savedWireStatuses))
+    : collectSavedTransceiverStatuses({ connections: contract.wires.filter(wire => !wire.multiCoreIdentity && !wire.stageboxAssemblyId)
+      .map(wire => ({ ...wire, id: wire.sourceId || wire.id })) }, scene, contract.qsfpBreakouts);
   return { contract, scene, normalizationMs: performance.now() - start };
 }
 
@@ -97,18 +102,23 @@ export function outputSelectionDetails(scene, selection) {
       const device = scene.getDevice(ref?.deviceId), connector = scene.getConnector(ref?.deviceId, ref?.connectorId);
       return ref ? `${device?.label || ref.deviceId} / ${connector ? connectedPortName(connector, device) : ref.connectorId}` : "None";
     };
-    const channels = qsfpBreakoutChannels(assembly);
+    const channels = qsfpBreakoutChannels(assembly).map(channel => ({ ...channel,
+      validation: qsfpBreakoutChannelStatus(assembly.id, channel, scene.qsfpBreakouts?.diagnostics) }));
     const selected = channels.find(channel => selection.branchId && channel.branchId === selection.branchId);
+    const assemblyStatus = scene.qsfpBreakouts?.statuses?.find(item => item.id === assembly.id)?.status;
+    const assemblyLabel = { compatible: "Compatible", incompatible: "Incompatible", unverified: "Unverified" }[assemblyStatus];
     const conflicts = [...new Set((scene.qsfpBreakouts?.diagnostics || []).filter(issue => issue.assemblyId === assembly.id
       && issue.code === "port-occupied" && (!selected || !issue.branchId || issue.branchId === selected.branchId)).map(issue => issue.message))];
     const lane = channel => `Lane ${channel.lanes.join(", ") || "?"}`;
     return { title: selected ? `${cable} / ${lane(selected)}` : cable, wireIds: [], breakoutChannels: channels,
       rows: [["Assembly ID", assembly.id], ["Mode", qsfpBreakoutModeLabel(mode)],
         ["Source", portLabel(assembly.source)], ["Physical Length", qsfpBreakoutLengthLabel(assembly.length)],
+        ...(assemblyLabel ? [["Assembly compatibility", assemblyLabel]] : []),
         ...conflicts.map(message => ["Occupancy Conflict", message]),
-        ...(selected ? [["Channel ID", selected.channelId], ["Rate", mode?.branchRate], ["State", selected.state],
+        ...(selected ? [["Channel ID", selected.channelId], ["Rate", mode?.branchRate], ["State", selected.validation.label],
+          ["Validation details", selected.validation.messages.join(" ")],
           ["Destination", portLabel(selected.destination)]] : channels.map(channel => [
-          lane(channel), `${channel.state || "unverified"} / ${portLabel(channel.destination)}`
+          lane(channel), `${channel.validation.label} / ${portLabel(channel.destination)}`
         ]))] };
   }
   if (selection.type === "multi-wire") return { title: "Cables", rows: [["Selected", selection.ids.length]], wireIds: selection.ids };
@@ -138,23 +148,17 @@ export function outputSelectionDetails(scene, selection) {
       ? wire.label : cableNumber || readableType;
     const assemblyRows = [];
     if (isIntegratedCableType(wire.cableType)) {
-      const hit = end => ({ device: scene.getDevice(wire[`${end}DeviceId`]),
-        connector: scene.getConnector(wire[`${end}DeviceId`], wire[`${end}ConnectorId`]) });
-      const from = hit("from"), to = hit("to");
-      const pairing = engineCompatibilitySummary(from, to);
-      const check = pairing.valid ? integratedCableWireValidation(wire, from.connector, to.connector) : pairing;
-      const status = !check.valid ? "Incompatible" : check.warnings?.length ? "Unverified" : "Compatible";
-      const details = check.valid ? check.warnings?.join(" ") : check.reason;
       assemblyRows.push(["Assembly", isDacCableType(wire.cableType) ? "Integrated direct-attach copper (DAC)" : "Integrated active optical cable (AOC)"],
-        ["Supported rates", Array.isArray(wire.cableAssembly?.supportedRates) && wire.cableAssembly.supportedRates.join(", ") || "Unverified"],
-        ["Compatibility", details ? `${status}: ${details}` : status]);
+        ["Supported rates", Array.isArray(wire.cableAssembly?.supportedRates) && wire.cableAssembly.supportedRates.join(", ") || "Unverified"]);
     }
+    const status = connectionStatusText(scene.savedWireStatuses?.get(wire.sourceId || wire.id));
+    const loom = scene.looms.find(item => item.id === wire.loomId);
     return { title, rows: [
       ["Cable", readableType],
       ["Cable ID", cableNumber],
       ["From", endpointLabel("from")], ["To", endpointLabel("to")],
-      ["Length", wire.length], ["Notes", wire.notes],
-      ...assemblyRows
+      ["Length", cableLengthDisplayLabel(wire.length, loom)], ["Notes", wire.notes],
+      ...assemblyRows, ...(status ? [["Compatibility", status]] : [])
     ], wireIds: [wire.id] };
   }
   if (selection.type === "jump-link") {
@@ -199,8 +203,13 @@ export function outputCableTrace(model, selection) {
   if (link) return [{ id: link.id, type: "jump-link", points: link.polyline, color: "#32b6ff" }];
   const wire = model.scene.getWire(selection.id);
   if (selection.type !== "wire" || !wire || wire.multiCoreIdentity || wire.stageboxAssemblyId) return [];
+  const canTraverse = id => {
+    const candidate = model.scene.getWire(id);
+    return model.scene.savedWireStatuses?.get(candidate?.sourceId || id)?.status !== "incompatible";
+  };
+  if (!canTraverse(wire.id)) return [];
   const byId = new Map(model.contract.wires.map(wire => [wire.id, wire]));
-  const stagebox = stageboxSignalPath(model.scene, { wire, polyline: wire => byId.get(wire.id)?.renderPolyline || [] });
+  const stagebox = stageboxSignalPath(model.scene, { wire, canTraverse, polyline: wire => byId.get(wire.id)?.renderPolyline || [] });
   if (stagebox.length) return stagebox.map(step => ({ ...step, id: step.wireId || step.trunkId }));
   // Adapt only endpoint identity for the existing semantic tracer. All geometry
   // comes directly from the immutable contract, never a production project.
@@ -214,7 +223,7 @@ export function outputCableTrace(model, selection) {
   const project = { jumpLinks: model.contract.jumpLinks,
     jumpNodes: model.contract.devices.filter(d => d.kind === "jump"),
     connections: model.contract.wires.filter(w => !w.multiCoreIdentity && !w.stageboxAssemblyId).map(w => ({ ...w, from: endpoint(w, "from"), to: endpoint(w, "to") })) };
-  const steps = resolvePlayableSignalPath({ startingWireId: wire.id, project,
+  const steps = resolvePlayableSignalPath({ startingWireId: wire.id, project, canTraverse,
     getConnector: end => model.scene.getConnector(end.deviceId, end.connectorId) });
   return steps.flatMap(step => {
     const item = step.type === "teleport" ? model.contract.jumpLinks.find(l => l.id === step.jumpLinkId)

@@ -211,7 +211,7 @@ try {
     const physicalRow = page.locator("#cableScheduleBody tr").filter({ hasText: assembly.id });
     await physicalRow.waitFor();
     assert.equal(await physicalRow.count(), 1);
-    assert.match(await physicalRow.innerText(), /25G[\s\S]*unused/);
+    assert.match(await physicalRow.innerText(), /25G[\s\S]*unused/i);
     await page.locator("#closeCableSchedule").click();
 
     const exporting = page.waitForEvent("download");

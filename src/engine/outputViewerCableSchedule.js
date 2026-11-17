@@ -19,6 +19,10 @@ export function installOutputCableSchedule(viewer, rows = []) {
   const header = document.createElement("header"), title = text("h2", "Cable Schedule"), close = text("button", "Close"); close.type = "button";
   header.append(title, close); dialog.append(header);
   const body = document.createElement("div"); body.className = "output-report-body";
+  const ambiguous = (viewer.model.contract.qsfpBreakouts?.diagnostics || []).filter(issue => issue.code === "assembly-id-conflict");
+  if (ambiguous.length) {
+    body.append(text("p", `Not counted: ambiguous QSFP breakout IDs (${[...new Set(ambiguous.map(issue => issue.assemblyId))].join(", ")}).`));
+  }
   const wrap = document.createElement("div"); wrap.className = "output-report-table"; wrap.tabIndex = 0; wrap.setAttribute("aria-label", "Cable schedule table");
   const table = document.createElement("table"), head = document.createElement("thead"), heading = document.createElement("tr"), tbody = document.createElement("tbody");
   const columns = cableScheduleColumns(rows), filters = {};
@@ -47,7 +51,8 @@ export function installOutputCableSchedule(viewer, rows = []) {
           const ids = (row.wireIds || []).filter(id => viewer.scene.getWire(id));
           if (ids.length || row.breakoutAssemblyId) {
             const link = text("button", row[key] || "Cable"); link.type = "button";
-            link.title = row.breakoutAssemblyId ? "Inspect breakout assembly" : "View cable signal chain";
+            link.title = row.breakoutAssemblyId ? "Inspect breakout assembly"
+              : row.connectionStatus?.status === "incompatible" ? "Inspect cable" : "View cable signal chain";
             if (row.breakoutAssemblyId) link.dataset.scheduleBreakoutId = row.breakoutAssemblyId;
             else link.dataset.scheduleWireId = ids[0];
             td.replaceChildren(link);

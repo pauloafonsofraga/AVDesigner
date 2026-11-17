@@ -387,13 +387,20 @@ test("installed optical modules take fibre precedence; empty cages are not repor
   const [optical] = buildCableSchedule(data);
   assert.equal(optical.cableNumber, "F-001");
   assert.match(optical.connector, /Fiber LC/);
-  assert.equal(signalChainForWire([optical], "wire-1").from.typeId, "sfp-cage");
-  assert.equal(signalChainForWire([optical], "wire-1").fiberMode, "singlemode");
+  assert.equal(optical.sourceNodeTypeId, "sfp-cage");
+  assert.equal(optical.fiberMode, "singlemode");
+  assert.equal(signalChainForWire([optical], "wire-1"), null, "the explicitly mistyped cable remains documented only");
+  data.connections[0].cableType = "fiber-lc";
+  const [patched] = buildCableSchedule(data);
+  assert.equal(signalChainForWire([patched], "wire-1").from.typeId, "sfp-cage");
+  assert.equal(signalChainForWire([patched], "wire-1").fiberMode, "singlemode");
+  data.connections[0].cableType = "other";
   data.devices.forEach(device => { device.templateOverride.connectors[0].installedModuleId = ""; });
   const [empty] = buildCableSchedule(data);
   assert.equal(empty.cableNumber, "X-001");
   assert.doesNotMatch(empty.connector, /fiber-lc/);
-  assert.equal(signalChainForWire([empty], "wire-1").from.typeId, "sfp-cage");
+  assert.equal(empty.sourceNodeTypeId, "sfp-cage");
+  assert.equal(signalChainForWire([empty], "wire-1"), null, "an empty cage cannot carry a signal");
 });
 
 test("paired Jump Node legs form one logical cable with real endpoints", () => {

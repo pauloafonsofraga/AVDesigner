@@ -1,9 +1,10 @@
-import { normalizeAvDesignerDevice, projectWireEndpoint } from "./projectAdapter.js";
+import { normalizeAvDesignerDevice } from "./projectAdapter.js";
+import { projectWireEndpoint } from "./projectWireEndpoint.js";
 import { connectorIsNotWorking, exclusiveConnectionRejectionReason } from "./deviceDefinitionV2.js";
 import { isIntegratedCableType, isTransceiverCage, resolveInstalledModule, transceiverModuleValidation } from "./transceiverModules.js";
 import {
   QSFP_BREAKOUT_VERSION, BREAKOUT_CHANNEL_STATES, QSFP_BREAKOUT_LENGTH_UNITS, QSFP_BREAKOUT_MAX_ROUTE_POINTS, qsfpBreakoutMode, qsfpBreakoutCableProfile,
-  breakoutProjectRoot, breakoutList as list, breakoutId as id, breakoutPortKey, breakoutReservations, qsfpBreakoutChannels
+  breakoutProjectRoot, breakoutList as list, breakoutId as id, breakoutPortKey, breakoutReservations, qsfpBreakoutChannels, qsfpBreakoutChannelStatus
 } from "./qsfpBreakoutModel.js";
 
 const record = value => value !== null && typeof value === "object" && !Array.isArray(value);
@@ -325,14 +326,12 @@ export function activeQsfpBreakoutLinks(project, validation = validateQsfpBreako
   const root = breakoutProjectRoot(project);
   return list(root.breakoutAssemblies).flatMap(assembly => {
     if (!id(assembly?.id)) return [];
-    const issues = validation.diagnostics.filter(issue => issue.assemblyId === assembly.id
-      && (issue.severity === "error" || issue.blocksAuthoring));
-    if (issues.some(issue => !issue.branchId)) return [];
-    return qsfpBreakoutChannels(assembly).filter(channel => channel.state === "connected" && channel.destination
-      && id(channel.branchId) && !issues.some(issue => issue.branchId === channel.branchId)).map(channel => ({
-      ...channel, assemblyId: assembly.id, source: assembly.source, cableType: assembly.cableType,
-      modeId: assembly.modeId, length: assembly.length
-    }));
+    const issues = validation.diagnostics.filter(issue => issue.assemblyId === assembly.id);
+    return qsfpBreakoutChannels(assembly).flatMap(channel => {
+      const validation = qsfpBreakoutChannelStatus(assembly.id, channel, issues);
+      return validation.active ? [{ ...channel, validation, assemblyId: assembly.id, source: assembly.source,
+        cableType: assembly.cableType, modeId: assembly.modeId, length: assembly.length }] : [];
+    });
   });
 }
 

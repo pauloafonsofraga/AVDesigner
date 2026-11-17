@@ -9,8 +9,10 @@ import { createMultiCoreConnectivity, isMultiCoreEndpointReference, projectHasSt
 import { multiCoreReportEndpoint, presentMultiCorePath } from "./multiCoreReportPresentation.js";
 import {groupedCoaxMetadata, groupedCoaxLabel, multibandColors} from "./multibandSignals.js";
 import {CABLE_NUMBER_PREFIXES, parseCableNumber, formatCableNumber} from "./cableNumbering.js";
+import { connectionStatusText } from "./savedCableStatus.js";
+import { projectWireEndpoint } from "./projectWireEndpoint.js";
 import { uniquelyIdentifiedQsfpBreakouts, qsfpBreakoutChannels, qsfpBreakoutMode, qsfpBreakoutModeLabel, qsfpBreakoutLinkId,
-  qsfpBreakoutCableLabel, qsfpBreakoutLengthLabel } from "./qsfpBreakoutModel.js";
+  qsfpBreakoutCableLabel, qsfpBreakoutLengthLabel, qsfpBreakoutChannelStatus } from "./qsfpBreakoutModel.js";
 export { multiCorePathMarkup } from "./multiCoreReportPresentation.js";
 
 const signalChainConnectivity = new WeakMap();
@@ -154,8 +156,8 @@ export function groupedCables(project, getConnector) {
     const group = legs.length > 1 ? legs : [wire];
     group.forEach(item => visited.add(String(item.id)));
     const first = group[0], last = group[group.length - 1];
-    const source = group.length > 1 ? realEndpoint(first, "from") : first.from;
-    const destination = group.length > 1 ? realEndpoint(last, "to") : last.to;
+    const source = group.length > 1 ? realEndpoint(first, "from") : projectWireEndpoint(first, "from");
+    const destination = group.length > 1 ? realEndpoint(last, "to") : projectWireEndpoint(last, "to");
     groups.push({ wires: group, source, destination, primary: first });
   }
   return groups;
@@ -276,13 +278,15 @@ function derivePatchReportNotes(notes, source, destination) {
 export function buildCableSchedule(input, options = {}) {
   const project = projectRoot(input);
   const breakoutLinks = options.breakoutLinks || [];
-  const connectivity = options.connectivity || (project.multiCores?.length
+  const wireStatuses = options.wireStatuses;
+  const existingConnectivity = wireStatuses?.size ? null : options.connectivity;
+  const connectivity = existingConnectivity || (project.multiCores?.length
     || breakoutLinks.length
     || project.deviceLibrary?.some(t => t.enableInternalRouting)
     || project.devices?.some(d => [d, d.template, d.templateOverride].some(t => t?.enableInternalRouting))
     || projectHasStageboxChannels(project)
     || project.connections?.some(c => isMultiCoreEndpointReference(c.from) || isMultiCoreEndpointReference(c.to))
-    ? createMultiCoreConnectivity(project, { getConnector: options.getConnector, breakoutLinks }) : null);
+    ? createMultiCoreConnectivity(project, { getConnector: options.getConnector, breakoutLinks, wireStatuses }) : null);
   const groups = options.assignNumbers === false ? groupedCables(project, options.getConnector)
     : options.assignNumbers === "readOnly"
       ? numberCableGroups(project, groupedCables(project, options.getConnector), options, false)
@@ -316,7 +320,11 @@ export function buildCableSchedule(input, options = {}) {
     const loomId = String(value("loomId"));
     const loomRecord = (project.looms || []).find(item => String(item.id) === loomId);
     const fiberMode = family === "F" && value("fiberMode") ? ` - ${value("fiberMode")}` : "";
+    const statuses = group.wires.map(wire => wireStatuses?.get(wire.id)).filter(Boolean);
+    const connectionStatus = statuses.find(status => status.status === "incompatible")
+      || statuses.find(status => status.status === "unverified") || statuses[0];
     return {
+      ...(connectionStatus ? { connectionStatus } : {}),
       ...(physicalCircuits ? {physicalCircuits:{...physicalCircuits,
         sourceConnectorFamily:source.physicalCircuits?.connectorFamily || physicalCircuits.connectorFamily,
         destinationConnectorFamily:destination.physicalCircuits?.connectorFamily || physicalCircuits.connectorFamily,
@@ -347,8 +355,9 @@ export function buildCableSchedule(input, options = {}) {
         physicalCircuits ? `${physicalCircuits.count} separate 75 ohm coaxial circuits: ${physicalCircuits.circuits.map(c=>c.id).join(", ")}. Grouped signal; all circuits required.` : "",
         assemblyProfile ? [`Integrated ${isDacCableType(cableType) ? "DAC" : "AOC"} assembly`,
           ...(Array.isArray(assembly?.supportedRates) ? assembly.supportedRates : []),
-          ...(Array.isArray(assembly?.warnings) ? assembly.warnings : []),
-          ...(!assembly ? ["Saved cable assembly details are unverified."] : [])].join(" | ") : ""].filter(Boolean).join("\n"),
+          ...(!connectionStatus && Array.isArray(assembly?.warnings) ? assembly.warnings : []),
+          ...(!connectionStatus && !assembly ? ["Saved cable assembly details are unverified."] : [])].join(" | ") : "",
+        connectionStatusText(connectionStatus)].filter(Boolean).join("\n"),
       wireIds: group.wires.map(wire => String(wire.id)),
       sourceNodeTypeId: source.typeId, destinationNodeTypeId: destination.typeId,
       sourceNodeTypeLabel: source.typeLabel, destinationNodeTypeLabel: destination.typeLabel,
@@ -363,11 +372,13 @@ export function buildCableSchedule(input, options = {}) {
   const activeKeys = new Set(breakoutLinks.map(link => qsfpBreakoutLinkId(link.assemblyId, link.branchId)));
   const endpoint = ref => endpointDisplay(project, ref, options.getBreakoutConnector || options.getConnector, nodeColors, nodeDefinitions);
   for (const assembly of uniquelyIdentifiedQsfpBreakouts(project.breakoutAssemblies)) {
-    if (options.breakoutValidation?.diagnostics.some(issue => issue.assemblyId === assembly.id && issue.code === "assembly-id-conflict")) continue;
+    const issues = (options.breakoutValidation?.diagnostics || []).filter(issue => issue.assemblyId === assembly.id);
+    if (issues.some(issue => issue.code === "assembly-id-conflict")) continue;
     const mode = qsfpBreakoutMode(assembly.modeId), source = endpoint(assembly.source);
     const breakoutChannels = qsfpBreakoutChannels(assembly).map(channel => {
       const linkId = qsfpBreakoutLinkId(assembly.id, channel.branchId);
-      return { ...channel, rate: mode?.branchRate || "", active: activeKeys.has(linkId),
+      return { ...channel, validation: qsfpBreakoutChannelStatus(assembly.id, channel, issues),
+        rate: mode?.branchRate || "", active: activeKeys.has(linkId),
         ...(activeKeys.has(linkId) ? { linkId } : {}), destination: channel.destination
           ? { ...endpoint(channel.destination), reference: channel.destination } : null };
     });
@@ -375,11 +386,11 @@ export function buildCableSchedule(input, options = {}) {
       breakoutAssemblyId: assembly.id, cableNumber: assembly.id, breakoutMode: qsfpBreakoutModeLabel(mode),
       breakoutChannels, breakoutDetails: breakoutChannels.map(channel => [
         `Lane ${channel.lanes.join(", ") || "?"} [${channel.channelId}]`, channel.rate,
-        channel.state || "unverified", channel.state === "connected" && !channel.active ? "not traceable" : "",
+        channel.validation.label, channel.state === "connected" && !channel.active ? "not traceable" : "",
         channel.destination && (channel.destination.deviceId ? `${channel.destination.device} / ${channel.destination.port}`
           : `Unresolved: ${channel.destination.reference.deviceId} / ${channel.destination.reference.connectorId}`),
-        options.breakoutValidation?.diagnostics.some(issue => issue.assemblyId === assembly.id && issue.code === "port-occupied"
-          && (!issue.branchId || issue.branchId === channel.branchId)) ? "physical port conflict" : ""
+        issues.some(issue => issue.code === "port-occupied" && (!issue.branchId || issue.branchId === channel.branchId)) ? "physical port conflict" : "",
+        channel.validation.messages.join(" ")
       ].filter(Boolean).join(" / ")).join("\n"),
       breakoutSource: source, sourceDevice: source.device, sourcePort: source.port, sourceDeviceId: source.deviceId,
       sourceConnectorId: source.connectorId, sourceNodeTypeId: source.typeId, sourceNodeColor: source.color,
@@ -410,13 +421,14 @@ function signalChainFromRow(row) {
 export function signalChainForWire(rows, wireId, { connectivity = signalChainConnectivity.get(rows), reverse } = {}) {
   const id = String(wireId || "");
   const row = id && rows.find(item => item.wireIds.includes(id) || item.breakoutChannels?.some(channel => channel.linkId === id));
-  if (!row) return null;
+  if (!row || row.connectionStatus?.status === "incompatible") return null;
   if (row.breakoutAssemblyId) {
     const channel = row.breakoutChannels.find(item => item.linkId === id);
     const from = row.breakoutSource, to = channel.destination;
     const paths = connectivity ? traceInternalSignalPaths(connectivity, id).filter(path => path.segments.length) : [];
     const presentations = paths.map(path => presentMultiCorePath(path, rows, connectivity));
     return { wireIds: [id], cableNumber: `${row.cableNumber} / Lane ${channel.lanes.join(", ")}`, cable: row.cable,
+      connectionStatus: channel.validation,
       cableTypeId: row.cableTypeId, cableColor: row.cableColor, length: row.length, flow: "bidirectional",
       breakoutAssemblyId: row.breakoutAssemblyId, branchId: channel.branchId, channelId: channel.channelId,
       from, to, ...(paths.length ? { path: paths[0], paths, presentation: presentations.length === 1
@@ -454,7 +466,7 @@ export function signalChainsForConnector(rows, deviceId, connectorId) {
       .map(channel => signalChainForWire(rows, channel.linkId))
     : row.sourceDeviceId === owner && row.sourceConnectorId === connector
       || row.destinationDeviceId === owner && row.destinationConnectorId === connector
-      ? [signalChainForWire(rows, row.wireIds[0])] : []);
+      ? [signalChainForWire(rows, row.wireIds[0])] : []).filter(Boolean);
 }
 
 export function cableScheduleSignalChains(rows, options) {
@@ -467,7 +479,7 @@ export function signalChainsForPatchPort(rows, rackId, patchPanelId, patchPortId
   if (wanted.some(value => !value)) return [];
   return rows.filter(row => [row.sourcePatch, row.destinationPatch].some(patch => patch
     && [String(patch.rackId), String(patch.panelId), String(patch.portId)].every((value, index) => value === wanted[index])))
-    .map(row => signalChainForWire(rows, row.wireIds[0]));
+    .map(row => signalChainForWire(rows, row.wireIds[0])).filter(Boolean);
 }
 
 export function cableScheduleCsv(rows) {

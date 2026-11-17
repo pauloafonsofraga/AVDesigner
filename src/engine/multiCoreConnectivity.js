@@ -157,7 +157,7 @@ function referenceResult(reference, status, details = {}) {
 }
 
 /** Index once per detached project snapshot. The result is JSON-only and deeply frozen. */
-export function createMultiCoreConnectivity(projectInput, { getConnector, onStage, breakoutLinks = [] } = {}) {
+export function createMultiCoreConnectivity(projectInput, { getConnector, onStage, breakoutLinks = [], wireStatuses } = {}) {
   const project = rootOf(projectInput), started = performance.now();
   let stageStart = started;
   const stage = name => { const now = performance.now(); onStage?.(name, now - stageStart); stageStart = now; };
@@ -251,6 +251,9 @@ export function createMultiCoreConnectivity(projectInput, { getConnector, onStag
       if (!endpoint.valid) cableDiagnostics.push(diagnostic(endpoint.status, `Cable endpoint is ${endpoint.status}.`, { wireId: connection?.id ?? null, side, reference: endpoint.reference }));
     }
     if (!id(connection?.id) || wireIndex.get(connection.id)?.length !== 1) cableDiagnostics.push(diagnostic("ambiguous-cable", "Cable identity is missing or duplicated.", { wireId: connection?.id ?? null }));
+    const saved = wireStatuses?.get(connection?.id);
+    if (saved?.status === "incompatible") cableDiagnostics.push(diagnostic("saved-cable-incompatible",
+      saved.messages.join(" "), { wireId: connection.id }));
     return { connection: copy(connection), wireId: connection?.id ?? null, from, to, diagnostics: cableDiagnostics, valid: !cableDiagnostics.length };
   });
   for (const cable of cables) for (const [side, endpoint] of [["from", cable.from], ["to", cable.to]]) {
@@ -562,9 +565,9 @@ export function traceInternalSignalPaths(snapshot, wireId) {
 }
 
 /** Optional extension of the approved v1 model envelope; never persisted as project truth. */
-export function multiCoreConnectivityModelSnapshot(project) {
+export function multiCoreConnectivityModelSnapshot(project, options) {
   const model = multiCoreModelSnapshot(project), root = rootOf(project);
   const references = list(root.connections).some(c => isMultiCoreEndpointReference(c?.from) || isMultiCoreEndpointReference(c?.to));
   if (!model && !references && !projectHasStageboxChannels(root)) return undefined;
-  return freeze({ ...(model || { version: 1, diagnostics: [] }), connectivity: createMultiCoreConnectivity(project) });
+  return freeze({ ...(model || { version: 1, diagnostics: [] }), connectivity: createMultiCoreConnectivity(project, options) });
 }

@@ -11,6 +11,7 @@ import { buildMultiCoreReports } from "./multiCoreReports.js";
 import { projectQsfpBreakouts } from "./qsfpBreakoutCanvasCore.js";
 import { activeQsfpBreakoutLinks, qsfpBreakoutWarningMessages, validateQsfpBreakoutProject } from "./qsfpBreakoutValidation.js";
 import { breakoutList } from "./qsfpBreakoutModel.js";
+import { collectSavedTransceiverStatuses } from "./savedCableStatus.js";
 
 import { OUTPUT_SCENE_VERSION, OUTPUT_SCENE_SOURCE, OUTPUT_SCENE_SCHEMA_FINGERPRINT } from "./outputSceneContract.js";
 export { OUTPUT_SCENE_VERSION, OUTPUT_SCENE_SOURCE, OUTPUT_SCENE_SCHEMA_FINGERPRINT } from "./outputSceneContract.js";
@@ -78,15 +79,10 @@ function rotateBusSegment(device, segment) {
 export function buildEngineOutputScene(projectSnapshot = {}) {
   const project = plainData(projectSnapshot);
   const root = project.state || project.project || project;
-  const model = multiCoreConnectivityModelSnapshot(root);
   const assemblies = breakoutList(root.breakoutAssemblies);
   const breakoutValidation = Object.hasOwn(root, "breakoutAssemblies") ? validateQsfpBreakoutProject(root) : null;
   const breakoutWarnings = breakoutValidation ? qsfpBreakoutWarningMessages(breakoutValidation) : [];
   const breakoutLinks = assemblies.length ? activeQsfpBreakoutLinks(root, breakoutValidation) : [];
-  const reports = assemblies.length || breakoutWarnings.length || model ? buildMultiCoreReports(root, {
-    ...(breakoutValidation ? { breakoutLinks, breakoutValidation } : { connectivity: model.connectivity })
-  }) : undefined;
-  const modelData = reports ? { ...(model || { version: 1, diagnostics: [] }), reports } : undefined;
   const scene = new SceneGraph();
   // The interactive adapter supplies a demo graph for an empty document. An
   // output contract must describe the empty document, not that demonstration.
@@ -94,6 +90,12 @@ export function buildEngineOutputScene(projectSnapshot = {}) {
     .some(key => Array.isArray(root[key]) && root[key].length);
   const normalized = empty ? null : normalizeAvDesignerProject(project, { rackPresentationMode: "compact" });
   scene.setData(empty ? { meta: { cableHops: root.cableHops !== false } } : normalized);
+  const wireStatuses = collectSavedTransceiverStatuses(root, scene, breakoutValidation);
+  const model = multiCoreConnectivityModelSnapshot(root, { wireStatuses });
+  const reports = assemblies.length || breakoutWarnings.length || model || wireStatuses.size ? buildMultiCoreReports(root, {
+    connectivity: model?.connectivity, breakoutLinks, breakoutValidation, wireStatuses
+  }) : undefined;
+  const modelData = reports ? { ...(model || { version: 1, diagnostics: [] }), reports } : undefined;
   const devices = scene.devices.map(({ connectorsById, ...device }) => device);
   const connectors = scene.devices.flatMap(device => device.connectors.map((connector, index) => ({
     deviceId: device.id, connectorId: connector.id, index,
@@ -152,8 +154,11 @@ export function buildEngineOutputScene(projectSnapshot = {}) {
   if (!empty && normalized.wires.length !== scene.wires.length) warnings.push("SceneGraph rejected normalized wire endpoints.");
   const data = plainData({
     ...(modelData ? { modelData } : {}),
+    ...(wireStatuses.size ? { savedWireStatuses: Object.fromEntries(wireStatuses) } : {}),
     ...(assemblies.length || breakoutWarnings.length ? { qsfpBreakouts: { version: 1, assemblies, plans: breakoutPlans, links: breakoutLinks,
-      ...(breakoutWarnings.length ? { warnings: breakoutWarnings, diagnostics: breakoutValidation.diagnostics } : {}) } } : {}),
+      statuses: breakoutValidation.assemblies,
+      ...(breakoutWarnings.length ? { warnings: breakoutWarnings } : {}),
+      ...(breakoutValidation.diagnostics.length ? { diagnostics: breakoutValidation.diagnostics } : {}) } } : {}),
     version: OUTPUT_SCENE_VERSION, schemaFingerprint: OUTPUT_SCENE_SCHEMA_FINGERPRINT, sceneDataSource: OUTPUT_SCENE_SOURCE,
     coordinateSpace: "engine-world", devices, connectors, wires, racks: scene.racks,
     ...(scene.meta.projectLayers ? {layers:scene.meta.projectLayers} : {}),

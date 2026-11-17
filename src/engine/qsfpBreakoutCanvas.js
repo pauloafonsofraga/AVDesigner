@@ -1,7 +1,8 @@
 import { hitTestConnector, hitTestDevice, screenToWorld } from "./hitTest.js";
 import { layerEditable } from "./projectLayers.js";
 import { QSFP_BREAKOUT_LENGTH_UNITS, QSFP_BREAKOUT_MAX_ROUTE_POINTS, breakoutReservations,
-  breakoutList as list, createQsfpBreakoutAssembly, qsfpBreakoutLinkId, qsfpBreakoutMode, uniquelyIdentifiedQsfpBreakouts } from "./qsfpBreakoutModel.js";
+  breakoutList as list, createQsfpBreakoutAssembly, qsfpBreakoutLinkId, qsfpBreakoutMode, qsfpBreakoutChannelStatus,
+  uniquelyIdentifiedQsfpBreakouts } from "./qsfpBreakoutModel.js";
 import { activeQsfpBreakoutLinks, qsfpBreakoutHostCableTypes, qsfpBreakoutHostModes, validateQsfpBreakoutProject } from "./qsfpBreakoutValidation.js";
 import { qsfpBreakoutPlaybackStep } from "./qsfpBreakoutPlayback.js";
 import { hitTestQsfpBreakout, projectQsfpBreakouts, qsfpBreakoutAfterDeviceDeletion,
@@ -17,7 +18,6 @@ const modeName = id => {
 const cableName = cable => typeof cable !== "string" ? "Unverified assembly"
   : cable.endsWith("-dac") ? "DAC" : cable.endsWith("-aoc") ? "AOC" : "Unverified assembly";
 const laneLabel = channel => list(channel?.lanes).join(", ") || "?";
-const stateLabel = state => ({ connected: "Connected", disconnected: "Disconnected", unused: "Unused", disabled: "Disabled" })[state] || "Unverified";
 const consume = event => { event.preventDefault(); event.stopImmediatePropagation(); };
 
 export const qsfpBreakoutCanvasMethods = {
@@ -209,6 +209,9 @@ export const qsfpBreakoutCanvasMethods = {
     });
     const branch = list(assembly.branches).find(item => item?.id === selected.branchId);
     const channel = list(assembly.channels).find(item => item?.id === branch?.channelId);
+    const statusFor = (branch, channel) => qsfpBreakoutChannelStatus(assembly.id,
+      { state: channel?.state, branchId: branch?.id, destination: branch?.destination }, details);
+    const branchStatus = branch && statusFor(branch, channel);
     const branchEditable = editable && plan.branches.some(item => item.id === branch?.id && item.editable);
     const branches = list(assembly.branches).filter(item => item?.id).map(item => ({
       ...item, channel: list(assembly.channels).find(c => c?.id === item.channelId)
@@ -218,18 +221,20 @@ export const qsfpBreakoutCanvasMethods = {
     panel.innerHTML = `<section class="connector-inspector-section" data-breakout-inspector>
       <h4 class="connector-inspector-heading">${branch ? `Breakout Lane ${escape(laneLabel(channel))}` : "QSFP Breakout"}</h4>
       <dl class="details"><dt>Assembly</dt><dd>${modeName(assembly.modeId)} ${cableName(assembly.cableType)}</dd>
-      <dt>Compatibility</dt><dd data-breakout-status="${state}">${state[0].toUpperCase() + state.slice(1)}</dd>
-      ${branch ? `<dt>Branch</dt><dd>${stateLabel(channel?.state)}${mode ? ` / ${mode.branchRate}` : ""}</dd>
+      <dt>Assembly compatibility</dt><dd data-breakout-status="${state}">${state[0].toUpperCase() + state.slice(1)}</dd>
+      ${branch ? `<dt>Branch</dt><dd data-breakout-channel-status="${branchStatus.status}">${branchStatus.label}${mode ? ` / ${mode.branchRate}` : ""}</dd>
       <dt>Channel ID</dt><dd>${escape(channel?.id)}</dd>
       <dt>Destination</dt><dd>${escape(this.qsfpBreakoutDestinationName(branch.destination))}</dd>` : ""}</dl>
-      ${details.length ? `<p class="field-hint">${escape([...new Set(details.map(item => item.message))].slice(0, 4).join(" "))}</p>` : ""}
+      ${details.length ? `<p class="field-hint">${escape([...new Set([
+        ...(branchStatus?.messages || []), ...details.map(item => item.message)
+      ])].slice(0, 4).join(" "))}</p>` : ""}
       <div class="connector-inspector-section">${branch
         ? button("trunk", "Select Trunk") + button("connect", branch.destination ? "Replug Branch" : "Connect Branch", !branchEditable || channel?.state === "disabled")
           + (branch.destination ? button("disconnect", "Disconnect Branch", !plan?.branches.some(item => item.id === branch.id && item.editable)) : "")
           + (playable(branch.id) ? button("play", "Play Cable") : "")
           + (activeLinks.has(branch.id) ? button("signal-chain", "Signal Chain") : "")
         : `<label class="field">Branch<select data-breakout-branch>${option("", "Select a branch")}${branches.map(item =>
-          option(item.id, `Lane ${laneLabel(item.channel)} - ${stateLabel(item.channel?.state)}`)).join("")}</select></label>
+          option(item.id, `Lane ${laneLabel(item.channel)} - ${statusFor(item, item.channel).label}`)).join("")}</select></label>
           <label class="field">Trunk routing<select data-breakout-routing${!editable ? " disabled" : ""}>${option("bezier", "Curved", assembly.routeStyle !== "orthogonal")}${option("orthogonal", "Orthogonal", assembly.routeStyle === "orthogonal")}</select></label>
           <form data-breakout-length><label class="field">Cable length<input name="length" type="number" min="0" step="any" value="${escape(assembly.length?.value)}"${!editable ? " disabled" : ""}></label>
             <label class="field">Unit<select name="unit"${!editable ? " disabled" : ""}>${QSFP_BREAKOUT_LENGTH_UNITS.map(unit => option(unit, unit, (assembly.length?.unit || "m") === unit)).join("")}</select></label>

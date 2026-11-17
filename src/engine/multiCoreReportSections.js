@@ -22,6 +22,8 @@ export function multiCoreReportSections(reports, { includeBreakoutSchedule = fal
     ["QSFP Breakout Cable Schedule", [["cableNumber", "Assembly ID"], ["cable", "Cable"], ["breakoutMode", "Mode"],
       ["sourceDevice", "Source Device"], ["sourcePort", "Source Port"], ["length", "Physical Length"],
       ["breakoutDetails", "Channels"]], includeBreakoutSchedule ? list(reports?.cableRows).filter(row => row.breakoutAssemblyId) : []],
+    ["Transceiver Cable Status", [["cableNumber", "Cable ID"], ["cable", "Cable"], ["length", "Physical Length"], ["notes", "Status and Notes"]],
+      includeBreakoutSchedule ? list(reports?.cableRows).filter(row => row.connectionStatus) : []],
     ["Channel Allocation Manifest", MULTI_CORE_CHANNEL_COLUMNS, reports?.channels || []],
     ["Diagnostics", MULTI_CORE_DIAGNOSTIC_COLUMNS, reports?.diagnostics || []]].filter(([, , rows]) => rows.length);
 }

@@ -1,17 +1,16 @@
-import {normalizeAvDesignerProject, projectWireEndpoint} from './projectAdapter.js';
+import {normalizeAvDesignerProject} from './projectAdapter.js';
 import {SceneGraph} from './sceneGraph.js';
-import {engineCompatibilitySummary, engineConnectorCompatibilityType, engineConnectorForSavedCableValidation, engineSyntheticCableEndDirection, isEngineCageConnector} from './connectorCompatibility.js';
-import {validateConnectorTopology, normalizeConnectorRelationships, exclusiveConnectionRejectionReason, connectorVisualAnchors} from './deviceDefinitionV2.js';
-import {validateJumpLinks, jumpCompatibleHitForDeviceWire} from './jumpNodeModel.js';
+import {engineCompatibilitySummary} from './connectorCompatibility.js';
+import {validateConnectorTopology, normalizeConnectorRelationships} from './deviceDefinitionV2.js';
+import {validateJumpLinks} from './jumpNodeModel.js';
 import {validateModularCardChanges} from './modularCardSafety.js';
 import {normalizeLoom} from './loomModel.js';
 import {reconcileLoomJumpAssociations, loomJumpAttachmentCompatibility} from './loomJumpAssociation.js';
 import {validateMultiCoreEdit, multiCoreEditDiagnosticKey} from './multiCoreEditValidation.js';
 import {createMultiCoreConnectivity} from './multiCoreConnectivity.js';
 import {multiCoreJumpDiagnostics, multiCoreJumpPeer} from './multiCoreJumpRouting.js';
-import {integratedCableWireValidation, isIntegratedCableType, isDacCableType} from './transceiverModules.js';
+import {savedCableChecks} from './savedCableStatus.js';
 import {hasQsfpBreakoutData, validateQsfpBreakoutProject, validateQsfpBreakoutTransition} from './qsfpBreakoutValidation.js';
-
 const rootOf = value => value?.state || value?.project || value;
 const same = (a,b) => JSON.stringify(a) === JSON.stringify(b);
 const list = value => Array.isArray(value) ? value : [];
@@ -64,53 +63,10 @@ export function projectTopologyDiagnostics(input) {
     add('multiCores',d.multiCoreId || d.wireId || '',d.code,d.message);
     diagnostics.at(-1).key=multiCoreEditDiagnosticKey(d,root);
   }
-  const mcWireIds = new Set(list(root.connections).filter(w=>[w.from,w.to].some(e=>e?.multiCoreId)).map(w=>w.id));
   const sceneWires=new Map(scene.wires.map(w=>[w.sourceId || w.id,w]));
   for (const raw of list(root.connections)) {
-    for(const key of ['routePoints','orthogonalRoutePoints','loomEntryRoutePoints','loomExitRoutePoints'])if(raw[key]!==undefined) {
-      if(!Array.isArray(raw[key]))add('cables',raw.id,key,'Route control points must be an ordered array.');
-      for(const point of list(raw[key]))if(!point || !Number.isFinite(point.x) || !Number.isFinite(point.y))add('cables',raw.id,key,'Route control point has invalid coordinates.');
-    }
-    const wire = sceneWires.get(raw.id);
-    if (!wire) {add('cables',raw.id,'endpoint','Cable could not resolve both endpoints.');continue;}
-    const hits = ['from','to'].map(end=>{
-      const device = scene.getDevice(wire[`${end}DeviceId`] || wire[`${end}SurfaceId`]);
-      const connector = scene.getConnector(wire[`${end}DeviceId`],wire[`${end}ConnectorId`]);
-      return {device,connector};
-    });
-    for (let i=0;i<2;i++) {
-      const end = i ? 'to' : 'from', ref = projectWireEndpoint(raw,end), hit = hits[i];
-      if(ref?.deviceId && deviceIds.has(ref.deviceId) && (typeof ref.connectorId!=='string' || !ref.connectorId))add('cables',raw.id,`${end}-identity`,'Physical endpoint requires a stable connector identity.');
-      if ((!raw[end] && !ref.deviceId && !ref.surfaceId) || !hit.device || (!wire[`${end}SurfaceId`] && !hit.connector)) add('cables',raw.id,`${end}-endpoint`,'Missing object or connector.');
-      if (ref?.anchorId && hit.connector && !connectorVisualAnchors(hit.connector,hit.device).some(a=>a.id===ref.anchorId)) add('cables',raw.id,`${end}-anchor`,'Missing connector anchor.');
-      if (!hit.connector || !hit.device || wire[`${end}SurfaceId`]) continue;
-      const multiple = hit.connector.adapterMultipleExternalConnections || hit.device.visual?.adapterMapping?.multipleExternalConnections;
-      const integrated = isIntegratedCableType(engineConnectorCompatibilityType(hit.connector));
-      if ((!multiple || integrated) && scene.connectorExternalWireIds(hit.device.id,hit.connector.id).size>1) add('cables',raw.id,`${end}-occupied`,'Connector has multiple external cables.');
-      const exclusive = exclusiveConnectionRejectionReason(scene,hit,wire.id);
-      if (exclusive) add('cables',raw.id,`${end}-exclusive`,exclusive);
-    }
-    if (isIntegratedCableType(raw.cableType) || raw.cableAssembly) {
-      const assembly = integratedCableWireValidation(raw,hits[0].connector,hits[1].connector);
-      if (!assembly.valid) add('cables',raw.id,isDacCableType(raw.cableType)?'dac':'assembly',assembly.reason);
-    }
-    if (mcWireIds.has(raw.id) || hits.some(h=>!h.connector) || wire.fromSurfaceId || wire.toSurfaceId) continue;
-    let [a,b] = hits;
-    if (a.device.kind==='jump' && b.device.kind!=='jump') a = jumpCompatibleHitForDeviceWire(a,b);
-    if (b.device.kind==='jump' && a.device.kind!=='jump') b = jumpCompatibleHitForDeviceWire(b,a);
-    const check = engineCompatibilitySummary(a,b);
-    if (!check.valid) add('cables',raw.id,'compatibility',check.reason);
-    if (raw.cableType && !isIntegratedCableType(raw.cableType) && hits.every(h=>h.device.kind!=='jump')) {
-      const transceiverLink = raw.cableType==='sdi' || hits.some(hit=>isEngineCageConnector(hit.connector));
-      for (const [index,hit] of hits.entries()) {
-        const node = nodeDefinitions.get(raw.cableType);
-        const cable = {device:{id:`cable:${raw.id}`},connector:{id:'cable-end',type:raw.cableType,compatibilityType:node?.compatibilityType,
-          direction:engineSyntheticCableEndDirection(hit.connector,index?'to':'from',transceiverLink),fiberMode:raw.fiberMode || ''}};
-        const connector = engineConnectorForSavedCableValidation(hit.connector, hits[1-index].connector, raw.fiberMode);
-        const saved = engineCompatibilitySummary({...hit,connector},cable);
-        if (!saved.valid) add('cables',raw.id,'cable-type',saved.reason);
-      }
-    }
+    const { issues } = savedCableChecks(raw, sceneWires.get(raw.id), scene, nodeDefinitions, deviceIds);
+    for (const issue of issues) add('cables',raw.id,issue.code,issue.message);
   }
   const loomIds = new Set(list(root.looms).map(l=>l.id));
   const portalIds=new Set();

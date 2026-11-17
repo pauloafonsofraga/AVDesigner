@@ -556,14 +556,14 @@ export function invalidJumpLinksForScene(scene, { jumpIds = [] } = {}) {
   });
 }
 
-export function resolvePlayableSignalPath({ startingWireId = "", project = {}, getConnector = null } = {}) {
+export function resolvePlayableSignalPath({ startingWireId = "", project = {}, getConnector = null, canTraverse } = {}) {
   const root = projectRoot(project);
   const wires = Array.isArray(root.connections) ? root.connections : [];
   const jumpNodes = Array.isArray(root.jumpNodes) ? root.jumpNodes : [];
   const jumpIds = new Set(jumpNodes.map(node => String(node?.id || "")).filter(Boolean));
   const links = normalizeJumpLinks(root.jumpLinks || [], { jumpNodeIds: jumpIds });
   const startingWire = wires.find(wire => String(wire?.id || "") === String(startingWireId || ""));
-  if (!startingWire) return [];
+  if (!startingWire || canTraverse?.(startingWire.id) === false) return [];
   const jumpId = rawWireJumpIds(startingWire)[0] || "";
   if (!jumpId) return [{ type: "wire", wireId: startingWire.id, connection: startingWire, reverse: false }];
   let link = links.find(item => item.outputJumpId === jumpId || item.inputJumpId === jumpId)
@@ -576,7 +576,7 @@ export function resolvePlayableSignalPath({ startingWireId = "", project = {}, g
   }
   const outputWire = rawDeviceWireForJump(root, link.outputJumpId, { excludeWireId: "", getConnector });
   const inputWire = rawDeviceWireForJump(root, link.inputJumpId, { excludeWireId: "", getConnector });
-  if (!outputWire?.wire || !inputWire?.wire) {
+  if (!outputWire?.wire || !inputWire?.wire || [outputWire.wire, inputWire.wire].some(wire => canTraverse?.(wire.id) === false)) {
     return [{ type: "wire", wireId: startingWire.id, connection: startingWire, reverse: false }];
   }
   const visited = new Set();

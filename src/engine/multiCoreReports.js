@@ -3,6 +3,7 @@ import { createMultiCoreConnectivity, isMultiCoreEndpointReference, projectHasSt
 import { multiCoreJumpDiagnostics } from "./multiCoreJumpRouting.js";
 import { reportText } from "./multiCoreReportPresentation.js";
 import { MULTI_CORE_ASSEMBLY_COLUMNS, MULTI_CORE_CHANNEL_COLUMNS, MULTI_CORE_DIAGNOSTIC_COLUMNS } from "./multiCoreReportSections.js";
+import { hasQsfpBreakoutData, validateQsfpBreakoutProject } from "./qsfpBreakoutValidation.js";
 export * from "./multiCoreReportSections.js";
 
 export const MULTI_CORE_STATUS_LABELS = Object.freeze({ unused: "Unused", reserved: "Reserved", "connected-a": "Connected at End A",
@@ -16,14 +17,16 @@ export function buildMultiCoreReports(input, options = {}) {
   const active = list(project.multiCores).length > 0 || list(project.connections).some(c => isMultiCoreEndpointReference(c?.from) || isMultiCoreEndpointReference(c?.to));
   const internalRouting = list(project.deviceLibrary).some(t => t.enableInternalRouting)
     || list(project.devices).some(d => d.templateOverride?.enableInternalRouting || d.template?.enableInternalRouting || d.enableInternalRouting);
-  const connectivity = options.connectivity || (!project.breakoutAssemblies?.length && (active || internalRouting || projectHasStageboxChannels(project))
+  const connectivity = options.wireStatuses?.size || options.breakoutLinks?.length ? null
+    : options.connectivity || (!project.breakoutAssemblies?.length && (active || internalRouting || projectHasStageboxChannels(project))
     ? createMultiCoreConnectivity(project, options) : null);
-  const cableRows = buildCableSchedule(project, { ...options, connectivity, assignNumbers: "readOnly" });
+  const breakoutValidation = options.breakoutValidation || (hasQsfpBreakoutData(project) ? validateQsfpBreakoutProject(project) : null);
+  const cableRows = buildCableSchedule(project, { ...options, connectivity, breakoutValidation, assignNumbers: "readOnly" });
   const byWire = new Map(cableRows.flatMap(row => row.wireIds.map(id => [id, row])));
   const graph = connectivity || cableScheduleConnectivity(cableRows);
   const channels = [], assemblies = [], diagnostics = graph ? [...graph.diagnostics, ...multiCoreJumpDiagnostics(project)] : [];
-  if (options.breakoutValidation) {
-    diagnostics.push(...options.breakoutValidation.diagnostics.filter(issue => issue.severity === "error" || issue.blocksAuthoring)
+  if (breakoutValidation) {
+    diagnostics.push(...breakoutValidation.diagnostics.filter(issue => issue.severity === "error" || issue.blocksAuthoring)
       .map(issue => ({ severity: issue.severity, code: issue.code, multiCoreId: issue.assemblyId, circuitId: issue.branchId,
         message: `QSFP breakout: ${issue.message}` })));
   }

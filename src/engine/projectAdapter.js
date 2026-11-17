@@ -1,3 +1,4 @@
+import { projectWireEndpoint } from "./projectWireEndpoint.js";
 import { resolveProjectorLens } from "./projectorModel.js";
 import { effectiveStageboxChannels, normalizeStageboxSnake, stageboxEndDraft } from "./stageboxSnake.js";
 import { breakoutProjectFields } from "./qsfpBreakoutModel.js";
@@ -1283,15 +1284,6 @@ function normalizeTitleBlocks(blocks) {
       portCount: 0
     };
   });
-}
-
-export function projectWireEndpoint(wire, end) {
-  return wire?.[end] || {
-    deviceId: wire?.[`${end}DeviceId`],
-    surfaceId: wire?.[`${end}SurfaceId`],
-    connectorId: wire?.[`${end}ConnectorId`],
-    anchorId: wire?.[`${end}AnchorId`]
-  };
 }
 
 function normalizeProjectWire(wire, index, context) {

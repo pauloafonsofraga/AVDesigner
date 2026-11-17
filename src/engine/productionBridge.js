@@ -14,6 +14,7 @@ import { CONNECTOR_RELATIONSHIP_FIELDS, applyConnectorRelationshipFieldPatch } f
 import { multiCoreCanvasMethods } from "./multiCoreCanvas.js";
 import { transceiverModulePatch, integratedCableAssemblyForConnectors, isIntegratedCableType, integratedCableReplugValidation } from "./transceiverModules.js";
 import { hasQsfpBreakoutData, qsfpBreakoutWarningMessages } from "./qsfpBreakoutValidation.js";
+import { collectSavedTransceiverStatuses, connectionStatusText } from "./savedCableStatus.js";
 import {
   ENGINE_DEFAULT_FIBER_MODE,
   effectiveConnectorTypeForEngine,
@@ -6173,8 +6174,22 @@ class ProductionEngineBridge {
     return true;
   }
 
+  savedTransceiverStatuses() {
+    const mutations = this.mutations, cached = this.savedTransceiverStatusCache;
+    if (!mutations) return new Map();
+    if (cached?.mutations === mutations && cached.count === mutations.mutationCount
+      && cached.assemblies === mutations.root.breakoutAssemblies) return cached.statuses;
+    const statuses = collectSavedTransceiverStatuses(mutations.root, this.scene,
+      hasQsfpBreakoutData(mutations.root) ? this.qsfpBreakoutValidation() : null);
+    this.savedTransceiverStatusCache = { mutations, count: mutations.mutationCount, assemblies: mutations.root.breakoutAssemblies, statuses };
+    return statuses;
+  }
+
   wirePlaybackPlanForWire(sourceWire) {
-    const stagebox = stageboxSignalPath(this.scene, { wire: sourceWire, polyline: wire => this.playbackPointsForWire(wire) });
+    const statuses = this.savedTransceiverStatuses?.();
+    const canTraverse = id => statuses?.get(this.sceneWireForPlaybackId(id)?.sourceId || id)?.status !== "incompatible";
+    if (statuses?.get(sourceWire.sourceId || sourceWire.id)?.status === "incompatible") return { semanticSteps: [], steps: [] };
+    const stagebox = stageboxSignalPath(this.scene, { wire: sourceWire, canTraverse, polyline: wire => this.playbackPointsForWire(wire) });
     if (stagebox.length) {
       const points = continuousStageboxPoints(stagebox);
       return { semanticSteps: stagebox, steps: [{ type: "stagebox-route", points, durationMs: wirePlaybackDurationMs(points) }] };
@@ -6186,6 +6201,7 @@ class ProductionEngineBridge {
       semanticSteps = resolvePlayableSignalPath({
         startingWireId: id,
         project: rawProject,
+        canTraverse,
         getConnector: endpoint => this.connectorForPlaybackEndpoint(endpoint)
       });
       if (semanticSteps.length) break;
@@ -7046,6 +7062,7 @@ class ProductionEngineBridge {
       this.hud?.setMetric("connector sync", `not found ${sourceDeviceId}:${sourceConnectorId}`);
       return false;
     }
+    this.savedTransceiverStatusCache = null;
     const affectedWireIds = [...this.scene.affectedWireIdsForObjects([device.id])];
     const jumpIds = affectedWireIds.flatMap(id => this.scene.jumpIdsForWire(this.scene.getWire(id)));
     this.removeInvalidJumpLinksForJumps(jumpIds);
@@ -7296,6 +7313,7 @@ class ProductionEngineBridge {
       this.hud?.setMetric("wire sync", `missing ${sourceWireId}`);
       return false;
     }
+    this.savedTransceiverStatusCache = null;
     if (wireData.cableType !== undefined) wire.cableType = String(wireData.cableType || "");
     if (wireData.fiberMode !== undefined) wire.fiberMode = String(wireData.fiberMode || "");
     if (wireData.label !== undefined) wire.label = String(wireData.label || wire.cableType || wire.id);
@@ -8844,15 +8862,17 @@ class ProductionEngineBridge {
     }
     if (selectedWires.length === 1 && !selectedRacks.length && !selectedDevices.length && !selectedRoutePoints.length && !selectedConnectors.length) {
       const wire = selectedWires[0];
+      const validation = this.savedTransceiverStatuses().get(wire.sourceId || wire.id);
       this.inspectorPanel.innerHTML = `
         <h3>Engine Inspector</h3>
-        <button type="button" class="engine-bridge-action" data-play-wire data-wire-id="${escapeHtml(wire.id)}">Play Cable</button>
+        <button type="button" class="engine-bridge-action" data-play-wire data-wire-id="${escapeHtml(wire.id)}"${validation?.status === "incompatible" ? " disabled" : ""}>Play Cable</button>
         ${detailsMarkup([
           ["Wire ID", wire.sourceId || wire.id],
           ["Cable Type", wire.cableType || wire.label || "-"],
           ["Source", endpointLabel(this.scene, wire.fromDeviceId, wire.fromConnectorId)],
           ["Destination", endpointLabel(this.scene, wire.toDeviceId, wire.toConnectorId)],
-          ["Route Points", wire.routePoints.length]
+          ["Route Points", wire.routePoints.length],
+          ...(validation ? [["Compatibility", connectionStatusText(validation)]] : [])
         ])}
       `;
       return;
