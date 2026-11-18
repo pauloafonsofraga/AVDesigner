@@ -18,15 +18,15 @@ export function customOpticalIssue(optical, signalFamily, direction) {
   if (!["ethernet", "sdi"].includes(signalFamily) || !["single-mode", "multimode"].includes(fiberFamily)) {
     return "Select a supported optical signal and fibre family.";
   }
-  if (fiberGrade && (fiberFamily !== "multimode" || !["om3", "om4", "om5"].includes(fiberGrade))) {
-    return "OM3, OM4 and OM5 require multimode fibre.";
+  if (fiberGrade && !(fiberFamily === "single-mode" ? fiberGrade === "os2" : ["om3", "om4", "om5"].includes(fiberGrade))) {
+    return "OS2 requires single-mode; OM3, OM4 and OM5 require multimode fibre.";
   }
-  if (iface !== "mpo" && !["simplex-lc", "duplex-lc"].includes(iface)
+  if (iface !== "mpo" && !/^(simplex|duplex)-(lc|sc|st)$/.test(iface)
     || arrangement !== (iface === "mpo" ? "parallel" : iface.split("-")[0])) {
-    return "LC uses simplex or duplex; MPO uses parallel fibre.";
+    return "LC, SC and ST use simplex or duplex; MPO uses parallel fibre.";
   }
-  if (signalFamily === "sdi" && (iface !== "simplex-lc" || fiberFamily !== "single-mode" || !["input", "output"].includes(direction))) {
-    return "Optical SDI requires simplex single-mode LC and an input or output connector role.";
+  if (signalFamily === "sdi" && (!/^simplex-(lc|sc|st)$/.test(iface) || fiberFamily !== "single-mode" || !["input", "output"].includes(direction))) {
+    return "Optical SDI requires simplex single-mode fibre and an input or output connector role.";
   }
   if (signalFamily === "ethernet" && direction !== "bidirectional") return "Ethernet transceivers are bidirectional.";
   if (!opticalTechnologiesFor(arrangement, signalFamily).some(([id]) => id === technology)) {
@@ -56,5 +56,15 @@ export function customOpticalIssue(optical, signalFamily, direction) {
     || new Set(laneMapping).size !== laneMapping.length)) {
     return "MPO lane mapping must use unique fibre positions within the declared fibre count.";
   }
+  return "";
+}
+
+// Classification only; named optical identifiers remain unchanged in storage.
+export function opticalTechnologyKind(optical = {}) {
+  if (CUSTOM_OPTICAL_TECHNOLOGIES.some(([id]) => id && id === optical.technology)) return optical.technology;
+  const name = String(optical.technology || "").toUpperCase();
+  if (["40GBASE-SR4", "100GBASE-SR4"].includes(name)) return "parallel";
+  if (["40GBASE-LR4", "100GBASE-LR4"].includes(name)) return "wdm";
+  if (["1000BASE-SX", "1000BASE-LX", "10GBASE-SR", "10GBASE-LR", "25GBASE-SR", "25GBASE-LR", "SMPTE ST 297"].includes(name)) return "single-wavelength";
   return "";
 }

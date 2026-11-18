@@ -3,7 +3,7 @@ import { deviceHeaderLabel, hasOrdinaryDeviceHeader } from "./deviceDisplayName.
 import { adapterRotationBounds, adapterWorldPoint, rotateAdapterPoint } from "./adapterRotation.js";
 import {DEFAULT_LAYER_ID, layerSceneView, layerVisible} from './projectLayers.js';
 import { attachedConnectorLabelPosition, orientAttachedConnectorVertices } from "./attachedConnectorOrientation.js";
-import { isTransceiverCage, transceiverModulePresentation } from "./transceiverModules.js";
+import { isTransceiverCage, compactTransceiverTooltip } from "./transceiverModules.js";
 import {
   applyCableHopsToPolyline,
   calculateCableHops,
@@ -4984,7 +4984,8 @@ function drawConnectorTooltip(ctx, entry, camera, offsets = null) {
   const type = engineConnectorUserFacingTypeLabel(entry.connector);
   const device = deviceLabel(entry.device);
   const line = [name, type && type !== name ? type : ""].filter(Boolean).join(" / ");
-  const text = [device, line].filter(Boolean).join(" - ");
+  const compact = isTransceiverCage(entry.connector) ? compactTransceiverTooltip(entry.connector) : null;
+  const text = compact ? compact[0] : [device, line].filter(Boolean).join(" - ");
   if (!text) return;
   const size = 11;
   ctx.save();
@@ -4992,10 +4993,10 @@ function drawConnectorTooltip(ctx, entry, camera, offsets = null) {
   const paddingX = 7;
   const paddingY = 5;
   const bus=createConnectorDisplayLayout(entry.device).byConnectorId.get(entry.connector.id)?.layout;
-  const width = bus || isTransceiverCage(entry.connector) ? 260 : Math.min(260, Math.max(56, ctx.measureText(text).width + paddingX * 2));
-  const moduleLines = bus ? bus.members.flatMap(c=>wrapScreenInfoBoxLines(ctx,
+  const width = bus && !compact ? 260 : Math.min(260, Math.max(56, ...[text, ...(compact?.slice(1) || [])].map(value => ctx.measureText(value).width + paddingX * 2)));
+  const moduleLines = compact ? compact.slice(1) : bus ? bus.members.flatMap(c=>wrapScreenInfoBoxLines(ctx,
     [c.nameText||c.label,...engineConnectorCanvasLabelLines(c),c.resolutionFrameRate,c.customText].filter(Boolean).join(' / '),246,12))
-    : isTransceiverCage(entry.connector) ? wrapScreenInfoBoxLines(ctx, transceiverModulePresentation(entry.connector), 246, 6) : [];
+    : [];
   const height = (1 + moduleLines.length) * (size + 3) + paddingY * 2;
   const side = entry.connector?.side === "right" ? -1 : 1;
   const boxX = x + side * 16 - (side < 0 ? width : 0);

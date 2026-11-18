@@ -1,6 +1,6 @@
 import { CAGE_FORM_FACTORS, isIntegratedCableType, resolveInstalledModule, transceiverConnectorRole,
   transceiverModuleOption, transceiverModuleOptionsForConnector, transceiverModulePatch, transceiverModuleValidation,
-  connectorPhysicalTypePatch, isTransceiverCage } from "./transceiverModules.js";
+  connectorPhysicalTypePatch, isTransceiverCage, transceiverRateKey } from "./transceiverModules.js";
 import { CUSTOM_OPTICS, customOpticalIssue } from "./customTransceiverOptics.js";
 import { validateMpoPhysical } from "./mpoPhysical.js";
 
@@ -32,6 +32,19 @@ export function cageDefinitionPatch(connector, selection) {
 }
 
 const maxEthernet = { sfp: 1, "sfp-plus": 10, sfp28: 25, "qsfp-plus": 40, qsfp28: 100, qsfp: 100 };
+export function transceiverLineRateChoices(connector, { signalFamily = "ethernet", profile = "",
+  moduleRates = resolveInstalledModule(connector).capabilities.supportedRates || [] } = {}) {
+  const form = CAGE_FORM_FACTORS[cageDefinitionValue(connector)] || cageDefinitionValue(connector);
+  const ceiling = signalFamily === "sdi" ? form === "sfp" ? 3 : 12 : maxEthernet[form];
+  const limits = [connector.cageCapabilities?.supportedRates, connector.supportedRates,
+    profile ? transceiverModuleOption(profile, connector)?.capabilities.supportedRates : moduleRates].filter(values => values?.length);
+  const rates = signalFamily === "sdi" ? ["270M", "1.5G", "3G", "6G", "12G"] : ["100M", "1G", "2.5G", "5G", "10G", "25G", "40G", "50G", "100G"];
+  return rates.filter(rate => {
+    const candidate = rate + (signalFamily === "sdi" ? "-SDI" : "");
+    const bps = Number(transceiverRateKey(candidate).split(":")[1]?.replace("-sdi", ""));
+    return bps <= ceiling * 1e9 && limits.every(values => values.some(value => transceiverRateKey(value) === transceiverRateKey(candidate)));
+  }).map(rate => rate + (signalFamily === "sdi" ? "-SDI" : ""));
+}
 
 function lineRate(value, signalFamily, connector) {
   const rate = String(value || "").trim();
@@ -58,13 +71,14 @@ export function transceiverConfigurationChoices(connector) {
     try { transceiverConfigurationPatch(connector, { method: "custom", interface: iface, fiberFamily, signalFamily }); return true; }
     catch { return false; }
   };
-  const fiberFamilies = Object.fromEntries(["lc", "mpo"].map(iface => [iface,
+  const fiberFamilies = Object.fromEntries(["lc", "sc", "st", "mpo"].map(iface => [iface,
     ["single-mode", "multimode"].filter(family => probe(iface, family))]));
+  const opticalSdiFor = Object.fromEntries(["lc", "sc", "st"].map(iface => [iface, probe(iface, "single-mode", "sdi")]));
   return { role, standard: choices.filter(p => p.capabilities.optical && directionalAllowed(p)),
     assemblies: choices.filter(p => isIntegratedCableType(p.value)),
     coax: choices.filter(p => p.activeType === "sdi" && directionalAllowed(p)),
     copper: choices.find(p => p.value === "rj45-ethernet"),
-    fiberFamilies, opticalSdi: probe("lc", "single-mode", "sdi") };
+    fiberFamilies, opticalSdi: opticalSdiFor.lc, opticalSdiFor };
 }
 
 export function transceiverConfigurationPatch(connector, config) {
@@ -84,7 +98,7 @@ export function transceiverConfigurationPatch(connector, config) {
       && (value || !installed.hasModule)) return null;
     return transceiverModulePatch(connector, value);
   }
-  if (config?.method !== "custom" || !["lc", "mpo"].includes(config.interface)) throw new Error("Choose an external interface.");
+  if (config?.method !== "custom" || !["lc", "sc", "st", "mpo"].includes(config.interface)) throw new Error("Choose an external interface.");
   const iface = config.interface;
   const signalFamily = config.signalFamily ?? "ethernet";
   const direction = signalFamily === "sdi" ? transceiverConnectorRole(connector) : "bidirectional";
@@ -92,9 +106,9 @@ export function transceiverConfigurationPatch(connector, config) {
   const fiberGrade = config.fiberGrade ?? "";
   const arrangement = config.arrangement ?? (iface === "mpo" ? "parallel" : signalFamily === "sdi" ? "simplex" : "duplex");
   const value = iface === "mpo" ? fiberFamily === "multimode" ? "mpo-multimode" : "mpo-fiber"
-    : fiberFamily === "multimode" ? "lc-multimode" : "lc-singlemode";
+    : iface + (fiberFamily === "multimode" ? "-multimode" : "-singlemode");
   const profile = transceiverModuleOption(value, connector);
-  const optical = { configuration: CUSTOM_OPTICS, interface: iface === "mpo" ? "mpo" : `${arrangement}-lc`,
+  const optical = { configuration: CUSTOM_OPTICS, interface: iface === "mpo" ? "mpo" : `${arrangement}-${iface}`,
     fiberFamily, fiberGrade, arrangement, technology: config.technology ?? "", txNm: config.txNm ?? [], rxNm: config.rxNm ?? [],
     fiberCount: config.fiberCount ?? null, mpoPolarity: config.mpoPolarity ?? "", laneMapping: config.laneMapping ?? [] };
   const issue = customOpticalIssue(optical, signalFamily, direction);
@@ -107,9 +121,13 @@ export function transceiverConfigurationPatch(connector, config) {
   if (config.mpoPhysical != null && iface !== "mpo") throw new Error("MPO physical properties require an MPO interface.");
   const physical = validateMpoPhysical(config.mpoPhysical);
   if (!physical.valid) throw new Error(physical.reason);
+  const rates = Array.isArray(config.supportedRates) ? config.supportedRates.flatMap(rate => {
+    if ((installed.capabilities.supportedRates || []).includes(rate)) return [rate];
+    return lineRate(rate, signalFamily, connector);
+  }) : lineRate(config.lineRate, signalFamily, connector);
   const caps = { ...profile.capabilities, ...inherited, signalFamily, direction, optical,
     ...(config.mpoPhysical != null ? { mpoPhysical: structuredClone(config.mpoPhysical) } : {}),
-    supportedRates: lineRate(config.lineRate, signalFamily, connector) };
+    supportedRates: rates };
   const check = transceiverModuleValidation(connector, caps, profile);
   if (!check.valid) throw new Error(check.reason);
   // The generic multimode colour remains the existing OM4 fallback; an empty

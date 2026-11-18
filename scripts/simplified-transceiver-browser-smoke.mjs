@@ -53,9 +53,8 @@ try {
   const apply = panel.getByRole("button", { name: "Apply Transceiver" });
   await select("port-0");
   const before = await status("port-0");
-  await field("Configuration").selectOption("standard");
-  assert.deepEqual(await field("Profile").locator("option").evaluateAll(options => options.map(o => o.value)), ["", "10gbase-sr"]);
-  await field("Profile").selectOption("10gbase-sr");
+  assert.deepEqual(await field("Preset (optional)").locator("option").evaluateAll(options => options.map(o => o.value)), ["", "10gbase-sr"]);
+  await field("Preset (optional)").selectOption("10gbase-sr");
   assert.deepEqual(await status("port-0"), before, "a draft cannot change the canvas");
   await apply.click();
   let result = await status("port-0");
@@ -68,12 +67,11 @@ try {
   assert.equal((await status("port-0")).module, "10gbase-sr");
 
   await select("port-1");
-  await field("External interface").selectOption("mpo");
-  await field("Fibre family").selectOption("multimode");
+  await field("Installed interface").selectOption("mpo");
+  await field("Fibre category").selectOption("multimode");
   await field("Fibre grade").selectOption("om5");
   await field("Optical technology").selectOption("parallel");
-  await field("Line rate (optional)").fill("100G");
-  await panel.getByText("Advanced", { exact: true }).click();
+  await field("Line rate").selectOption("100G");
   await field("MPO fibre count").selectOption("12");
   await field("MPO polarity").selectOption("B");
   await field("Lane fibre positions (comma-separated)").fill("1, 2, 13");
@@ -89,23 +87,21 @@ try {
   assert.equal(result.caps.optical.fiberGrade, "om5");
   assert.equal(await page.evaluate(() => connectorHasCable("source", "port-2")), true);
   await select("port-2", "source", "right");
-  assert.equal(await field("Configuration").isDisabled(), true);
+  assert.equal(await field("Installed interface").isDisabled(), true);
   assert.equal((await status("port-2")).module, "aoc-sfp-plus");
 
   for (const [device, profile] of [["source", "optical-12g-sdi-tx"], ["sink", "optical-12g-sdi-rx"]]) {
     await select("port-3", device);
-    await field("Configuration").selectOption("standard");
-    assert.equal(await field("Profile").locator(`option[value="${profile}"]`).count(), 1);
-    assert.equal(await field("Profile").locator(`option[value="${profile === "optical-12g-sdi-rx" ? "optical-12g-sdi-tx" : "optical-12g-sdi-rx"}"]`).count(), 0);
-    await field("Profile").selectOption(profile);
+      assert.equal(await field("Preset (optional)").locator(`option[value="${profile}"]`).count(), 1);
+    assert.equal(await field("Preset (optional)").locator(`option[value="${profile === "optical-12g-sdi-rx" ? "optical-12g-sdi-tx" : "optical-12g-sdi-rx"}"]`).count(), 0);
+    await field("Preset (optional)").selectOption(profile);
     await apply.click();
     assert.equal((await status("port-3", device)).module, profile);
   }
 
   await select("port-3");
-  await field("Configuration").selectOption("custom");
-  await field("External interface").selectOption("dac");
-  assert.equal(await field("Fibre family").count(), 0);
+  await field("Installed interface").selectOption("dac");
+  assert.equal(await field("Fibre category").count(), 0);
   assert.equal(await field("Cable assembly").inputValue(), "dac-sfp-plus");
   await apply.click();
   assert.equal((await status("port-3")).module, "dac-sfp-plus");

@@ -1,177 +1,123 @@
-import { resolveInstalledModule, transceiverModulePresentation } from "./transceiverModules.js";
-import { CUSTOM_OPTICS, opticalTechnologiesFor, MPO_FIBER_COUNTS, MPO_POLARITIES } from "./customTransceiverOptics.js";
-import { cageDefinitionValue, CAGE_DEFINITION_CHOICES, transceiverConfigurationChoices, transceiverConfigurationPatch } from "./transceiverConfiguration.js";
+import { transceiverModulePresentation, transceiverRateKey } from "./transceiverModules.js";
+import { opticalTechnologiesFor, MPO_FIBER_COUNTS, MPO_POLARITIES } from "./customTransceiverOptics.js";
+import { cageDefinitionValue, CAGE_DEFINITION_CHOICES, transceiverConfigurationChoices, transceiverLineRateChoices } from "./transceiverConfiguration.js";
+import { transceiverDraft, draftFromPreset, editTransceiverDraft, transceiverDraftConfiguration, transceiverDraftPatch } from "./transceiverDraft.js";
 import { mountMpoPhysicalFields } from "./mpoPhysicalInspector.js";
 
-const fiberLabels = { "single-mode": "Single-mode", multimode: "Multimode" };
-const labelForInterface = { lc: "LC", mpo: "MPO", rj45: "RJ45", bnc: "BNC", dac: "DAC", aoc: "AOC", empty: "Empty" };
-const opticalInterface = value => value === "lc" || value === "mpo";
-const csvNumbers = value => value.trim() ? value.trim().split(/[\s,]+/).map(Number) : [];
-const csvText = value => Array.isArray(value) ? value.join(", ") : "";
-
+const names = { lc: "LC", sc: "SC", st: "ST", mpo: "MPO", rj45: "RJ45", bnc: "BNC", dac: "DAC", aoc: "AOC", empty: "Empty" };
+const opticalInterface = value => ["lc", "sc", "st", "mpo"].includes(value);
 export function mountTransceiverInspector(root, connector, { commit, disabled = false }) {
-  const installed = resolveInstalledModule(connector), optical = installed.capabilities.optical;
   const choices = transceiverConfigurationChoices(connector);
-  const profile = installed.profile;
-  const physical = cageDefinitionValue(connector);
-  const profileLabel = profile => profile.capabilities.signalFamily === "sdi" ? profile.label.replace(/\s+(?:TX|RX|-[ ]*(?:Receiver|Transmitter))$/i, "") : profile.label;
-  const interfaces = ["lc", "mpo"].filter(iface => choices.fiberFamilies[iface].length || (iface === "lc" && choices.opticalSdi));
+  const interfaces = ["empty", ...["lc", "sc", "st", "mpo"].filter(iface =>
+    choices.fiberFamilies[iface].length || choices.opticalSdiFor[iface])];
   if (choices.copper) interfaces.push("rj45");
   if (choices.coax.length) interfaces.push("bnc");
-  for (const kind of ["dac", "aoc"]) if (choices.assemblies.some(p => p.value.startsWith(`${kind}-`))) interfaces.push(kind);
-  interfaces.push("empty");
-  const currentInterface = installed.effectiveType === "fiber-lc" ? "lc" : installed.effectiveType === "fiber-mpo" ? "mpo"
-    : installed.effectiveType === "cat6a" ? "rj45" : installed.effectiveType === "sdi" ? "bnc"
-      : installed.effectiveType.startsWith("dac-") ? "dac" : installed.effectiveType.startsWith("aoc-") ? "aoc" : "empty";
-  const standard = choices.standard.some(item => item.value === profile?.value) && optical?.configuration !== CUSTOM_OPTICS;
-  const draft = {
-    method: standard ? "standard" : "custom",
-    profile: profile?.value || "",
-    interface: interfaces.includes(currentInterface) ? currentInterface : "empty",
-    signalFamily: optical?.configuration === CUSTOM_OPTICS ? installed.capabilities.signalFamily : "ethernet",
-    fiberFamily: optical?.fiberFamily || (installed.fiberHint.match(/multimode|om[1-5]/i) ? "multimode" : "single-mode"),
-    fiberGrade: optical?.configuration === CUSTOM_OPTICS ? optical.fiberGrade
-      : /^om[345]$/i.test(installed.explicitFiberMode) ? installed.explicitFiberMode.toLowerCase() : "",
-    arrangement: optical?.configuration === CUSTOM_OPTICS ? optical.arrangement : currentInterface === "mpo" ? "parallel" : "duplex",
-    technology: optical?.configuration === CUSTOM_OPTICS ? optical.technology : "",
-    lineRate: (installed.capabilities.supportedRates || [])[0] || "",
-    txNm: csvText(optical?.txNm), rxNm: csvText(optical?.rxNm),
-    fiberCount: optical?.fiberCount ? String(optical.fiberCount) : "",
-    mpoPolarity: optical?.mpoPolarity || "", laneMapping: csvText(optical?.laneMapping)
-  };
-  let advancedOpen = false;
-  let edited = false;
-  let apply;
-  let mpoForm;
-  const el = (tag, text = "") => {
-    const node = document.createElement(tag);
-    node.textContent = text;
-    return node;
-  };
-  const fieldset = el("fieldset");
-  fieldset.disabled = disabled;
-  fieldset.style.cssText = "border:0;padding:0;margin:0;min-inline-size:0";
+  for (const kind of ["dac", "aoc"]) if (choices.assemblies.some(p => p.value.startsWith(kind + "-"))) interfaces.push(kind);
+  let draft = transceiverDraft(connector), edited = false, apply;
+  const el = (tag, text = "") => { const n = document.createElement(tag); n.textContent = text; return n; };
+  const fields = el("fieldset");
+  fields.disabled = disabled;
+  fields.style.cssText = "border:0;padding:0;margin:0;min-inline-size:0";
   const summary = el("div", [
-    CAGE_DEFINITION_CHOICES.find(([value]) => value === physical)?.[1] || "QSFP (form unspecified)",
-    transceiverModulePresentation(connector),
-    disabled ? "Cage occupied or locked" : ""
+    CAGE_DEFINITION_CHOICES.find(([key]) => key === cageDefinitionValue(connector))?.[1] || "QSFP (form unspecified)",
+    transceiverModulePresentation(connector), disabled ? "Cage occupied or locked" : ""
   ].filter(Boolean).join(" | "));
-  summary.className = "field-hint";
-  summary.style.overflowWrap = "anywhere";
-  root.replaceChildren(el("h4", "Transceiver"), summary, fieldset);
-  const error = el("p");
-  error.className = "field-hint";
-  error.setAttribute("role", "alert");
-  error.hidden = true;
-  root.append(error);
-  const setError = message => { error.textContent = message; error.hidden = !message; };
-  const appendField = (parent, control, title) => {
-    const field = el("div"); field.className = "field";
-    const label = el("label", title); label.htmlFor = control.id;
-    field.append(label, control); parent.append(field);
-  };
-
-  function select(parent, key, label, options, onChange) {
-    const control = el("select");
-    control.id = key === "profile" ? "connectorModule" : `transceiver-${key}`;
-    for (const [value, title] of options) {
-      const opt = el("option", title); opt.value = value; control.append(opt);
+  summary.className = "field-hint"; summary.style.overflowWrap = "anywhere";
+  const error = el("p"); error.className = "field-hint"; error.setAttribute("role", "alert"); error.hidden = true;
+  root.replaceChildren(el("h4", "Transceiver"), summary, fields, error);
+  function mark(field, value) {
+    draft = editTransceiverDraft(draft, field, value);
+    edited = true; apply.disabled = false; error.hidden = true;
+    const preset = fields.querySelector("#transceiver-preset"); if (preset) preset.value = "";
+  }
+  function append(control, label) {
+    const wrap = el("div"); wrap.className = "field";
+    const title = el("label", label); title.htmlFor = control.id;
+    wrap.append(title, control); fields.append(wrap);
+  }
+  function select(key, label, options, callback) {
+    const control = el("select"); control.id = "transceiver-" + key;
+    for (const [value, title] of options) { const option = el("option", title); option.value = value; control.append(option); }
+    control.value = draft[key] ?? "";
+    if (control.selectedIndex < 0) {
+      const retained = el("option", "Existing: " + String(draft[key])); retained.value = draft[key] ?? "";
+      control.append(retained); control.value = retained.value;
     }
-    control.value = draft[key];
-    if (control.selectedIndex < 0) control.selectedIndex = 0;
-    draft[key] = control.value;
     control.addEventListener("change", () => {
-      draft[key] = control.value;
-      edited = true;
-      apply.disabled = false;
-      setError("");
-      onChange?.();
+      if (key === "preset") {
+        draft = control.value ? draftFromPreset(connector, control.value) : { ...draft, preset: "" };
+        edited = true; error.hidden = true; render();
+      } else { mark(key, control.value); callback?.(); }
     });
-    appendField(parent, control, label);
+    append(control, label);
   }
-  function input(parent, key, label) {
-    const control = el("input");
-    control.id = `transceiver-${key}`;
-    control.value = draft[key];
-    control.maxLength = 180;
-    control.addEventListener("input", () => {
-      draft[key] = control.value; edited = true; apply.disabled = false; setError("");
-    });
-    appendField(parent, control, label);
-  }
-  function resetOptical() {
-    delete draft.mpoPhysical;
-    Object.assign(draft, { signalFamily: "ethernet", arrangement: draft.interface === "mpo" ? "parallel" : "duplex",
-      profile: "", lineRate: "", technology: "", txNm: "", rxNm: "", fiberCount: "", mpoPolarity: "", laneMapping: "" });
-    render();
+  function input(key, label) {
+    const control = el("input"); control.id = "transceiver-" + key; control.value = draft[key] ?? ""; control.maxLength = 180;
+    control.addEventListener("input", () => mark(key, control.value)); append(control, label);
   }
   function render() {
-    mpoForm = null;
-    fieldset.replaceChildren();
-    select(fieldset, "method", "Configuration", [["standard", "Standard Profile"], ["custom", "Custom Transceiver"]], render);
-    if (draft.method === "standard") {
-      select(fieldset, "profile", "Profile", [["", choices.standard.length ? "Select a profile" : "No applicable standard profiles"],
-        ...choices.standard.map(p => [p.value, profileLabel(p)])]);
-    } else {
-      select(fieldset, "interface", "External interface", interfaces.map(iface => [iface, labelForInterface[iface]]), resetOptical);
-      if (opticalInterface(draft.interface)) {
-        const families = choices.fiberFamilies[draft.interface];
-        const sdi = draft.interface === "lc" && choices.opticalSdi;
-        if (sdi) {
-          select(fieldset, "signalFamily", "Signal family", [...(families.length ? [["ethernet", "Ethernet"]] : []), ["sdi", "Optical SDI"]], () => {
-            Object.assign(draft, { arrangement: draft.signalFamily === "sdi" ? "simplex" : "duplex", lineRate: "", technology: "", txNm: "", rxNm: "" });
-            render();
-          });
-        } else draft.signalFamily = "ethernet";
-        if (draft.signalFamily === "sdi") {
-          draft.fiberFamily = "single-mode"; draft.arrangement = "simplex";
-          fieldset.append(el("p", `${choices.role === "input" ? "Receive" : "Transmit"} • Simplex • Single-mode`));
-        } else {
-          select(fieldset, "fiberFamily", "Fibre family", families.map(family => [family, fiberLabels[family]]), render);
-          if (draft.fiberFamily === "multimode") {
-            select(fieldset, "fiberGrade", "Fibre grade", [["", "Unspecified"], ["om3", "OM3"], ["om4", "OM4"], ["om5", "OM5"]]);
-          }
-          if (draft.interface === "lc") {
-            select(fieldset, "arrangement", "Fibre arrangement", [["duplex", "Duplex"], ["simplex", "Simplex"]], () => {
-              draft.technology = ""; draft.txNm = ""; draft.rxNm = ""; render();
-            });
-          } else fieldset.append(el("p", "Parallel fibre"));
-        }
-        select(fieldset, "technology", "Optical technology", opticalTechnologiesFor(draft.arrangement, draft.signalFamily));
-        input(fieldset, "lineRate", "Line rate (optional)");
-        const advanced = el("details"); advanced.open = advancedOpen;
-        advanced.addEventListener("toggle", () => { advancedOpen = advanced.open; });
-        advanced.append(el("summary", "Advanced"));
-        if (draft.signalFamily !== "sdi" || choices.role === "output") input(advanced, "txNm", "TX wavelengths (nm, comma-separated)");
-        if (draft.signalFamily !== "sdi" || choices.role === "input") input(advanced, "rxNm", "RX wavelengths (nm, comma-separated)");
-        if (draft.interface === "mpo") {
-          const physical = draft.mpoPhysical === undefined ? installed.capabilities.mpoPhysical : draft.mpoPhysical;
-          mpoForm = mountMpoPhysicalFields(advanced, physical, { onChange: () => {
-            draft.mpoPhysical = mpoForm.read(); edited = true; apply.disabled = false; setError("");
-          } });
-          select(advanced, "fiberCount", "MPO fibre count", [["", "Unspecified"], ...MPO_FIBER_COUNTS.map(count => [String(count), String(count)])]);
-          select(advanced, "mpoPolarity", "MPO polarity", [["", "Unspecified"], ...MPO_POLARITIES.map(type => [type, `Type ${type}`])]);
-          input(advanced, "laneMapping", "Lane fibre positions (comma-separated)");
-        }
-        fieldset.append(advanced);
-      } else if (["dac", "aoc", "bnc"].includes(draft.interface)) {
-        const profiles = draft.interface === "bnc" ? choices.coax : choices.assemblies.filter(p => p.value.startsWith(`${draft.interface}-`));
-        select(fieldset, "profile", draft.interface === "bnc" ? "SDI rate" : "Cable assembly",
-          profiles.map(p => [p.value, draft.interface === "bnc" ? p.capabilities.supportedRates[0] || "Unspecified" : p.label]));
+    fields.replaceChildren();
+    select("preset", "Preset (optional)", [["", "None"], ...choices.standard.map(p => [p.value,
+      p.capabilities.signalFamily === "sdi" ? p.label.replace(/\s+(TX|RX)$/i, "") : p.label])]);
+    select("interface", "Installed interface", interfaces.map(value => [value, names[value]]), () => {
+      Object.assign(draft, { signalFamily: "ethernet", arrangement: draft.interface === "mpo" ? "parallel" : "duplex",
+        technology: "", supportedRates: [], declaredRates: [], txNm: "", rxNm: "", fiberCount: "", mpoPolarity: "", laneMapping: "" });
+      delete draft.mpoPhysical;
+      const assembly = choices.assemblies.find(p => p.value.startsWith(draft.interface + "-"));
+      if (assembly) draft.assemblyProfile = assembly.value;
+      render();
+    });
+    if (opticalInterface(draft.interface)) {
+      const families = choices.fiberFamilies[draft.interface];
+      if (choices.opticalSdiFor[draft.interface]) {
+        select("signalFamily", "Signal family", [...(families.length ? [["ethernet", "Ethernet"]] : []), ["sdi", "Optical SDI"]], () => {
+          if (draft.signalFamily === "sdi") { draft.fiberFamily = "single-mode"; draft.arrangement = "simplex"; }
+          draft.supportedRates = []; draft.declaredRates = []; render();
+        });
       }
+      if (draft.signalFamily !== "sdi") {
+        select("fiberFamily", "Fibre category", families.map(f => [f, f === "single-mode" ? "Single-mode" : "Multimode"]), () => {
+          draft.fiberGrade = ""; render();
+        });
+      }
+      select("fiberGrade", "Fibre grade", [["", "Unspecified"], ...(draft.fiberFamily === "single-mode"
+        ? [["os2", "OS2"]] : [["om3", "OM3"], ["om4", "OM4"], ["om5", "OM5"]])]);
+      if (draft.interface !== "mpo" && draft.signalFamily !== "sdi") {
+        select("arrangement", "Fibre arrangement", [["simplex", "Simplex"], ["duplex", "Duplex"]], () => { draft.technology = ""; render(); });
+      } else fields.append(el("p", draft.interface === "mpo" ? "Parallel" : choices.role === "input" ? "Simplex / Receive" : "Simplex / Transmit"));
+      select("technology", "Optical technology", opticalTechnologiesFor(draft.arrangement, draft.signalFamily));
+      const rates = transceiverLineRateChoices(connector, { signalFamily: draft.signalFamily, profile: draft.preset, moduleRates: draft.declaredRates });
+      const current = draft.supportedRates || [];
+      const canonical = current.length === 1 && rates.find(rate => transceiverRateKey(rate) === transceiverRateKey(current[0]));
+      draft.rateChoice = !current.length ? "" : canonical || "__current__";
+      select("rateChoice", "Line rate", [["", "Unspecified"], ...(current.length && !canonical
+        ? [["__current__", "Current: " + current.join(" / ")]] : []), ...rates.map(rate => [rate, rate])], () => {
+        if (draft.rateChoice !== "__current__") draft.supportedRates = draft.rateChoice ? [draft.rateChoice] : [];
+        render();
+      });
+      if (draft.signalFamily !== "sdi" || choices.role === "output") input("txNm", "TX wavelengths (nm, comma-separated)");
+      if (draft.signalFamily !== "sdi" || choices.role === "input") input("rxNm", "RX wavelengths (nm, comma-separated)");
+      if (draft.interface === "mpo") {
+        select("fiberCount", "MPO fibre count", [["", "Unspecified"], ...MPO_FIBER_COUNTS.map(n => [String(n), String(n)])]);
+        select("mpoPolarity", "MPO polarity", [["", "Unspecified"], ...MPO_POLARITIES.map(type => [type, "Type " + type])]);
+        input("laneMapping", "Lane fibre positions (comma-separated)");
+        const mpo = mountMpoPhysicalFields(fields, draft.mpoPhysical, { expanded: true,
+          onChange: () => mark("mpoPhysical", mpo.read()) });
+      }
+    } else if (["dac", "aoc", "bnc"].includes(draft.interface)) {
+      const options = draft.interface === "bnc" ? choices.coax : choices.assemblies.filter(p => p.value.startsWith(draft.interface + "-"));
+      if (!options.some(p => p.value === draft.assemblyProfile) && !edited) {
+        fields.append(el("p", "Existing assembly: " + draft.assemblyProfile));
+      }
+      select("assemblyProfile", draft.interface === "bnc" ? "SDI rate" : "Cable assembly", options.map(p => [p.value, p.label]));
     }
     apply = el("button", "Apply Transceiver"); apply.type = "button"; apply.className = "tool-button"; apply.disabled = !edited;
     apply.addEventListener("click", () => {
-      const optical = draft.method === "custom" && opticalInterface(draft.interface);
-      const config = optical ? { ...draft, fiberGrade: draft.fiberFamily === "multimode" ? draft.fiberGrade : "",
-        ...(draft.interface === "mpo" && mpoForm?.read() != null ? { mpoPhysical: mpoForm.read() } : {}),
-        txNm: csvNumbers(draft.txNm), rxNm: csvNumbers(draft.rxNm),
-        fiberCount: draft.fiberCount ? Number(draft.fiberCount) : null, laneMapping: csvNumbers(draft.laneMapping) }
-        : { method: draft.method, interface: draft.method === "custom" ? draft.interface : undefined, profile: draft.profile };
-      try { if (transceiverConfigurationPatch(connector, config)) commit(config); }
-      catch (failure) { setError(failure.message); }
+      try {
+        if (transceiverDraftPatch(connector, draft)) commit(transceiverDraftConfiguration(draft));
+      } catch (failure) { error.textContent = failure.message; error.hidden = false; }
     });
-    fieldset.append(apply);
+    fields.append(apply);
   }
   render();
 }

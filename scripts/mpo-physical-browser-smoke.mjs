@@ -81,11 +81,9 @@ try {
   await select("port-1");
   const beforeModule = await snapshot("port-1");
   const panel = page.locator("[data-transceiver-config]");
-  await panel.getByLabel("External interface", { exact: true }).selectOption("mpo");
-  await panel.getByLabel("Fibre family", { exact: true }).selectOption("multimode");
+  await panel.getByLabel("Installed interface", { exact: true }).selectOption("mpo");
+  await panel.getByLabel("Fibre category", { exact: true }).selectOption("multimode");
   await panel.getByLabel("Fibre grade", { exact: true }).selectOption("om4");
-  await panel.getByText("Advanced", { exact: true }).click();
-  await panel.getByText("MPO physical properties", { exact: true }).click();
   await panel.getByLabel("MPO format", { exact: true }).selectOption("mpo-12");
   await panel.getByLabel("MPO fibre category", { exact: true }).selectOption("os2");
   await panel.getByLabel("Guide pins", { exact: true }).selectOption("pinned");

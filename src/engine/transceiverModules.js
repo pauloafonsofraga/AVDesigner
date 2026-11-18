@@ -48,6 +48,10 @@ export const TRANSCEIVER_MODULE_OPTIONS = Object.freeze([
     { mediaType: "fiber" }, "single-mode"),
   option("lc-multimode", "LC Multimode", "fiber-lc", ALL_CAGES,
     { mediaType: "fiber" }, "om4"),
+  ...["sc", "st"].flatMap(iface => [
+    option(iface + "-singlemode", iface.toUpperCase() + " Single Mode", "fiber-" + iface, ALL_CAGES, { mediaType: "fiber" }, "single-mode"),
+    option(iface + "-multimode", iface.toUpperCase() + " Multimode", "fiber-" + iface, ALL_CAGES, { mediaType: "fiber" }, "om4")
+  ]),
   option("rj45-ethernet", "RJ45 Ethernet", "cat6a", SFP_CAGES,
     { signalFamily: "ethernet", mediaType: "twisted-pair", direction: "bidirectional" }),
   option("mpo-fiber", "MPO Fiber", "fiber-mpo", ["qsfp-cage"],
@@ -79,6 +83,10 @@ const TRANSCEIVER_MODULE_ACTIVE_TYPES = new Map([
   ["nomodule", ""],
   ["lc", "fiber-lc"],
   ["fiberlc", "fiber-lc"],
+  ["sc", "fiber-sc"],
+  ["fibersc", "fiber-sc"],
+  ["st", "fiber-st"],
+  ["fiberst", "fiber-st"],
   ["lcsinglemode", "fiber-lc"],
   ["lcsinglemodeos1", "fiber-lc"],
   ["lcsinglemodeos2", "fiber-lc"],
@@ -128,6 +136,7 @@ function rateKey(value) {
   const [, amount, unit, wrappedFamily, family] = rate;
   return `bps:${Math.round(Number(amount) * { k: 1e3, m: 1e6, g: 1e9, t: 1e12 }[unit])}${(wrappedFamily || family) === "sdi" ? "-sdi" : ""}`;
 }
+export { rateKey as transceiverRateKey };
 const hasRate = (rates, rate) => rates.some(other => rateKey(other) === rateKey(rate));
 function commonRates(sets, matches = hasRate) {
   const known = sets.map(list).filter(values => values.length);
@@ -221,6 +230,20 @@ export function resolveInstalledModule(connector = {}) {
 
 export const installedModuleCapabilities = connector => resolveInstalledModule(connector).capabilities;
 
+export function compactTransceiverTooltip(connector) {
+  const { capabilities: caps, effectiveType, hasModule } = resolveInstalledModule(connector);
+  const optical = caps.optical || {};
+  const iface = effectiveType.startsWith("fiber-") ? effectiveType.slice(6).toUpperCase()
+    : effectiveType.startsWith("dac-") ? "DAC" : effectiveType.startsWith("aoc-") ? "AOC"
+      : effectiveType === "cat6a" ? "RJ45" : effectiveType === "sdi" ? "BNC" : "";
+  const arrangement = optical.arrangement || (optical.interface === "mpo-12" ? "parallel" : optical.interface?.split("-")[0]);
+  const title = [connector.nameText || connector.label || connector.id, hasModule ? [iface,
+    arrangement ? arrangement[0].toUpperCase() + arrangement.slice(1) : ""].filter(Boolean).join(" ") : "Empty"].filter(Boolean).join(" · ");
+  const details = [optical.fiberFamily === "single-mode" ? "Single-mode" : optical.fiberFamily === "multimode" ? "Multimode" : "",
+    Array.isArray(caps.supportedRates) ? caps.supportedRates.join(" / ") : ""].filter(Boolean).join(" · ");
+  return [title, details].filter(Boolean).map(line => line.length > 90 ? line.slice(0, 87) + "..." : line);
+}
+
 export function transceiverModuleValidation(connector, capabilities = installedModuleCapabilities(connector),
   profile = resolveInstalledModule(connector).profile) {
   if (!isTransceiverCage(connector)) return { valid: false, reason: "A module requires an SFP or QSFP cage.", warnings: [] };
@@ -233,6 +256,12 @@ export function transceiverModuleValidation(connector, capabilities = installedM
     : form === "sfp28" ? ["sfp", "sfp-plus", "sfp28"] : form === "sfp-plus" ? ["sfp", "sfp-plus"]
       : form === "qsfp" ? ["qsfp", "qsfp-plus", "qsfp28"] : [form];
   const reject = reason => ({ valid: false, reason, warnings: [] });
+  const uncommonInterface = ["fiber-sc", "fiber-st"].includes(profile?.activeType) ? profile.activeType.slice(6) : "";
+  const declaredInterface = uncommonInterface && (list(host.supportedModuleInterfaces).some(value => key(value) === uncommonInterface)
+    || list(host.supportedModuleTypes).some(value => key(value) === key(profile.value)));
+  if (uncommonInterface && !declaredInterface && resolveInstalledModule(connector).profile?.value !== profile.value) {
+    return reject("SC/ST requires explicit host module-interface support.");
+  }
   if (profile?.value) {
     for (const field of ["formFactor", "direction", "signalFamily", "mediaType", "cableAssembly"]) {
       if (profile.capabilities[field] !== undefined && capabilities[field] !== profile.capabilities[field]) {
@@ -253,7 +282,7 @@ export function transceiverModuleValidation(connector, capabilities = installedM
     return reject("This module/cable end is not supported by this cage family.");
   }
   const legacyQsfpFit = (profile?.value === "dac-qsfp" || (capabilities.optical?.configuration === CUSTOM_OPTICS
-    && ["fiber-lc", "fiber-mpo"].includes(profile?.activeType))) && form === "qsfp"
+    && ["fiber-lc", "fiber-sc", "fiber-st", "fiber-mpo"].includes(profile?.activeType))) && form === "qsfp"
     && forms.some(candidate => ["qsfp-plus", "qsfp28"].includes(candidate));
   if (capabilities.formFactor && !forms.includes(capabilities.formFactor) && !legacyQsfpFit) return reject("Module and cage form factors are incompatible.");
   if (capabilities.cableAssembly && !profile?.capabilities.cableAssembly) return reject("An integrated cable requires a recognized DAC or AOC end.");
@@ -279,10 +308,12 @@ export function transceiverModuleValidation(connector, capabilities = installedM
   if (["input", "output"].includes(nodeDirection) && ["input", "output"].includes(capabilities.direction)
     && nodeDirection !== capabilities.direction) return reject("Module direction conflicts with the node direction.");
   const warnings = [];
+  if (uncommonInterface && !declaredInterface) warnings.push("Historical SC/ST host interface support is unverified.");
   if (capabilities.optical?.configuration === CUSTOM_OPTICS) {
-    if (profile?.capabilities.optical || !["fiber-lc", "fiber-mpo"].includes(profile?.activeType)
-      || (profile.activeType === "fiber-mpo") !== (capabilities.optical.interface === "mpo")) {
-      return reject("Custom fibre metadata requires a generic LC or MPO module.");
+    if (profile?.capabilities.optical || !["fiber-lc", "fiber-sc", "fiber-st", "fiber-mpo"].includes(profile?.activeType)
+      || (profile.activeType === "fiber-mpo") !== (capabilities.optical.interface === "mpo")
+      || (profile.activeType !== "fiber-mpo" && !capabilities.optical.interface?.endsWith("-" + profile.activeType.slice(6)))) {
+      return reject("Custom fibre metadata requires a generic fibre module.");
     }
     const issue = customOpticalIssue(capabilities.optical, capabilities.signalFamily, capabilities.direction);
     if (issue) return reject(issue);
@@ -454,7 +485,7 @@ export function transceiverConnectionValidation(source, target, sourceType, targ
   if (directionalModule && ["input", "output"].includes(from) && from === to) {
     return { valid: false, rule: "module-direction", reason: `${from === "input" ? "Receiver/input" : "Transmitter/output"} nodes cannot connect to each other.`, warnings: [] };
   }
-  if (transceiverLink && ["fiber-lc", "fiber-mpo"].includes(sourceType) && sourceType === targetType) {
+  if (transceiverLink && ["fiber-lc", "fiber-sc", "fiber-st", "fiber-mpo"].includes(sourceType) && sourceType === targetType) {
     if (source?.jumpModuleCompatibilityProxy || target?.jumpModuleCompatibilityProxy) {
       warnings.push("The remote optical endpoint is unverified.");
     } else {

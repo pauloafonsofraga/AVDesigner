@@ -1,11 +1,11 @@
 import { MPO_REFERENCE, mpoPositionMappingPreset } from "./mpoPhysical.js";
 
 // A local form draft: mounting or expanding it never writes missing properties.
-export function mountMpoPhysicalFields(root, initial, { onChange = () => {}, prefix = "mpo" } = {}) {
+export function mountMpoPhysicalFields(root, initial, { onChange = () => {}, prefix = "mpo", expanded = false } = {}) {
   let value = initial == null ? undefined : structuredClone(initial);
   const current = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const el = (tag, text) => { const n = document.createElement(tag); if (text) n.textContent = text; return n; };
-  const details = el("details"), summary = el("summary", "MPO physical properties");
+  const details = el(expanded ? "div" : "details"), summary = el(expanded ? "h5" : "summary", "MPO physical properties");
   details.append(summary); root.append(details);
   const controls = {};
   function field(key, label, options) {

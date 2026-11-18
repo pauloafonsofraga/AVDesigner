@@ -11407,6 +11407,7 @@
         : deviceEditorOnlyNodeTypeOrder.map(id => [id, cableTypes[id]?.label || id]);
       const host = connector.cageCapabilities || {};
       const restrictions = [["supportedRates", "Allowed line rates (semicolon-separated)"],
+        ["supportedModuleInterfaces", "Allowed module interfaces (lc; sc; st; mpo)"],
         ["supportedSignalFamilies", "Allowed signal families"], ["supportedMediaTypes", "Allowed media"],
         ["supportedModuleTypes", "Allowed module IDs"]];
       const ordinary = (owner === "node" ? nodeBuilderEntries() : orderedDeviceEditorNodeEntries()).filter(([id, node]) => !cageConnectorTypes.has(node.physicalType || id));
