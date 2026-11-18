@@ -76,7 +76,12 @@ export function collectSavedTransceiverStatuses(project, scene, breakoutValidati
       const ref = endpoint(raw, end);
       return isEngineCageConnector(scene.getConnector(wire?.[`${end}DeviceId`] || ref.deviceId, wire?.[`${end}ConnectorId`] || ref.connectorId));
     });
-    if (!touchesCage && !isIntegratedCableType(raw.cableType) && !raw.cableAssembly && !occupied.has(raw.id)) continue;
+    const touchesDeclaredMpo = ["from", "to"].some(end => {
+      const ref = endpoint(raw, end);
+      const port = scene.getConnector(wire?.[`${end}DeviceId`] || ref.deviceId, wire?.[`${end}ConnectorId`] || ref.connectorId);
+      return engineConnectorCompatibilityType(port) === "fiber-mpo" && port?.mpoPhysical != null;
+    });
+    if (!touchesCage && !touchesDeclaredMpo && !isIntegratedCableType(raw.cableType) && !raw.cableAssembly && !occupied.has(raw.id)) continue;
     const { issues, warnings } = savedCableChecks(raw, wire, scene, nodes);
     if (occupied.has(raw.id)) issues.push({ code: "port-occupied", message: "A physical port is already occupied by a QSFP breakout end." });
     const status = issues.length ? "incompatible" : warnings.length ? "unverified" : "compatible";

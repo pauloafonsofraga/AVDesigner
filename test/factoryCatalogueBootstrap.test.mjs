@@ -11,6 +11,8 @@ import * as editorLifecycle from "../src/editorLifecycle.js";
 import * as transceivers from "../src/engine/transceiverModules.js";
 import { CAGE_DEFINITION_CHOICES, cageDefinitionValue, cageDefinitionPatch } from "../src/engine/transceiverConfiguration.js";
 import { mountTransceiverInspector } from "../src/engine/transceiverInspector.js";
+import { mountFixedMpoInspector } from "../src/engine/mpoPhysicalInspector.js";
+import { mpoConnectorCheck, mpoPhysicalPresentation } from "../src/engine/mpoPhysical.js";
 import * as modularCardSafety from "../src/engine/modularCardSafety.js";
 import * as multibandSignals from "../src/engine/multibandSignals.js";
 import * as wireRouting from "../src/engine/wireRoutingPolicy.js";
@@ -43,6 +45,7 @@ function harness({ fetchCatalogue = async () => Response.json(catalogue), initia
     transceivers, modularCardSafety, multibandSignals, wireRouting, nodeReplacement, ...connectorCompatibility,
     connectorIncludedInMatrixForEngine, defaultMatrixPortForEngineConnector,
     CAGE_DEFINITION_CHOICES, cageDefinitionValue, cageDefinitionPatch, mountTransceiverInspector,
+    mountFixedMpoInspector, mpoConnectorCheck, mpoPhysicalPresentation,
     createFactoryCatalogueLoader: options => createFactoryCatalogueLoader({ ...options, fetchCatalogue: (...args) => { calls.fetch++; return fetchCatalogue(...args); } }),
     imageAssets: {}, portableProjectData() {}, observeLibraryArtwork() { calls.observers++; },
     localStorage: { setItem() { assert.fail("bootstrap must not write storage"); }, clear() { assert.fail("bootstrap must not clear storage"); } }

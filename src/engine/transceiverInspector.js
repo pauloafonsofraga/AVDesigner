@@ -1,6 +1,7 @@
 import { resolveInstalledModule, transceiverModulePresentation } from "./transceiverModules.js";
 import { CUSTOM_OPTICS, opticalTechnologiesFor, MPO_FIBER_COUNTS, MPO_POLARITIES } from "./customTransceiverOptics.js";
 import { cageDefinitionValue, CAGE_DEFINITION_CHOICES, transceiverConfigurationChoices, transceiverConfigurationPatch } from "./transceiverConfiguration.js";
+import { mountMpoPhysicalFields } from "./mpoPhysicalInspector.js";
 
 const fiberLabels = { "single-mode": "Single-mode", multimode: "Multimode" };
 const labelForInterface = { lc: "LC", mpo: "MPO", rj45: "RJ45", bnc: "BNC", dac: "DAC", aoc: "AOC", empty: "Empty" };
@@ -41,6 +42,7 @@ export function mountTransceiverInspector(root, connector, { commit, disabled = 
   let advancedOpen = false;
   let edited = false;
   let apply;
+  let mpoForm;
   const el = (tag, text = "") => {
     const node = document.createElement(tag);
     node.textContent = text;
@@ -98,11 +100,13 @@ export function mountTransceiverInspector(root, connector, { commit, disabled = 
     appendField(parent, control, label);
   }
   function resetOptical() {
+    delete draft.mpoPhysical;
     Object.assign(draft, { signalFamily: "ethernet", arrangement: draft.interface === "mpo" ? "parallel" : "duplex",
       profile: "", lineRate: "", technology: "", txNm: "", rxNm: "", fiberCount: "", mpoPolarity: "", laneMapping: "" });
     render();
   }
   function render() {
+    mpoForm = null;
     fieldset.replaceChildren();
     select(fieldset, "method", "Configuration", [["standard", "Standard Profile"], ["custom", "Custom Transceiver"]], render);
     if (draft.method === "standard") {
@@ -141,6 +145,10 @@ export function mountTransceiverInspector(root, connector, { commit, disabled = 
         if (draft.signalFamily !== "sdi" || choices.role === "output") input(advanced, "txNm", "TX wavelengths (nm, comma-separated)");
         if (draft.signalFamily !== "sdi" || choices.role === "input") input(advanced, "rxNm", "RX wavelengths (nm, comma-separated)");
         if (draft.interface === "mpo") {
+          const physical = draft.mpoPhysical === undefined ? installed.capabilities.mpoPhysical : draft.mpoPhysical;
+          mpoForm = mountMpoPhysicalFields(advanced, physical, { onChange: () => {
+            draft.mpoPhysical = mpoForm.read(); edited = true; apply.disabled = false; setError("");
+          } });
           select(advanced, "fiberCount", "MPO fibre count", [["", "Unspecified"], ...MPO_FIBER_COUNTS.map(count => [String(count), String(count)])]);
           select(advanced, "mpoPolarity", "MPO polarity", [["", "Unspecified"], ...MPO_POLARITIES.map(type => [type, `Type ${type}`])]);
           input(advanced, "laneMapping", "Lane fibre positions (comma-separated)");
@@ -156,6 +164,7 @@ export function mountTransceiverInspector(root, connector, { commit, disabled = 
     apply.addEventListener("click", () => {
       const optical = draft.method === "custom" && opticalInterface(draft.interface);
       const config = optical ? { ...draft, fiberGrade: draft.fiberFamily === "multimode" ? draft.fiberGrade : "",
+        ...(draft.interface === "mpo" && mpoForm?.read() != null ? { mpoPhysical: mpoForm.read() } : {}),
         txNm: csvNumbers(draft.txNm), rxNm: csvNumbers(draft.rxNm),
         fiberCount: draft.fiberCount ? Number(draft.fiberCount) : null, laneMapping: csvNumbers(draft.laneMapping) }
         : { method: draft.method, interface: draft.method === "custom" ? draft.interface : undefined, profile: draft.profile };

@@ -6,6 +6,12 @@ import {
 } from "./deviceDefinitionV2.js";
 import { isGeneratedScopedNodeId } from "./nodeCompatibilityIdentity.js";
 import {multibandSignal, multibandColors} from "./multibandSignals.js";
+import { mpoLinkValidation, mpoPhysicalForConnector, mpoFiberFamily } from "./mpoPhysical.js";
+
+function mpoCheck(a, b) {
+  return mpoLinkValidation(a, b, resolveInstalledModule(a).capabilities, resolveInstalledModule(b).capabilities,
+    isTransceiverCage(a), isTransceiverCage(b));
+}
 import {
   transceiverModuleOption, resolveInstalledModule, transceiverConnectionValidation, isIntegratedCableType, integratedCableProfile,
   effectiveTransceiverDirection, isTransceiverCage, opticalEthernetDirection
@@ -280,7 +286,8 @@ export function areEngineConnectorTypesCompatible(source, target) {
   if (!sourceType || !targetType) return false;
   if ((isEngineCageConnector(source) || isEngineCageConnector(target) || isIntegratedCableType(sourceType) || isIntegratedCableType(targetType))
     && !transceiverConnectionValidation(source, target, sourceType, targetType).valid) return false;
-  if (sourceType === targetType) return engineFiberModesCompatible(source, target, sourceType, targetType);
+  if (sourceType === targetType) return (sourceType !== "fiber-mpo" || mpoCheck(source, target).valid)
+    && engineFiberModesCompatible(source, target, sourceType, targetType);
   if (CAT_CONNECTOR_TYPES.has(sourceType) && CAT_CONNECTOR_TYPES.has(targetType)) return true;
   if (POWER_CABLE_END_TYPES.has(sourceType) && POWER_CABLE_END_TYPES.has(targetType)) return true;
   return USB_CONNECTOR_TYPES.has(sourceType) && USB_CONNECTOR_TYPES.has(targetType);
@@ -314,6 +321,10 @@ export function engineCompatibilitySummary(sourceHit, targetHit) {
   }
   if ((isEngineCageConnector(source) && !sourceType) || (isEngineCageConnector(target) && !targetType)) {
     return result(false, "inactive-cage-module", "Installed transceiver/module does not expose a supported connector type.", sourceType, targetType, source, target);
+  }
+  if (sourceType === "fiber-mpo" && targetType === "fiber-mpo") {
+    const physical = mpoCheck(source, target);
+    if (!physical.valid) return result(false, physical.rule, physical.reason, sourceType, targetType, source, target);
   }
   const moduleCheck = transceiverConnectionValidation(source, target, sourceType, targetType);
   if (!moduleCheck.valid) return result(false, moduleCheck.rule, moduleCheck.reason, sourceType, targetType, source, target);
@@ -470,8 +481,15 @@ export function engineAllowedFiberModesForCompatibility(source, target, sourceTy
 export function engineDefaultFiberModeForCompatibility(source, target, sourceType = engineConnectorCompatibilityType(source), targetType = engineConnectorCompatibilityType(target)) {
   const allowedModes = engineAllowedFiberModesForCompatibility(source, target, sourceType, targetType);
   if (!allowedModes.length) return "";
-  const sourceMode = engineConnectorFiberMode(source);
-  const targetMode = engineConnectorFiberMode(target);
+  const mode = port => {
+    if (sourceType === "fiber-mpo" && targetType === "fiber-mpo") {
+      const physical = mpoPhysicalForConnector(port, resolveInstalledModule(port).capabilities, isTransceiverCage(port));
+      if (physical?.fiberCategory) return physical.fiberCategory === "os2" ? "single-mode" : physical.fiberCategory;
+    }
+    return engineConnectorFiberMode(port);
+  };
+  const sourceMode = mode(source);
+  const targetMode = mode(target);
   if (allowedModes.includes(sourceMode)) return sourceMode;
   if (allowedModes.includes(targetMode)) return targetMode;
   return allowedModes[0] || "";
@@ -750,6 +768,13 @@ function engineFiberModesCompatible(source, target, sourceType, targetType) {
 }
 
 function engineFiberFamiliesForLink(source, target) {
+  if ([source, target].every(port => engineConnectorCompatibilityType(port) === "fiber-mpo")) {
+    return [source, target].map(port => {
+      const caps = resolveInstalledModule(port).capabilities;
+      const physical = mpoPhysicalForConnector(port, caps, isTransceiverCage(port));
+      return mpoFiberFamily(physical?.fiberCategory) || engineFiberModeFamily(engineDeclaredConnectorFiberMode(port)) || caps.optical?.fiberFamily || "";
+    });
+  }
   const detailed = [source, target].some(port =>
     isEngineCageConnector(port) && installedModuleDetailsForEngine(port).capabilities.optical);
   if (!detailed) return [source, target].map(engineConnectorFiberFamily);
@@ -796,13 +821,15 @@ function result(valid, rule, reason, sourceType, targetType, source = null, targ
   const allowedFiberModes = valid ? engineAllowedFiberModesForCompatibility(source, target, sourceType, targetType) : [];
   const defaultFiberMode = valid ? engineDefaultFiberModeForCompatibility(source, target, sourceType, targetType) : "";
   const selectedCableType = sourceType || targetType || "";
-  const warnings = valid ? transceiverConnectionValidation(source, target, sourceType, targetType).warnings : [];
+  const mpo = sourceType === "fiber-mpo" && targetType === "fiber-mpo";
+  const warnings = valid ? [...new Set([...transceiverConnectionValidation(source, target, sourceType, targetType).warnings,
+    ...(mpo ? mpoCheck(source, target).warnings : [])])] : [];
   const transceiverLink = isEngineCageConnector(source) || isEngineCageConnector(target)
     || isIntegratedCableType(sourceType) || isIntegratedCableType(targetType);
   return {
     valid,
     warnings,
-    ...(transceiverLink ? { compatibilityStatus: !valid ? "incompatible" : warnings.length ? "unverified" : "compatible" } : {}),
+    ...(transceiverLink || mpo ? { compatibilityStatus: !valid ? "incompatible" : warnings.length ? "unverified" : "compatible" } : {}),
     rule,
     reason,
     rawSourceType: connectorType(source),

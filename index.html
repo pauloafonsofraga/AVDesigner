@@ -6416,6 +6416,7 @@
       { value: "mpo-fiber", label: "MPO Fiber", activeType: "fiber-mpo", fiberMode: "single-mode", qsfpOnly: true }
     ];
     const TRANSCEIVER_CONNECTOR_FIELDS = [
+      "mpoPhysical",
       "installedModuleType", "installedModuleId", "installedModuleName",
       "installedModuleActiveType", "installedModuleEffectiveType",
       "installedModuleFiberMode", "installedModuleFiberFamily",
@@ -11409,7 +11410,7 @@
         ["supportedSignalFamilies", "Allowed signal families"], ["supportedMediaTypes", "Allowed media"],
         ["supportedModuleTypes", "Allowed module IDs"]];
       const ordinary = (owner === "node" ? nodeBuilderEntries() : orderedDeviceEditorNodeEntries()).filter(([id, node]) => !cageConnectorTypes.has(node.physicalType || id));
-      return `<div data-sfp-owner="${owner}">
+      return `${physical === "fiber-mpo" && owner !== "node" ? '<div data-mpo-editor="' + owner + '"></div>' : ""}<div data-sfp-owner="${owner}">
         <label class="checkbox-row"><input data-sfp-enabled type="checkbox" ${cage ? "checked" : ""}> Is an SFP Cage</label>
         ${cage ? `<label class="field"><span>Cage Family</span><select data-sfp-family>${cageChoices.map(([id, label]) => `<option value="${id}" ${cageValue === id ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}</select></label>` : ""}
         ${cage && authored ? `<details><summary>Host restrictions</summary>${restrictions.map(([key, label]) =>
@@ -11424,6 +11425,22 @@
       if (!profile?.connectorFamilies) return "";
       const selected = api.groupedCoaxMetadata(connector).connectorFamily;
       return `<label class="field" data-coax-owner="${owner}"><span>Grouped Coax Connectors</span><select data-coax-family>${profile.connectorFamilies.map(f=>`<option value="${f}" ${f===selected?"selected":""}>${profile.bands.length} x ${f.toUpperCase()}</option>`).join("")}</select></label>`;
+    }
+
+    function mountEditorMpoControls(owner) {
+      const root = document.querySelector('[data-mpo-editor="' + owner + '"]');
+      const api = engineTransceiverApi();
+      if (!root || !api) return;
+      const selection = sfpEditorSelection(owner);
+      api.mountFixedMpoInspector(root, selection.connector.mpoPhysical, {
+        prefix: "editor-" + owner + "-mpo",
+        commit(value) {
+          const check = api.mpoConnectorCheck(selection.connector, value);
+          if (!check.valid) throw new Error(check.reason);
+          commitEditorConnectorConfiguration(selection.template, selection.connector.id, { mpoPhysical: value }, selection.options);
+          refreshSfpEditor(owner);
+        }
+      });
     }
 
     function sfpEditorSelection(owner) {
@@ -13879,6 +13896,7 @@
         physicalType: connector.physicalType || connector.type || "",
         signalDirection: connector.signalDirection || connector.direction || "",
         host: connector.cageCapabilities || null,
+        mpoPhysical: connector.mpoPhysical || null,
         empty: connector.empty === true,
         module: { id: details.id, name: details.name, type: details.type, effectiveType: details.effectiveType },
         capabilities: api.installedModuleCapabilities(connector),
@@ -13887,12 +13905,15 @@
     }
 
     function assertConnectedCageModuleUnchanged(deviceId, connectorId, before, after) {
-      if (!engineTransceiverApi() || (!isCageConnector(before) && !isCageConnector(after))) return;
+      if (!engineTransceiverApi()) return;
+      const fixedMpo = [before, after].some(port => port?.type === "fiber-mpo");
+      if (!fixedMpo && !isCageConnector(before) && !isCageConnector(after)) return;
       if (cageModuleStateForEditor(before) === cageModuleStateForEditor(after)) return;
       const bridge = activeEngineBridge(), device = bridge?.resolveDeviceBySourceId(deviceId);
       const port = device && bridge.scene.getConnector(device.id, connectorId);
       const reserved = port && bridge.breakoutConnectorRejectionReason({ device, connector: port });
       if (connectorHasCable(deviceId, connectorId) || reserved) {
+        if (fixedMpo) throw new Error("Disconnect connected cables before changing MPO physical properties.");
         throw new Error("Disconnect connected cables before changing or removing this cage or its installed module.");
       }
     }
@@ -17354,6 +17375,7 @@
       document.getElementById("addCardInputNode").disabled = card?.kind === "output";
       document.getElementById("addCardOutputNode").disabled = card?.kind === "input";
       cardConnectorList.innerHTML = renderCardConnectorInspector(template, card);
+      mountEditorMpoControls("card");
       renderCardConnectorRelationshipsPanel();
     }
 
@@ -18168,6 +18190,7 @@
         ${matrixSection}
         ${powerSection}
       `;
+      mountEditorMpoControls("device");
       const setSelectedConnectorValue = (field, value) => {
         if (installedSelection) {
           setCardSlotConnectorOverride(
@@ -33234,12 +33257,25 @@
         </dl>
         ${busDetails}
         ${canvasConnectorFieldSectionMarkup(connector)}
+        ${api && device && activeType === "fiber-mpo" && !isCageConnector(connector) ? '<div data-fixed-mpo></div>' : ""}
         ${configureModule ? '<div class="connector-inspector-section" data-transceiver-config></div>'
           : isCageConnector(connector) ? transceiverModuleSelectHtml("connectorModule", connector) : ""}
         ${!configureModule && isFiberCableType(activeType) ? fiberModeSelectHtml("connectorFiberMode", connectorFiberModeForEndpoint(deviceId, connectorId, connector), fiberModeOptionsForCageConnector(connector)) : ""}
         ${activeEngineBridge() && connectorHasCable(deviceId, connectorId) ? '<button class="tool-button" id="connectorSignalChain" type="button">Signal Chain</button>' : ""}
       `;
       document.getElementById("connectorSignalChain")?.addEventListener("click", () => openSignalChainForConnector(deviceId, connectorId));
+      if (inspectorBody.querySelector("[data-fixed-mpo]")) {
+        api.mountFixedMpoInspector(inspectorBody.querySelector("[data-fixed-mpo]"), connector.mpoPhysical, {
+          disabled: connectorHasCable(deviceId, connectorId) || device?.layerLocked || device?.layerHidden,
+          prefix: "canvas-fixed-mpo",
+          commit(value) {
+            const check = api.mpoConnectorCheck(connector, value);
+            if (!check.valid) throw new Error(check.reason);
+            bridge.commitConnectorInspectorFields(deviceId, connectorId, { mpoPhysical: value });
+            renderConnectorInspector(deviceId, connectorId);
+          }
+        });
+      }
       if (configureModule) {
         const port = scene.getConnector(deviceId, connectorId) || connector;
         const occupied = [connectorId, port.pairedConnectorId].filter(Boolean).some(id => connectorHasCable(deviceId, id)

@@ -14,6 +14,7 @@ import { CONNECTOR_RELATIONSHIP_FIELDS, applyConnectorRelationshipFieldPatch } f
 import { multiCoreCanvasMethods } from "./multiCoreCanvas.js";
 import { transceiverModulePatch, integratedCableAssemblyForConnectors, isIntegratedCableType, integratedCableReplugValidation } from "./transceiverModules.js";
 import { transceiverConfigurationPatch } from "./transceiverConfiguration.js";
+import { mpoConnectorCheck } from "./mpoPhysical.js";
 import { hasQsfpBreakoutData, qsfpBreakoutWarningMessages } from "./qsfpBreakoutValidation.js";
 import { collectSavedTransceiverStatuses, connectionStatusText } from "./savedCableStatus.js";
 import {
@@ -7637,13 +7638,13 @@ class ProductionEngineBridge {
       return true;
     }
     const affectedConnectorIds = connectorIdsForInspectorEdit(connector, fields);
-    const installsModule = fields.installedModuleType !== undefined || fields.transceiverConfiguration !== undefined;
+    const installsModule = fields.installedModuleType !== undefined || fields.transceiverConfiguration !== undefined || fields.mpoPhysical !== undefined;
     if (installsModule) {
       try {
         affectedConnectorIds.forEach(id => {
           const current = this.scene.getConnector(device.id, id);
           if (fields.transceiverConfiguration !== undefined) transceiverConfigurationPatch(current, fields.transceiverConfiguration);
-          else transceiverModulePatch(current, fields.installedModuleType);
+          else if (fields.installedModuleType !== undefined) transceiverModulePatch(current, fields.installedModuleType);
         });
       } catch (error) {
         globalThis.alert?.(error.message);
@@ -13100,6 +13101,10 @@ function sanitizeConnectorInspectorFields(fields = {}) {
   ]);
   const sanitized = {};
   Object.entries(fields || {}).forEach(([key, value]) => {
+    if (key === "mpoPhysical") {
+      sanitized[key] = deepClone(value);
+      return;
+    }
     if (["installedModule", "module", "transceiverModule", "moduleCapabilities", "cageCapabilities"].includes(key)) {
       sanitized[key] = value && typeof value === "object" ? deepClone(value) : null;
       return;
@@ -13122,6 +13127,11 @@ function sanitizeConnectorInspectorFields(fields = {}) {
 
 function normalizeConnectorInspectorPatch(connector, fields = {}, { installModule = true } = {}) {
   let patch = sanitizeConnectorInspectorFields(fields);
+  if (Object.keys(fields).length === 1 && fields.mpoPhysical !== undefined) {
+    const check = mpoConnectorCheck(connector, patch.mpoPhysical);
+    if (installModule && !check.valid) throw new Error(check.reason);
+    return patch;
+  }
   if (installModule && fields.transceiverConfiguration !== undefined) {
     patch = transceiverConfigurationPatch(connector, fields.transceiverConfiguration) || {};
     if (!Object.keys(patch).length) return patch;
@@ -13130,6 +13140,10 @@ function normalizeConnectorInspectorPatch(connector, fields = {}, { installModul
   }
   if (fields.fiberMode !== undefined) patch.fiberMode = String(fields.fiberMode || ENGINE_DEFAULT_FIBER_MODE);
   const merged = { ...connector, ...patch };
+  if (installModule && fields.mpoPhysical !== undefined) {
+    const check = mpoConnectorCheck(merged, merged.mpoPhysical);
+    if (!check.valid) throw new Error(check.reason);
+  }
   const moduleDetails = installedModuleDetailsForEngine(merged);
   const effectiveType = effectiveConnectorTypeForEngine(merged);
   patch.effectiveType = effectiveType || "";
@@ -13174,6 +13188,7 @@ function captureConnectorInspectorFields(connector, requestedFields = {}) {
   const fields = {};
   keys.forEach(key => {
     if (key === "colorSegments") fields[key] = Array.isArray(connector.colorSegments) ? connector.colorSegments.slice() : [];
+    else if (key === "mpoPhysical") fields[key] = connector[key] === undefined ? null : deepClone(connector[key]);
     else if (["installedModule", "module", "transceiverModule", "moduleCapabilities", "cageCapabilities"].includes(key)) {
       fields[key] = connector[key] ? deepClone(connector[key]) : null;
     } else fields[key] = connector[key] ?? "";

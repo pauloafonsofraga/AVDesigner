@@ -2,6 +2,7 @@ import { CAGE_FORM_FACTORS, isIntegratedCableType, resolveInstalledModule, trans
   transceiverModuleOption, transceiverModuleOptionsForConnector, transceiverModulePatch, transceiverModuleValidation,
   connectorPhysicalTypePatch, isTransceiverCage } from "./transceiverModules.js";
 import { CUSTOM_OPTICS, customOpticalIssue } from "./customTransceiverOptics.js";
+import { validateMpoPhysical } from "./mpoPhysical.js";
 
 // Existing QSFP cages retain their physical key; an authored form restricts
 // that socket without changing anchors, factory definitions or breakout IDs.
@@ -103,7 +104,11 @@ export function transceiverConfigurationPatch(connector, config) {
   const previous = installed.effectiveType === profile.activeType ? installed.capabilities : {};
   const inherited = Object.fromEntries(["manufacturer", "model", "platforms", "physicalConstraints"]
     .filter(key => previous[key] !== undefined).map(key => [key, previous[key]]));
+  if (config.mpoPhysical != null && iface !== "mpo") throw new Error("MPO physical properties require an MPO interface.");
+  const physical = validateMpoPhysical(config.mpoPhysical);
+  if (!physical.valid) throw new Error(physical.reason);
   const caps = { ...profile.capabilities, ...inherited, signalFamily, direction, optical,
+    ...(config.mpoPhysical != null ? { mpoPhysical: structuredClone(config.mpoPhysical) } : {}),
     supportedRates: lineRate(config.lineRate, signalFamily, connector) };
   const check = transceiverModuleValidation(connector, caps, profile);
   if (!check.valid) throw new Error(check.reason);

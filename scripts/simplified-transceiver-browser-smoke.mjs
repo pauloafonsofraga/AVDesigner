@@ -73,7 +73,7 @@ try {
   await field("Fibre grade").selectOption("om5");
   await field("Optical technology").selectOption("parallel");
   await field("Line rate (optional)").fill("100G");
-  await panel.locator("summary").click();
+  await panel.getByText("Advanced", { exact: true }).click();
   await field("MPO fibre count").selectOption("12");
   await field("MPO polarity").selectOption("B");
   await field("Lane fibre positions (comma-separated)").fill("1, 2, 13");

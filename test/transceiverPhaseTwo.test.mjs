@@ -55,7 +55,9 @@ test("named Ethernet optics expose the verified form, plug, fibre, speed and nom
     assert.deepEqual([caps.formFactor, caps.supportedRates, caps.signalFamily, caps.direction], [form, [rate], "ethernet", "bidirectional"]);
     assert.deepEqual([caps.optical.interface, caps.optical.fiberFamily, caps.optical.txNm], [iface, family, wavelengths]);
     const a = install(value, type), b = install(value, type);
-    assert.equal(compare(a, b).compatibilityStatus, "compatible");
+    assert.equal(compare(a, b).valid, true);
+    assert.equal(compare(a, b).compatibilityStatus, iface === "mpo-12" ? "unverified" : "compatible");
+    if (iface === "mpo-12") assert.match(compare(a, b).warnings.join(" "), /MPO physical properties|Patch-lead/);
     const unknownHost = install(value, type, {}, false);
     const unverified = compare(a, unknownHost);
     assert.equal(unverified.valid, true);

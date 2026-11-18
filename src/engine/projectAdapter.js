@@ -112,7 +112,7 @@ const SLOT_HEIGHT = 54;
 const LEGACY_DEVICE_WIDTH = 380;
 const SURFACE_FALLBACK_HEIGHT = 120;
 const CONNECTOR_MODULE_FIELDS = [
-  "installedModule", "module", "transceiverModule", "moduleCapabilities", "cageCapabilities", "supportedRates"
+  "installedModule", "module", "transceiverModule", "moduleCapabilities", "cageCapabilities", "supportedRates", "mpoPhysical"
 ];
 const CONNECTOR_MODULE_STRING_FIELDS = [
   "moduleId", "moduleName", "moduleType", "moduleActiveType", "moduleEffectiveType", "moduleFiberMode",

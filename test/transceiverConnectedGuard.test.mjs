@@ -4,9 +4,25 @@ import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { transceiverModulePatch, isIntegratedCableType } from "../src/engine/transceiverModules.js";
 import * as compatibility from "../src/engine/connectorCompatibility.js";
+import { mpoConnectorCheck } from "../src/engine/mpoPhysical.js";
 
 const source = readFileSync(new URL("../src/engine/productionBridge.js", import.meta.url), "utf8");
 const method = (name, next) => source.slice(source.indexOf(`  ${name}(`), source.indexOf(`  ${next}(`));
+
+test("MPO history restores recoverable imported metadata without accepting it as a new edit", () => {
+  const helpers = source.slice(source.indexOf("function sanitizeConnectorInspectorFields("),
+    source.indexOf("function connectorIdsForInspectorEdit("));
+  const normalize = vm.runInNewContext(`${helpers}\nnormalizeConnectorInspectorPatch`, {
+    ...compatibility, mpoConnectorCheck, deepClone: structuredClone, structuredClone
+  });
+  const port = { id: "mpo", type: "fiber-mpo" };
+  const malformed = { schemaVersion: 8, imported: "retained" };
+  assert.throws(() => normalize(port, { mpoPhysical: malformed }), /Unsupported/);
+  assert.throws(() => normalize(port, { mpoPhysical: false }), /malformed/);
+  assert.equal(normalize(port, { mpoPhysical: false }, { installModule: false }).mpoPhysical, false);
+  assert.deepEqual(normalize(port, { mpoPhysical: malformed }, { installModule: false }).mpoPhysical, malformed);
+  assert.deepEqual(structuredClone(normalize(port, { mpoPhysical: { schemaVersion: 1 } })), { mpoPhysical: { schemaVersion: 1 } });
+});
 
 function fixture({ attached = true, module = "lc-singlemode" } = {}) {
   const connector = { id: "stable-cage", type: "sfp-plus-cage", direction: "io", signalDirection: "bidirectional", x: 20, y: 45 };

@@ -1,5 +1,6 @@
 import { opticalLinkCheck, opticalTransceiverProfiles } from "./transceiverOptics.js";
 import { CUSTOM_OPTICS, customOpticalIssue } from "./customTransceiverOptics.js";
+import { mpoConnectorCheck, mpoPhysicalPresentation } from "./mpoPhysical.js";
 
 // Module profiles describe capability, not a guarantee of host-platform support.
 const SFP_CAGES = ["sfp-cage", "sfp-plus-cage", "sfp28-cage"];
@@ -199,7 +200,7 @@ export function resolveInstalledModule(connector = {}) {
   const explicit = connector.moduleCapabilities || {};
   const caps = { ...(capabilityProfile?.capabilities || {}), ...(module.capabilities || {}),
     ...Object.fromEntries(["formFactor", "supportedRates", "signalFamily", "mediaType", "direction",
-      "manufacturer", "model", "physicalConstraints", "platforms", "cableAssembly", "optical"].filter(field => module[field] !== undefined).map(field => [field, module[field]])),
+      "manufacturer", "model", "physicalConstraints", "platforms", "cableAssembly", "optical", "mpoPhysical"].filter(field => module[field] !== undefined).map(field => [field, module[field]])),
     ...explicit };
   const opticDefaults = capabilityProfile?.capabilities.optical;
   if (opticDefaults) caps.optical = { ...opticDefaults, ...object(caps.optical) };
@@ -223,6 +224,8 @@ export const installedModuleCapabilities = connector => resolveInstalledModule(c
 export function transceiverModuleValidation(connector, capabilities = installedModuleCapabilities(connector),
   profile = resolveInstalledModule(connector).profile) {
   if (!isTransceiverCage(connector)) return { valid: false, reason: "A module requires an SFP or QSFP cage.", warnings: [] };
+  const physical = mpoConnectorCheck(connector, capabilities.mpoPhysical, capabilities);
+  if (profile?.activeType === "fiber-mpo" && !physical.valid) return physical;
   const host = connector.cageCapabilities || {};
   const form = CAGE_FORM_FACTORS[cageType(connector)];
   const supportedForms = list(host.supportedFormFactors);
@@ -360,6 +363,7 @@ export function transceiverModulePresentation(connector = {}) {
       optical.technology || "Optical technology unspecified", optical.fiberCount && `${optical.fiberCount} fibres`,
       optical.mpoPolarity && `MPO polarity ${optical.mpoPolarity}`,
       Array.isArray(optical.laneMapping) && optical.laneMapping.length && `Lane positions ${optical.laneMapping.join(", ")}`] : []),
+    ...(profile?.activeType === "fiber-mpo" && caps.mpoPhysical != null ? [mpoPhysicalPresentation(caps.mpoPhysical)] : []),
     nm(optical?.txNm) && `TX ${nm(optical.txNm)}`, nm(optical?.rxNm) && `RX ${nm(optical.rxNm)}`, caps.manufacturer, caps.model,
     caps.physicalConstraints && (typeof caps.physicalConstraints === "string" ? caps.physicalConstraints : JSON.stringify(caps.physicalConstraints)),
     !check.valid ? check.reason : [...check.warnings, ...identity.warnings].join(" ")].filter(Boolean).join(" | ");
