@@ -130,6 +130,9 @@ try {
   const authored = await page.evaluate(() => currentEditorTemplate().connectors.at(-1));
   assert.equal(authored.type, "qsfp-cage");
   assert.deepEqual(authored.cageCapabilities, { supportedFormFactors: ["qsfp28"], supportedRates: ["100G", "40G"] });
+  const interfaces = sfpControls.locator('[data-sfp-restriction="supportedModuleInterfaces"]');
+  await interfaces.fill("lc; sc; st"); await interfaces.press("Tab");
+  assert.deepEqual(await page.evaluate(() => currentEditorTemplate().connectors.at(-1).cageCapabilities.supportedModuleInterfaces), ["lc", "sc", "st"]);
   assert.equal(await page.locator("#selectedConnectorModule").count(), 0);
   assert.deepEqual(failures, []);
   console.log("Chrome passed: physical cage authoring, progressive Inspector, filtered profiles, custom MPO validation, occupied cage, SDI, DAC, Undo/Redo and .avd reopen.");

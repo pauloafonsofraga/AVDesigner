@@ -74,7 +74,8 @@ try {
   }
   await select("port-3");
   assert.equal(await field("Line rate").inputValue(),"__current__");
-  assert.deepEqual(await field("Line rate").locator("option").evaluateAll(options=>options.map(o=>o.value)),["","__current__","1G","10G"]);
+  assert.deepEqual(await field("Line rate").locator("option").evaluateAll(options=>options.map(o=>o.value)),["","__current__","100M","1G","2.5G","5G","10G"]);
+  assert.match(await panel.locator("[data-transceiver-rate-support]").innerText(),/Unverified/);
   await field("Fibre grade").selectOption("om4");await apply();
   assert.deepEqual((await snapshot("port-3")).caps.supportedRates,["1 Gb/s","10G"]);
   for (const width of [1366,1024,1920]) {

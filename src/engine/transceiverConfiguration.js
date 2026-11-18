@@ -33,7 +33,8 @@ export function cageDefinitionPatch(connector, selection) {
 
 const maxEthernet = { sfp: 1, "sfp-plus": 10, sfp28: 25, "qsfp-plus": 40, qsfp28: 100, qsfp: 100 };
 export function transceiverLineRateChoices(connector, { signalFamily = "ethernet", profile = "",
-  moduleRates = resolveInstalledModule(connector).capabilities.supportedRates || [] } = {}) {
+  moduleRates = resolveInstalledModule(connector).capabilities.optical?.configuration === CUSTOM_OPTICS
+    ? [] : resolveInstalledModule(connector).capabilities.supportedRates || [] } = {}) {
   const form = CAGE_FORM_FACTORS[cageDefinitionValue(connector)] || cageDefinitionValue(connector);
   const ceiling = signalFamily === "sdi" ? form === "sfp" ? 3 : 12 : maxEthernet[form];
   const limits = [connector.cageCapabilities?.supportedRates, connector.supportedRates,

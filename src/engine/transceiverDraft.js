@@ -14,7 +14,7 @@ export function transceiverDraft(connector) {
     interface: iface, signalFamily: caps.signalFamily || "ethernet", fiberFamily,
     fiberGrade: o.fiberGrade || "", arrangement: o.arrangement || (iface === "mpo" ? "parallel" : o.interface?.split("-")[0] || "duplex"),
     technology: opticalTechnologyKind(o), supportedRates: structuredClone(caps.supportedRates || []),
-    declaredRates: structuredClone(caps.supportedRates || []),
+    declaredRates: o.configuration === CUSTOM_OPTICS ? [] : structuredClone(caps.supportedRates || []),
     txNm: Array.isArray(o.txNm) ? o.txNm.join(", ") : "", rxNm: Array.isArray(o.rxNm) ? o.rxNm.join(", ") : "",
     fiberCount: o.fiberCount ? String(o.fiberCount) : "", mpoPolarity: o.mpoPolarity || "",
     laneMapping: Array.isArray(o.laneMapping) ? o.laneMapping.join(", ") : "",
@@ -27,7 +27,7 @@ export function draftFromPreset(connector, value) {
 }
 
 export function editTransceiverDraft(draft, field, value) {
-  return { ...draft, [field]: value, preset: "" };
+  return { ...draft, [field]: value, preset: "", declaredRates: [] };
 }
 
 const numbers = value => typeof value === "string" && value.trim() ? value.trim().split(/[\s,]+/).map(Number) : [];

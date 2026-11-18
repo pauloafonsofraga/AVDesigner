@@ -13,22 +13,36 @@ export function mountTransceiverInspector(root, connector, { commit, disabled = 
   if (choices.copper) interfaces.push("rj45");
   if (choices.coax.length) interfaces.push("bnc");
   for (const kind of ["dac", "aoc"]) if (choices.assemblies.some(p => p.value.startsWith(kind + "-"))) interfaces.push(kind);
-  let draft = transceiverDraft(connector), edited = false, apply;
+  let draft = transceiverDraft(connector), edited = false, apply, rateControl;
   const el = (tag, text = "") => { const n = document.createElement(tag); n.textContent = text; return n; };
   const fields = el("fieldset");
   fields.disabled = disabled;
   fields.style.cssText = "border:0;padding:0;margin:0;min-inline-size:0";
   const summary = el("div", [
     CAGE_DEFINITION_CHOICES.find(([key]) => key === cageDefinitionValue(connector))?.[1] || "QSFP (form unspecified)",
-    transceiverModulePresentation(connector), disabled ? "Cage occupied or locked" : ""
+    "Installed: " + transceiverModulePresentation(connector), disabled ? "Cage occupied or locked" : ""
   ].filter(Boolean).join(" | "));
   summary.className = "field-hint"; summary.style.overflowWrap = "anywhere";
+  const pending = el("p"); pending.className = "field-hint"; pending.dataset.transceiverDraftStatus = "";
+  pending.setAttribute("role", "status"); pending.hidden = true;
   const error = el("p"); error.className = "field-hint"; error.setAttribute("role", "alert"); error.hidden = true;
-  root.replaceChildren(el("h4", "Transceiver"), summary, fields, error);
+  root.replaceChildren(el("h4", "Transceiver"), summary, pending, fields, error);
+  function updatePending() {
+    pending.hidden = !edited;
+    const profile = choices.standard.find(p => p.value === draft.preset);
+    pending.textContent = (profile?.label || (draft.interface === "empty" ? "Empty" : "Custom " + names[draft.interface])) + " - Not applied";
+  }
   function mark(field, value) {
     draft = editTransceiverDraft(draft, field, value);
     edited = true; apply.disabled = false; error.hidden = true;
     const preset = fields.querySelector("#transceiver-preset"); if (preset) preset.value = "";
+    updatePending();
+    if (field !== "rateChoice" && rateControl?.isConnected && opticalInterface(draft.interface)) {
+      rateControl.replaceChildren(...rateOptions().map(([value, title]) => {
+        const option = el("option", title); option.value = value; return option;
+      }));
+      rateControl.value = draft.rateChoice;
+    }
   }
   function append(control, label) {
     const wrap = el("div"); wrap.className = "field";
@@ -45,18 +59,29 @@ export function mountTransceiverInspector(root, connector, { commit, disabled = 
     }
     control.addEventListener("change", () => {
       if (key === "preset") {
-        draft = control.value ? draftFromPreset(connector, control.value) : { ...draft, preset: "" };
+        draft = control.value ? draftFromPreset(connector, control.value) : editTransceiverDraft(draft, "preset", "");
         edited = true; error.hidden = true; render();
       } else { mark(key, control.value); callback?.(); }
     });
     append(control, label);
+    return control;
   }
   function input(key, label) {
     const control = el("input"); control.id = "transceiver-" + key; control.value = draft[key] ?? ""; control.maxLength = 180;
     control.addEventListener("input", () => mark(key, control.value)); append(control, label);
   }
+  function rateOptions() {
+    const rates = transceiverLineRateChoices(connector, { signalFamily: draft.signalFamily, profile: draft.preset, moduleRates: draft.declaredRates });
+    const current = draft.supportedRates || [];
+    const canonical = current.length === 1 && rates.find(rate => transceiverRateKey(rate) === transceiverRateKey(current[0]));
+    draft.rateChoice = !current.length ? "" : canonical || "__current__";
+    return [["", "Unspecified"], ...(current.length && !canonical
+      ? [["__current__", "Current: " + current.join(" / ")]] : []), ...rates.map(rate => [rate, rate])];
+  }
   function render() {
+    updatePending();
     fields.replaceChildren();
+    rateControl = null;
     select("preset", "Preset (optional)", [["", "None"], ...choices.standard.map(p => [p.value,
       p.capabilities.signalFamily === "sdi" ? p.label.replace(/\s+(TX|RX)$/i, "") : p.label])]);
     select("interface", "Installed interface", interfaces.map(value => [value, names[value]]), () => {
@@ -86,15 +111,16 @@ export function mountTransceiverInspector(root, connector, { commit, disabled = 
         select("arrangement", "Fibre arrangement", [["simplex", "Simplex"], ["duplex", "Duplex"]], () => { draft.technology = ""; render(); });
       } else fields.append(el("p", draft.interface === "mpo" ? "Parallel" : choices.role === "input" ? "Simplex / Receive" : "Simplex / Transmit"));
       select("technology", "Optical technology", opticalTechnologiesFor(draft.arrangement, draft.signalFamily));
-      const rates = transceiverLineRateChoices(connector, { signalFamily: draft.signalFamily, profile: draft.preset, moduleRates: draft.declaredRates });
-      const current = draft.supportedRates || [];
-      const canonical = current.length === 1 && rates.find(rate => transceiverRateKey(rate) === transceiverRateKey(current[0]));
-      draft.rateChoice = !current.length ? "" : canonical || "__current__";
-      select("rateChoice", "Line rate", [["", "Unspecified"], ...(current.length && !canonical
-        ? [["__current__", "Current: " + current.join(" / ")]] : []), ...rates.map(rate => [rate, rate])], () => {
+      rateControl = select("rateChoice", "Line rate", rateOptions(), () => {
         if (draft.rateChoice !== "__current__") draft.supportedRates = draft.rateChoice ? [draft.rateChoice] : [];
         render();
       });
+      const hostRates = connector.cageCapabilities?.supportedRates;
+      const portRates = connector.supportedRates;
+      const knownRates = [hostRates, portRates].filter(values => Array.isArray(values) && values.length);
+      const rateSupport = el("p", knownRates.length ? "Declared host/port rates: " + knownRates.map(values => values.join(" / ")).join("; ")
+        : "Host rate support: Unverified (not declared)");
+      rateSupport.className = "field-hint"; rateSupport.dataset.transceiverRateSupport = ""; fields.append(rateSupport);
       if (draft.signalFamily !== "sdi" || choices.role === "output") input("txNm", "TX wavelengths (nm, comma-separated)");
       if (draft.signalFamily !== "sdi" || choices.role === "input") input("rxNm", "RX wavelengths (nm, comma-separated)");
       if (draft.interface === "mpo") {

@@ -216424,7 +216424,8 @@
         { "id": "qsfp28-2", "type": "qsfp-cage", "direction": "output", "nameText": "QSFP28 2", "x": 380, "y": 260,
           "cageCapabilities": { "supportedFormFactors": ["qsfp28"], "supportedRates": ["100G"], "supportedSignalFamilies": ["ethernet"] } }
       ]
-    }
+    },
+    {"id":"generic-transceiver-configuration-lab","name":"Generic Transceiver Configuration Lab","model":"Generic Transceiver Configuration Lab","category":"Switches","description":"Synthetic transceiver configuration test host, not a manufacturer specification. SFP+ SC/ST is explicitly declared for testing only; no breakout modes are enabled.","width":380,"height":430,"connectors":[{"id":"sfp-test","type":"sfp-cage","direction":"input","nameText":"SFP test","x":0,"y":152,"cageCapabilities":{"supportedFormFactors":["sfp"],"supportedRates":["100M","1G"],"supportedSignalFamilies":["ethernet"]}},{"id":"sfp-plus-test","type":"sfp-plus-cage","direction":"input","nameText":"SFP+ SC/ST test","x":0,"y":206,"cageCapabilities":{"supportedFormFactors":["sfp-plus"],"supportedRates":["1G","10G"],"supportedSignalFamilies":["ethernet"],"supportedModuleInterfaces":["lc","sc","st"]}},{"id":"sfp28-test","type":"sfp28-cage","direction":"input","nameText":"SFP28 test","x":0,"y":260,"cageCapabilities":{"supportedFormFactors":["sfp28"],"supportedRates":["10G","25G"],"supportedSignalFamilies":["ethernet"]}},{"id":"qsfp-plus-test","type":"qsfp-cage","direction":"output","nameText":"QSFP+ test","x":380,"y":152,"cageCapabilities":{"supportedFormFactors":["qsfp-plus"],"supportedRates":["40G"],"supportedSignalFamilies":["ethernet"]}},{"id":"qsfp28-test","type":"qsfp-cage","direction":"output","nameText":"QSFP28 test","x":380,"y":206,"cageCapabilities":{"supportedFormFactors":["qsfp28"],"supportedRates":["40G","100G"],"supportedSignalFamilies":["ethernet"]}}]}
   ],
   "nodeTypes": {
     "iec": {
@@ -221999,6 +222000,7 @@
         }
       ]
     },
-    {"packageId":"36dddf45bb0328f14d267f5db9734b0454396c4aef4a6fcaa5d67bcbac0b47cb","records":[{"kind":"device","id":"generic-qsfp-breakout-lab","baseFingerprint":"27c96638c30ad1eae48733796913befdc194f30ab82adb8746a847265100f810","candidateFingerprint":"ee21daf5df853da039a6ce66859f5a024f0b9ecfb5331052f1fbbcfb363e34ca"}]}
+    {"packageId":"36dddf45bb0328f14d267f5db9734b0454396c4aef4a6fcaa5d67bcbac0b47cb","records":[{"kind":"device","id":"generic-qsfp-breakout-lab","baseFingerprint":"27c96638c30ad1eae48733796913befdc194f30ab82adb8746a847265100f810","candidateFingerprint":"ee21daf5df853da039a6ce66859f5a024f0b9ecfb5331052f1fbbcfb363e34ca"}]},
+    {"packageId":"3739dc2dd52c49146f95be936ec5ec445abe73d9dbb0b4fa50419a1d75ba2443","records":[{"kind":"device","id":"generic-transceiver-configuration-lab","baseFingerprint":null,"candidateFingerprint":"0eb2dc3742ea96afc752f2cc2708d84711863acf8e1799fb02cc165446e80de9"},{"kind":"node","id":"qsfp-cage","baseFingerprint":"ed11cfb73f238065821ec556f601d69590a0e7db10640aaad8289bc72f953cc9","candidateFingerprint":"ed11cfb73f238065821ec556f601d69590a0e7db10640aaad8289bc72f953cc9"},{"kind":"node","id":"sfp-cage","baseFingerprint":"a788675b8cfedf52f285512d88d996ae280fb8db7feedd57fc7576fbe34b4543","candidateFingerprint":"a788675b8cfedf52f285512d88d996ae280fb8db7feedd57fc7576fbe34b4543"},{"kind":"node","id":"sfp-plus-cage","baseFingerprint":"dde6a6f17b8d797967645377dc478c56124d2b8c767b98d051ed04a1e5c40a1a","candidateFingerprint":"dde6a6f17b8d797967645377dc478c56124d2b8c767b98d051ed04a1e5c40a1a"},{"kind":"node","id":"sfp28-cage","baseFingerprint":"a946f1a2c58be49526c5021c83f74d29910660074e5d949988353c8c5a85eeeb","candidateFingerprint":"a946f1a2c58be49526c5021c83f74d29910660074e5d949988353c8c5a85eeeb"}]}
   ]
 }
