@@ -19,7 +19,7 @@ import { eligibleDeviceForJump, reconcileJumpAttachment, jumpAttachmentSnapshot 
 
 const ENGINE_EXPORT_FORMAT = "av-designer-engine-prototype";
 const CONNECTOR_MODULE_FIELDS = [
-  "installedModule", "module", "transceiverModule", "moduleCapabilities", "cageCapabilities", "supportedRates", "mpoPhysical", "physicalConstraints"
+  "installedModule", "module", "transceiverModule", "moduleCapabilities", "cageCapabilities", "supportedRates", "mpoPhysical"
 ];
 const CONNECTOR_MODULE_STRING_FIELDS = [
   "moduleId", "moduleName", "moduleType", "moduleActiveType", "moduleEffectiveType", "moduleFiberMode",

@@ -10,8 +10,6 @@ import * as transceivers from "./engine/transceiverModules.js";
 import { CAGE_DEFINITION_CHOICES, cageDefinitionValue, cageDefinitionPatch } from "./engine/transceiverConfiguration.js";
 import { mountTransceiverInspector } from "./engine/transceiverInspector.js";
 import { mountFixedMpoInspector } from "./engine/mpoPhysicalInspector.js";
-import { mountPhysicalConnectorInspector } from "./engine/physicalConnectorInspector.js";
-import { hasPhysicalConnectorMetadata } from "./engine/physicalConnectorMetadata.js";
 import { mpoConnectorCheck, mpoPhysicalPresentation } from "./engine/mpoPhysical.js";
 import { connectorIncludedInMatrixForEngine, defaultMatrixPortForEngineConnector } from "./engine/matrixRouting.js";
 import * as modularCardSafety from "./engine/modularCardSafety.js";
@@ -60,7 +58,7 @@ function start() {
     Object.defineProperty(window, "WireNexusModularCardSafety", { value: Object.freeze({ ...modularCardSafety, ...nodeReplacement }) });
     Object.defineProperty(window, "WireNexusTransceivers", { value: Object.freeze({ ...transceivers,
       CAGE_DEFINITION_CHOICES, cageDefinitionValue, cageDefinitionPatch, mountTransceiverInspector,
-      mountFixedMpoInspector, mpoConnectorCheck, mpoPhysicalPresentation, mountPhysicalConnectorInspector, hasPhysicalConnectorMetadata,
+      mountFixedMpoInspector, mpoConnectorCheck, mpoPhysicalPresentation,
       installedModuleDetailsForEngine, activeTypeForEngineCageConnector, isEngineCageConnector, isEngineDeadCageConnector,
       engineConnectorTypeDisplayName, engineConnectorCanvasLabelLines,
       connectorIncludedInMatrixForEngine, defaultMatrixPortForEngineConnector, engineCompatibilitySummary, normalizeEngineFiberMode }) });

@@ -15,7 +15,6 @@ import { multiCoreCanvasMethods } from "./multiCoreCanvas.js";
 import { transceiverModulePatch, integratedCableAssemblyForConnectors, isIntegratedCableType, integratedCableReplugValidation } from "./transceiverModules.js";
 import { transceiverConfigurationPatch } from "./transceiverConfiguration.js";
 import { mpoConnectorCheck } from "./mpoPhysical.js";
-import { physicalConnectorDeclarationIssue } from "./physicalConnectorMetadata.js";
 import { hasQsfpBreakoutData, qsfpBreakoutWarningMessages } from "./qsfpBreakoutValidation.js";
 import { collectSavedTransceiverStatuses, connectionStatusText } from "./savedCableStatus.js";
 import {
@@ -7639,7 +7638,7 @@ class ProductionEngineBridge {
       return true;
     }
     const affectedConnectorIds = connectorIdsForInspectorEdit(connector, fields);
-    const installsModule = fields.installedModuleType !== undefined || fields.transceiverConfiguration !== undefined || fields.mpoPhysical !== undefined || fields.physicalConstraints !== undefined;
+    const installsModule = fields.installedModuleType !== undefined || fields.transceiverConfiguration !== undefined || fields.mpoPhysical !== undefined;
     if (installsModule) {
       try {
         affectedConnectorIds.forEach(id => {
@@ -7657,7 +7656,7 @@ class ProductionEngineBridge {
       && affectedConnectorIds.some(id => this.scene.connectorWireIds(device.id, id).size > 0
         || (this.mutations?.root?.breakoutAssemblies?.length
           && breakoutPortReserved(this.mutations.root, device.sourceId || device.id, id)))) {
-      globalThis.alert?.(fields.physicalConstraints !== undefined ? "Disconnect the cable before changing its physical connector or signal declarations. The cable was not changed." : "Disconnect the cage's cable before changing or removing its installed module. The cable was not changed.");
+      globalThis.alert?.("Disconnect the cage's cable before changing or removing its installed module. The cable was not changed.");
       this.updateSelectionHud();
       return true;
     }
@@ -13102,7 +13101,7 @@ function sanitizeConnectorInspectorFields(fields = {}) {
   ]);
   const sanitized = {};
   Object.entries(fields || {}).forEach(([key, value]) => {
-    if (key === "mpoPhysical" || key === "physicalConstraints") {
+    if (key === "mpoPhysical") {
       sanitized[key] = deepClone(value);
       return;
     }
@@ -13128,11 +13127,6 @@ function sanitizeConnectorInspectorFields(fields = {}) {
 
 function normalizeConnectorInspectorPatch(connector, fields = {}, { installModule = true } = {}) {
   let patch = sanitizeConnectorInspectorFields(fields);
-  if (fields.physicalConstraints !== undefined) {
-    const issue = physicalConnectorDeclarationIssue(connector.physicalType || connector.type, patch.physicalConstraints);
-    if (installModule && issue) throw new Error(issue);
-    if (Object.keys(fields).length === 1) return patch;
-  }
   if (Object.keys(fields).length === 1 && fields.mpoPhysical !== undefined) {
     const check = mpoConnectorCheck(connector, patch.mpoPhysical);
     if (installModule && !check.valid) throw new Error(check.reason);
@@ -13194,7 +13188,7 @@ function captureConnectorInspectorFields(connector, requestedFields = {}) {
   const fields = {};
   keys.forEach(key => {
     if (key === "colorSegments") fields[key] = Array.isArray(connector.colorSegments) ? connector.colorSegments.slice() : [];
-    else if (key === "mpoPhysical" || key === "physicalConstraints") fields[key] = connector[key] === undefined ? null : deepClone(connector[key]);
+    else if (key === "mpoPhysical") fields[key] = connector[key] === undefined ? null : deepClone(connector[key]);
     else if (["installedModule", "module", "transceiverModule", "moduleCapabilities", "cageCapabilities"].includes(key)) {
       fields[key] = connector[key] ? deepClone(connector[key]) : null;
     } else fields[key] = connector[key] ?? "";

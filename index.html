@@ -6329,13 +6329,13 @@
       "powerlock", "sdi", "bnc", "dvi", "display-port", "hdmi", "vga",
       "mini-display-port", "xlr-3pin", "xlr-5pin", "trs-ts", "rca", "aes",
       "midi", "mini-din-6pin", "speakon-nl2", "speakon-nl4", "speakon-nl8",
-      "dmx-3pin", "dmx-5pin", "triax-8", "triax-11", "triax-14", "trs-3.5mm", "circular-din"
+      "dmx-3pin", "dmx-5pin", "triax-8", "triax-11", "triax-14"
     ];
 
     const twoWayCableTypes = [
       "fiber-lc", "fiber-sc", "fiber-st", "fiber-mpo", "opticalcon", "fiberfox",
       "cxp", "cat5e", "cat6", "cat6a", "ethercon", "ethernet", "rs-422", "usb-a", "usb-b",
-      "usb-c", "mini-usb-a", "ca-com", "domm", "misc", "db9", "db15", "db25", "rj12", "pluggable-terminal", "external-pcie-link", "livecore-link"
+      "usb-c", "mini-usb-a", "ca-com", "domm", "misc"
     ];
 
     const cableTypes = structuredClone(window.WireNexusFactoryCatalogue.nodeTypes);
@@ -6416,7 +6416,6 @@
       { value: "mpo-fiber", label: "MPO Fiber", activeType: "fiber-mpo", fiberMode: "single-mode", qsfpOnly: true }
     ];
     const TRANSCEIVER_CONNECTOR_FIELDS = [
-      "physicalConstraints",
       "mpoPhysical",
       "installedModuleType", "installedModuleId", "installedModuleName",
       "installedModuleActiveType", "installedModuleEffectiveType",
@@ -11413,7 +11412,7 @@
         ["supportedSignalFamilies", "Allowed signal families"], ["supportedMediaTypes", "Allowed media"],
         ["supportedModuleTypes", "Allowed module IDs"]];
       const ordinary = (owner === "node" ? nodeBuilderEntries() : orderedDeviceEditorNodeEntries()).filter(([id, node]) => !cageConnectorTypes.has(node.physicalType || id));
-      return `${api.hasPhysicalConnectorMetadata?.(connector) ? '<div data-physical-editor="' + owner + '"></div>' : ""}${physical === "fiber-mpo" && owner !== "node" ? '<div data-mpo-editor="' + owner + '"></div>' : ""}<div data-sfp-owner="${owner}">
+      return `${physical === "fiber-mpo" && owner !== "node" ? '<div data-mpo-editor="' + owner + '"></div>' : ""}<div data-sfp-owner="${owner}">
         <label class="checkbox-row"><input data-sfp-enabled type="checkbox" ${cage ? "checked" : ""}> Is an SFP Cage</label>
         ${cage ? `<label class="field"><span>Cage Family</span><select data-sfp-family>${cageChoices.map(([id, label]) => `<option value="${id}" ${cageValue === id ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}</select></label>` : ""}
         ${cage && authored ? `<details><summary>Host restrictions</summary>${restrictions.map(([key, label]) =>
@@ -11431,16 +11430,6 @@
     }
 
     function mountEditorMpoControls(owner) {
-      const physicalRoot = document.querySelector('[data-physical-editor="' + owner + '"]');
-      if (physicalRoot) {
-        const selection = sfpEditorSelection(owner);
-        engineTransceiverApi().mountPhysicalConnectorInspector(physicalRoot, selection.connector, {
-          commit(value) {
-            if (owner === "node") selection.node.physicalConstraints = value;
-            else commitEditorConnectorConfiguration(selection.template, selection.connector.id, { physicalConstraints: value }, selection.options);
-          }
-        });
-      }
       const root = document.querySelector('[data-mpo-editor="' + owner + '"]');
       const api = engineTransceiverApi();
       if (!root || !api) return;
@@ -12578,7 +12567,6 @@
       const sfpConnector = { ...type, type: type.physicalType || nodeBuilderSelectedType };
       document.getElementById("nodeBuilderSfpControls").innerHTML = sfpCapabilityControls(sfpConnector, "node")
         + (engineTransceiverApi()?.isTransceiverCage(sfpConnector) ? transceiverModuleSelectHtml("nodeBuilderModule", sfpConnector) : "");
-      mountEditorMpoControls("node");
       document.getElementById("nodeBuilderModule")?.addEventListener("change", event => {
         try { Object.assign(type, engineTransceiverApi().transceiverModulePatch(sfpConnector, event.target.value)); }
         catch (error) { alert(error.message); }
@@ -33273,7 +33261,6 @@
           <dt>Direction</dt><dd>${escapeHtml(connector.direction)}</dd>
         </dl>
         ${busDetails}
-        ${api?.hasPhysicalConnectorMetadata?.(connector) ? '<div data-physical-inspector></div>' : ""}
         ${canvasConnectorFieldSectionMarkup(connector)}
         ${api && device && activeType === "fiber-mpo" && !isCageConnector(connector) ? '<div data-fixed-mpo></div>' : ""}
         ${configureModule ? '<div class="connector-inspector-section" data-transceiver-config></div>'
@@ -33282,13 +33269,6 @@
         ${activeEngineBridge() && connectorHasCable(deviceId, connectorId) ? '<button class="tool-button" id="connectorSignalChain" type="button">Signal Chain</button>' : ""}
       `;
       document.getElementById("connectorSignalChain")?.addEventListener("click", () => openSignalChainForConnector(deviceId, connectorId));
-      api?.mountPhysicalConnectorInspector?.(inspectorBody.querySelector("[data-physical-inspector]"), connector, {
-        disabled: connectorHasCable(deviceId, connectorId) || device?.layerLocked || device?.layerHidden,
-        commit(value) {
-          bridge.commitConnectorInspectorFields(deviceId, connectorId, { physicalConstraints: value });
-          renderConnectorInspector(deviceId, connectorId);
-        }
-      });
       if (inspectorBody.querySelector("[data-fixed-mpo]")) {
         api.mountFixedMpoInspector(inspectorBody.querySelector("[data-fixed-mpo]"), connector.mpoPhysical, {
           disabled: connectorHasCable(deviceId, connectorId) || device?.layerLocked || device?.layerHidden,

@@ -4,7 +4,6 @@ import { connectorVisualAnchors, exclusiveConnectionRejectionReason } from "./de
 import { jumpCompatibleHitForDeviceWire } from "./jumpNodeModel.js";
 import { integratedCableWireValidation, isIntegratedCableType, isDacCableType } from "./transceiverModules.js";
 import { projectWireEndpoint as endpoint } from "./projectWireEndpoint.js";
-import { hasPhysicalConnectorMetadata } from "./physicalConnectorMetadata.js";
 
 const list = value => Array.isArray(value) ? value : [];
 export const connectionStatusText = status => status
@@ -62,8 +61,8 @@ export function savedCableChecks(raw, wire, scene, nodeDefinitions = new Map(), 
   return { issues, warnings };
 }
 
-// Shared operational gate for transceivers and opt-in multifunction declarations.
-// Untagged historical connectors retain their existing rules.
+// This operational gate is scoped to SFP-related links. Ordinary cable handling
+// and the passive Stagebox/Multi-Core path engines keep their existing rules.
 export function collectSavedTransceiverStatuses(project, scene, breakoutValidation) {
   const statuses = new Map();
   const wires = new Map(scene.wires.map(wire => [wire.sourceId || wire.id, wire]));
@@ -82,12 +81,7 @@ export function collectSavedTransceiverStatuses(project, scene, breakoutValidati
       const port = scene.getConnector(wire?.[`${end}DeviceId`] || ref.deviceId, wire?.[`${end}ConnectorId`] || ref.connectorId);
       return engineConnectorCompatibilityType(port) === "fiber-mpo" && port?.mpoPhysical != null;
     });
-    const touchesPhysicalDeclaration = ["from", "to"].some(end => {
-      const ref = endpoint(raw, end);
-      const port = scene.getConnector(wire?.[`${end}DeviceId`] || ref.deviceId, wire?.[`${end}ConnectorId`] || ref.connectorId);
-      return hasPhysicalConnectorMetadata(port, engineConnectorCompatibilityType(port));
-    });
-    if (!touchesCage && !touchesDeclaredMpo && !touchesPhysicalDeclaration && !isIntegratedCableType(raw.cableType) && !raw.cableAssembly && !occupied.has(raw.id)) continue;
+    if (!touchesCage && !touchesDeclaredMpo && !isIntegratedCableType(raw.cableType) && !raw.cableAssembly && !occupied.has(raw.id)) continue;
     const { issues, warnings } = savedCableChecks(raw, wire, scene, nodes);
     if (occupied.has(raw.id)) issues.push({ code: "port-occupied", message: "A physical port is already occupied by a QSFP breakout end." });
     const status = issues.length ? "incompatible" : warnings.length ? "unverified" : "compatible";
