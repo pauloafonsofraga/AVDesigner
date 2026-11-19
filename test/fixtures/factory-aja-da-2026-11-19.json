@@ -1,0 +1,2678 @@
+{
+  "sourceName": "wirenexus-device-library (6).json",
+  "sourceSha256": "cea3eb2787960d491a25128d6a39d13e3f94d1361554726809132eec833d2e99",
+  "exportedAt": "2026-11-19T12:06:35.382Z",
+  "baseline": "c5a625506a9a2c454fa4441cc7babfc4f3116f2d",
+  "packageId": "682e60c13c93d64e035d8470143eda447b99aaf04a882dbbe877937a9061e4a2",
+  "factoryAuthor": "WireNexus",
+  "attribution": {
+    "version": 1,
+    "creatorId": "",
+    "displayName": "WireNexus",
+    "createdAt": null
+  },
+  "devices": [
+    {
+      "id": "custom-device-mwngz8p4",
+      "name": "12GDA",
+      "brand": "AJA",
+      "category": "Splitters",
+      "fingerprint": "71a29e14552f383eddf0bed64e121fde28b266b7b2407fb473a18a16b933ba41",
+      "connectors": 8,
+      "cards": 0,
+      "slots": 0,
+      "hasArtwork": true,
+      "artwork": {
+        "e0f026b325b7c2b72ed5d94c95dcf57c0ecba768d5fe291f5b62a310a612dbd3": {
+          "bytes": 1971817,
+          "mime": "image/png"
+        },
+        "a0c70b712968bd2f21b4ee761c9eb9d362637aada5eb6f434e4b78f669a062f0": {
+          "bytes": 42818,
+          "mime": "image/png"
+        }
+      },
+      "connectorSnapshot": [
+        {
+          "id": "input-slot-1",
+          "schemaVersion": 2,
+          "label": "SDI",
+          "nameText": "IN",
+          "direction": "input",
+          "signalDirection": "input",
+          "displaySide": "left",
+          "type": "sdi",
+          "physicalType": "sdi",
+          "connectorType": "sdi",
+          "x": 0,
+          "y": 175,
+          "anchors": [
+            {
+              "id": "left",
+              "label": "",
+              "side": "left",
+              "x": 0,
+              "y": 175,
+              "primary": true
+            }
+          ],
+          "primaryAnchorId": "left",
+          "infoFields": [],
+          "resolutionFrameRate": "12G",
+          "customText": "",
+          "moduleCapability": null,
+          "fiberCapability": null,
+          "powerMetadata": null,
+          "empty": false,
+          "nameCustom": true,
+          "faceplateSide": false,
+          "includeInMatrix": true,
+          "matrixPortTouched": false,
+          "operationalStatus": "working",
+          "rowIndex": 0,
+          "customColor": "",
+          "fiberMode": "",
+          "powerPlug": null,
+          "nameTextCaption": "",
+          "resolutionFrameRateCaption": "",
+          "customTextCaption": "",
+          "signalIndex": 0,
+          "installedModuleType": ""
+        },
+        {
+          "id": "input-slot-2",
+          "schemaVersion": 2,
+          "label": "Barrel Jack",
+          "nameText": "A/C IN",
+          "direction": "input",
+          "signalDirection": "input",
+          "displaySide": "left",
+          "type": "new-node",
+          "physicalType": "new-node",
+          "connectorType": "new-node",
+          "x": 0,
+          "y": 229,
+          "anchors": [
+            {
+              "id": "left",
+              "label": "",
+              "side": "left",
+              "x": 0,
+              "y": 229,
+              "primary": true
+            }
+          ],
+          "primaryAnchorId": "left",
+          "infoFields": [],
+          "resolutionFrameRate": "",
+          "customText": "",
+          "moduleCapability": null,
+          "fiberCapability": null,
+          "powerMetadata": null,
+          "empty": false,
+          "nameCustom": true,
+          "faceplateSide": false,
+          "includeInMatrix": true,
+          "matrixPortTouched": false,
+          "operationalStatus": "working",
+          "rowIndex": 1,
+          "customColor": "",
+          "fiberMode": "",
+          "powerPlug": null,
+          "nameTextCaption": "",
+          "resolutionFrameRateCaption": "",
+          "customTextCaption": "",
+          "signalIndex": 0,
+          "installedModuleType": ""
+        },
+        {
+          "id": "output-slot-1",
+          "schemaVersion": 2,
+          "label": "SDI",
+          "nameText": "OUT 1",
+          "direction": "output",
+          "signalDirection": "output",
+          "displaySide": "right",
+          "type": "sdi",
+          "physicalType": "sdi",
+          "connectorType": "sdi",
+          "x": 380,
+          "y": 175,
+          "anchors": [
+            {
+              "id": "right",
+              "label": "",
+              "side": "right",
+              "x": 380,
+              "y": 175,
+              "primary": true
+            }
+          ],
+          "primaryAnchorId": "right",
+          "infoFields": [],
+          "resolutionFrameRate": "12G",
+          "customText": "",
+          "moduleCapability": null,
+          "fiberCapability": null,
+          "powerMetadata": null,
+          "empty": false,
+          "nameCustom": false,
+          "faceplateSide": false,
+          "includeInMatrix": true,
+          "matrixPortTouched": false,
+          "operationalStatus": "working",
+          "rowIndex": 0,
+          "customColor": "",
+          "fiberMode": "",
+          "powerPlug": null,
+          "nameTextCaption": "",
+          "resolutionFrameRateCaption": "",
+          "customTextCaption": "",
+          "signalIndex": 0,
+          "installedModuleType": ""
+        },
+        {
+          "id": "output-slot-2",
+          "schemaVersion": 2,
+          "label": "SDI",
+          "nameText": "OUT 2",
+          "direction": "output",
+          "signalDirection": "output",
+          "displaySide": "right",
+          "type": "sdi",
+          "physicalType": "sdi",
+          "connectorType": "sdi",
+          "x": 380,
+          "y": 229,
+          "anchors": [
+            {
+              "id": "right",
+              "label": "",
+              "side": "right",
+              "x": 380,
+              "y": 229,
+              "primary": true
+            }
+          ],
+          "primaryAnchorId": "right",
+          "infoFields": [],
+          "resolutionFrameRate": "12G",
+          "customText": "",
+          "moduleCapability": null,
+          "fiberCapability": null,
+          "powerMetadata": null,
+          "empty": false,
+          "nameCustom": false,
+          "faceplateSide": false,
+          "includeInMatrix": true,
+          "matrixPortTouched": false,
+          "operationalStatus": "working",
+          "rowIndex": 1,
+          "customColor": "",
+          "fiberMode": "",
+          "powerPlug": null,
+          "nameTextCaption": "",
+          "resolutionFrameRateCaption": "",
+          "customTextCaption": "",
+          "signalIndex": 0,
+          "installedModuleType": ""
+        },
+        {
+          "id": "output-slot-3",
+          "schemaVersion": 2,
+          "label": "SDI",
+          "nameText": "OUT 3",
+          "direction": "output",
+          "signalDirection": "output",
+          "displaySide": "right",
+          "type": "sdi",
+          "physicalType": "sdi",
+          "connectorType": "sdi",
+          "x": 380,
+          "y": 283,
+          "anchors": [
+            {
+              "id": "right",
+              "label": "",
+              "side": "right",
+              "x": 380,
+              "y": 283,
+              "primary": true
+            }
+          ],
+          "primaryAnchorId": "right",
+          "infoFields": [],
+          "resolutionFrameRate": "12G",
+          "customText": "",
+          "moduleCapability": null,
+          "fiberCapability": null,
+          "powerMetadata": null,
+          "empty": false,
+          "nameCustom": false,
+          "faceplateSide": false,
+          "includeInMatrix": true,
+          "matrixPortTouched": false,
+          "operationalStatus": "working",
+          "rowIndex": 2,
+          "customColor": "",
+          "fiberMode": "",
+          "powerPlug": null,
+          "nameTextCaption": "",
+          "resolutionFrameRateCaption": "",
+          "customTextCaption": "",
+          "signalIndex": 0,
+          "installedModuleType": ""
+        },
+        {
+          "id": "output-slot-4",
+          "schemaVersion": 2,
+          "label": "SDI",
+          "nameText": "OUT 4",
+          "direction": "output",
+          "signalDirection": "output",
+          "displaySide": "right",
+          "type": "sdi",
+          "physicalType": "sdi",
+          "connectorType": "sdi",
+          "x": 380,
+          "y": 337,
+          "anchors": [
+            {
+              "id": "right",
+              "label": "",
+              "side": "right",
+              "x": 380,
+              "y": 337,
+              "primary": true
+            }
+          ],
+          "primaryAnchorId": "right",
+          "infoFields": [],
+          "resolutionFrameRate": "12G",
+          "customText": "",
+          "moduleCapability": null,
+          "fiberCapability": null,
+          "powerMetadata": null,
+          "empty": false,
+          "nameCustom": false,
+          "faceplateSide": false,
+          "includeInMatrix": true,
+          "matrixPortTouched": false,
+          "operationalStatus": "working",
+          "rowIndex": 3,
+          "customColor": "",
+          "fiberMode": "",
+          "powerPlug": null,
+          "nameTextCaption": "",
+          "resolutionFrameRateCaption": "",
+          "customTextCaption": "",
+          "signalIndex": 0,
+          "installedModuleType": ""
+        },
+        {
+          "id": "output-slot-5",
+          "schemaVersion": 2,
+          "label": "SDI",
+          "nameText": "OUT 5",
+          "direction": "output",
+          "signalDirection": "output",
+          "displaySide": "right",
+          "type": "sdi",
+          "physicalType": "sdi",
+          "connectorType": "sdi",
+          "x": 380,
+          "y": 391,
+          "anchors": [
+            {
+              "id": "right",
+              "label": "",
+              "side": "right",
+              "x": 380,
+              "y": 391,
+              "primary": true
+            }
+          ],
+          "primaryAnchorId": "right",
+          "infoFields": [],
+          "resolutionFrameRate": "12G",
+          "customText": "",
+          "moduleCapability": null,
+          "fiberCapability": null,
+          "powerMetadata": null,
+          "empty": false,
+          "nameCustom": false,
+          "faceplateSide": false,
+          "includeInMatrix": true,
+          "matrixPortTouched": false,
+          "operationalStatus": "working",
+          "rowIndex": 4,
+          "customColor": "",
+          "fiberMode": "",
+          "powerPlug": null,
+          "nameTextCaption": "",
+          "resolutionFrameRateCaption": "",
+          "customTextCaption": "",
+          "signalIndex": 0,
+          "installedModuleType": ""
+        },
+        {
+          "id": "output-slot-6",
+          "schemaVersion": 2,
+          "label": "SDI",
+          "nameText": "OUT 6",
+          "direction": "output",
+          "signalDirection": "output",
+          "displaySide": "right",
+          "type": "sdi",
+          "physicalType": "sdi",
+          "connectorType": "sdi",
+          "x": 380,
+          "y": 445,
+          "anchors": [
+            {
+              "id": "right",
+              "label": "",
+              "side": "right",
+              "x": 380,
+              "y": 445,
+              "primary": true
+            }
+          ],
+          "primaryAnchorId": "right",
+          "infoFields": [],
+          "resolutionFrameRate": "12G",
+          "customText": "",
+          "moduleCapability": null,
+          "fiberCapability": null,
+          "powerMetadata": null,
+          "empty": false,
+          "nameCustom": false,
+          "faceplateSide": false,
+          "includeInMatrix": true,
+          "matrixPortTouched": false,
+          "operationalStatus": "working",
+          "rowIndex": 5,
+          "customColor": "",
+          "fiberMode": "",
+          "powerPlug": null,
+          "nameTextCaption": "",
+          "resolutionFrameRateCaption": "",
+          "customTextCaption": "",
+          "signalIndex": 0,
+          "installedModuleType": ""
+        }
+      ],
+      "geometry": {
+        "width": 380,
+        "height": 521,
+        "faceImageScale": 0.5776636448219031,
+        "faceImageScaleX": 0.5776636448219031,
+        "faceImageScaleY": 0.5776636448219031,
+        "faceImageOffsetX": 0,
+        "faceImageOffsetY": 0,
+        "faceImageNaturalWidth": 1774,
+        "faceImageNaturalHeight": 887
+      }
+    },
+    {
+      "id": "personal-78d26af9-feb3-486a-8069-3f679262c1bc",
+      "name": "3GDA",
+      "brand": "AJA",
+      "category": "Splitters",
+      "fingerprint": "0cb2fb79aeb96e1dfc7dd4172999b2ef122c225647807e6cacbcd39563a243c7",
+      "connectors": 8,
+      "cards": 0,
+      "slots": 0,
+      "hasArtwork": true,
+      "artwork": {
+        "6bffc3474d505483d96ec54ece410da2657a3afadb8bbc9b963c4f834cf3d492": {
+          "bytes": 2165953,
+          "mime": "image/png"
+        },
+        "87b4679b3be9c6423887e5e486115f23aae8223fa574c551b4c1e47dbbbb9e39": {
+          "bytes": 48610,
+          "mime": "image/png"
+        }
+      },
+      "connectorSnapshot": [
+        {
+          "id": "input-slot-1",
+          "schemaVersion": 2,
+          "label": "SDI",
+          "nameText": "IN",
+          "direction": "input",
+          "signalDirection": "input",
+          "displaySide": "left",
+          "type": "sdi",
+          "physicalType": "sdi",
+          "connectorType": "sdi",
+          "x": 0,
+          "y": 201,
+          "anchors": [
+            {
+              "id": "left",
+              "label": "",
+              "side": "left",
+              "x": 0,
+              "y": 201,
+              "primary": true
+            }
+          ],
+          "primaryAnchorId": "left",
+          "infoFields": [],
+          "resolutionFrameRate": "3G",
+          "customText": "",
+          "moduleCapability": null,
+          "fiberCapability": null,
+          "powerMetadata": null,
+          "empty": false,
+          "nameCustom": true,
+          "faceplateSide": false,
+          "includeInMatrix": true,
+          "matrixPortTouched": false,
+          "operationalStatus": "working",
+          "rowIndex": 0,
+          "customColor": "",
+          "fiberMode": "",
+          "powerPlug": null,
+          "nameTextCaption": "",
+          "resolutionFrameRateCaption": "",
+          "customTextCaption": "",
+          "signalIndex": 0,
+          "installedModuleType": ""
+        },
+        {
+          "id": "input-slot-2",
+          "schemaVersion": 2,
+          "label": "Barrel Jack",
+          "nameText": "A/C IN",
+          "direction": "input",
+          "signalDirection": "input",
+          "displaySide": "left",
+          "type": "new-node",
+          "physicalType": "new-node",
+          "connectorType": "new-node",
+          "x": 0,
+          "y": 255,
+          "anchors": [
+            {
+              "id": "left",
+              "label": "",
+              "side": "left",
+              "x": 0,
+              "y": 255,
+              "primary": true
+            }
+          ],
+          "primaryAnchorId": "left",
+          "infoFields": [],
+          "resolutionFrameRate": "",
+          "customText": "",
+          "moduleCapability": null,
+          "fiberCapability": null,
+          "powerMetadata": null,
+          "empty": false,
+          "nameCustom": true,
+          "faceplateSide": false,
+          "includeInMatrix": true,
+          "matrixPortTouched": false,
+          "operationalStatus": "working",
+          "rowIndex": 1,
+          "customColor": "",
+          "fiberMode": "",
+          "powerPlug": null,
+          "nameTextCaption": "",
+          "resolutionFrameRateCaption": "",
+          "customTextCaption": "",
+          "signalIndex": 0,
+          "installedModuleType": ""
+        },
+        {
+          "id": "output-slot-1",
+          "schemaVersion": 2,
+          "label": "SDI",
+          "nameText": "OUT 1",
+          "direction": "output",
+          "signalDirection": "output",
+          "displaySide": "right",
+          "type": "sdi",
+          "physicalType": "sdi",
+          "connectorType": "sdi",
+          "x": 380,
+          "y": 201,
+          "anchors": [
+            {
+              "id": "right",
+              "label": "",
+              "side": "right",
+              "x": 380,
+              "y": 201,
+              "primary": true
+            }
+          ],
+          "primaryAnchorId": "right",
+          "infoFields": [],
+          "resolutionFrameRate": "3G",
+          "customText": "",
+          "moduleCapability": null,
+          "fiberCapability": null,
+          "powerMetadata": null,
+          "empty": false,
+          "nameCustom": false,
+          "faceplateSide": false,
+          "includeInMatrix": true,
+          "matrixPortTouched": false,
+          "operationalStatus": "working",
+          "rowIndex": 0,
+          "customColor": "",
+          "fiberMode": "",
+          "powerPlug": null,
+          "nameTextCaption": "",
+          "resolutionFrameRateCaption": "",
+          "customTextCaption": "",
+          "signalIndex": 0,
+          "installedModuleType": ""
+        },
+        {
+          "id": "output-slot-2",
+          "schemaVersion": 2,
+          "label": "SDI",
+          "nameText": "3G 2",
+          "direction": "output",
+          "signalDirection": "output",
+          "displaySide": "right",
+          "type": "sdi",
+          "physicalType": "sdi",
+          "connectorType": "sdi",
+          "x": 380,
+          "y": 255,
+          "anchors": [
+            {
+              "id": "right",
+              "label": "",
+              "side": "right",
+              "x": 380,
+              "y": 255,
+              "primary": true
+            }
+          ],
+          "primaryAnchorId": "right",
+          "infoFields": [],
+          "resolutionFrameRate": "3G",
+          "customText": "",
+          "moduleCapability": null,
+          "fiberCapability": null,
+          "powerMetadata": null,
+          "empty": false,
+          "nameCustom": true,
+          "faceplateSide": false,
+          "includeInMatrix": true,
+          "matrixPortTouched": false,
+          "operationalStatus": "working",
+          "rowIndex": 1,
+          "customColor": "",
+          "fiberMode": "",
+          "powerPlug": null,
+          "nameTextCaption": "",
+          "resolutionFrameRateCaption": "",
+          "customTextCaption": "",
+          "signalIndex": 0,
+          "installedModuleType": ""
+        },
+        {
+          "id": "output-slot-3",
+          "schemaVersion": 2,
+          "label": "SDI",
+          "nameText": "3G",
+          "direction": "output",
+          "signalDirection": "output",
+          "displaySide": "right",
+          "type": "sdi",
+          "physicalType": "sdi",
+          "connectorType": "sdi",
+          "x": 380,
+          "y": 309,
+          "anchors": [
+            {
+              "id": "right",
+              "label": "",
+              "side": "right",
+              "x": 380,
+              "y": 309,
+              "primary": true
+            }
+          ],
+          "primaryAnchorId": "right",
+          "infoFields": [],
+          "resolutionFrameRate": "3G",
+          "customText": "",
+          "moduleCapability": null,
+          "fiberCapability": null,
+          "powerMetadata": null,
+          "empty": false,
+          "nameCustom": true,
+          "faceplateSide": false,
+          "includeInMatrix": true,
+          "matrixPortTouched": false,
+          "operationalStatus": "working",
+          "rowIndex": 2,
+          "customColor": "",
+          "fiberMode": "",
+          "powerPlug": null,
+          "nameTextCaption": "",
+          "resolutionFrameRateCaption": "",
+          "customTextCaption": "",
+          "signalIndex": 0,
+          "installedModuleType": ""
+        },
+        {
+          "id": "output-slot-4",
+          "schemaVersion": 2,
+          "label": "SDI",
+          "nameText": "3G",
+          "direction": "output",
+          "signalDirection": "output",
+          "displaySide": "right",
+          "type": "sdi",
+          "physicalType": "sdi",
+          "connectorType": "sdi",
+          "x": 380,
+          "y": 363,
+          "anchors": [
+            {
+              "id": "right",
+              "label": "",
+              "side": "right",
+              "x": 380,
+              "y": 363,
+              "primary": true
+            }
+          ],
+          "primaryAnchorId": "right",
+          "infoFields": [],
+          "resolutionFrameRate": "3G",
+          "customText": "",
+          "moduleCapability": null,
+          "fiberCapability": null,
+          "powerMetadata": null,
+          "empty": false,
+          "nameCustom": true,
+          "faceplateSide": false,
+          "includeInMatrix": true,
+          "matrixPortTouched": false,
+          "operationalStatus": "working",
+          "rowIndex": 3,
+          "customColor": "",
+          "fiberMode": "",
+          "powerPlug": null,
+          "nameTextCaption": "",
+          "resolutionFrameRateCaption": "",
+          "customTextCaption": "",
+          "signalIndex": 0,
+          "installedModuleType": ""
+        },
+        {
+          "id": "output-slot-5",
+          "schemaVersion": 2,
+          "label": "SDI",
+          "nameText": " 3G",
+          "direction": "output",
+          "signalDirection": "output",
+          "displaySide": "right",
+          "type": "sdi",
+          "physicalType": "sdi",
+          "connectorType": "sdi",
+          "x": 380,
+          "y": 417,
+          "anchors": [
+            {
+              "id": "right",
+              "label": "",
+              "side": "right",
+              "x": 380,
+              "y": 417,
+              "primary": true
+            }
+          ],
+          "primaryAnchorId": "right",
+          "infoFields": [],
+          "resolutionFrameRate": "3G",
+          "customText": "",
+          "moduleCapability": null,
+          "fiberCapability": null,
+          "powerMetadata": null,
+          "empty": false,
+          "nameCustom": true,
+          "faceplateSide": false,
+          "includeInMatrix": true,
+          "matrixPortTouched": false,
+          "operationalStatus": "working",
+          "rowIndex": 4,
+          "customColor": "",
+          "fiberMode": "",
+          "powerPlug": null,
+          "nameTextCaption": "",
+          "resolutionFrameRateCaption": "",
+          "customTextCaption": "",
+          "signalIndex": 0,
+          "installedModuleType": ""
+        },
+        {
+          "id": "output-slot-6",
+          "schemaVersion": 2,
+          "label": "SDI",
+          "nameText": "3G",
+          "direction": "output",
+          "signalDirection": "output",
+          "displaySide": "right",
+          "type": "sdi",
+          "physicalType": "sdi",
+          "connectorType": "sdi",
+          "x": 380,
+          "y": 471,
+          "anchors": [
+            {
+              "id": "right",
+              "label": "",
+              "side": "right",
+              "x": 380,
+              "y": 471,
+              "primary": true
+            }
+          ],
+          "primaryAnchorId": "right",
+          "infoFields": [],
+          "resolutionFrameRate": "3G",
+          "customText": "",
+          "moduleCapability": null,
+          "fiberCapability": null,
+          "powerMetadata": null,
+          "empty": false,
+          "nameCustom": true,
+          "faceplateSide": false,
+          "includeInMatrix": true,
+          "matrixPortTouched": false,
+          "operationalStatus": "working",
+          "rowIndex": 5,
+          "customColor": "",
+          "fiberMode": "",
+          "powerPlug": null,
+          "nameTextCaption": "",
+          "resolutionFrameRateCaption": "",
+          "customTextCaption": "",
+          "signalIndex": 0,
+          "installedModuleType": ""
+        }
+      ],
+      "geometry": {
+        "width": 380,
+        "height": 547,
+        "faceImageScale": 0.7248364812737529,
+        "faceImageScaleX": 0.7248364812737529,
+        "faceImageScaleY": 0.7248364812737529,
+        "faceImageOffsetX": 0,
+        "faceImageOffsetY": 0,
+        "faceImageNaturalWidth": 1774,
+        "faceImageNaturalHeight": 887
+      }
+    }
+  ],
+  "baselineDeviceHashes": {
+    "camera-ptz-4k": "d8bc23b16df18a924cc08356bdfb2428fc1ee616b041a58cb763e6d011e3329a",
+    "matrix-8x8": "7eabedf704ed9f08fb273d3570d255fb82cf562abc88cdb30918e08488d005e3",
+    "barco-e2-gen2": "bf6cb3adccfc828eea7f0353f2a26d317d8f03817dcf73fc330545fca487b44a",
+    "novastar-mctrl4k": "960d572297a63d0a8491683e692daf701a5475f67a37e6a8fa5ff2895aee15d8",
+    "custom-device-mq7z05by": "5eb46cd4d93892164ac06eb9b640d1aa36b2052c346a0a52135502b98d032c2f",
+    "custom-device-mq803pb0": "4dd36cc6de64f57005655636145acb7c844d7a42af5a8af3f2f562c9162fb840",
+    "custom-device-mq80gw7y": "fd236db8f159682f1103fdcd8b7177052a196c6b96080e2f252a08b0454a2f8c",
+    "custom-device-mq82015i": "b2690f903579d032c4d4b4d2fa7acd4de7b0d93ba66874f26dcb4075b295fd29",
+    "custom-device-mq84dpgn": "ef26252b6e53a5de9114caa86580cd1a16a57a3f61ce4375a500e0e003c13ce2",
+    "custom-device-mq939de6": "c8e98a6acb1225afc5e0699cd01a863f7f9bc2fcf2ffb8f93c128a714c21e007",
+    "custom-device-mq93sah6": "af776ea7d01a4499c067a4050e57b12b4e11ce75018f85ced7d4ebb588d01bae",
+    "custom-device-mq961ujb": "130a98e7c0d3191d4a2a4a1eb18bc055a5a9685a26daedd30bf1adec69b5430b",
+    "custom-device-mq96wvk9": "42a49e929a230571ac14c6832103856e9dce6f7cc072d3b799bc3023f0ca838c",
+    "custom-device-mq9c2k14": "65c11401b093ac3e7e063882400adb41030c541c293a6521acba8950d9f16574",
+    "custom-device-mq9d8b77": "d3f630b3efbbb302033b4289b5bdc64bf349a2a68d35de9a2ca0db5cc5d7b1f5",
+    "custom-device-mq9dqm7w": "f57a5cc287b113ef42f33805cec398e3bc768216cc060a7891f39a2b4c40fb87",
+    "custom-device-mq9f9c3u": "b824a1ab836a5c377b6605d16a336e97faef971551b10bf020eca33fe5a2e138",
+    "custom-device-mq9fgdlq": "aab822bdd9d9059dc17e601d7a9ee07af4e1304665b7dcee86803d14e95f7a44",
+    "custom-device-mq9k09sh": "f451ceb7673f4cd060cf0cdc885c948a51b57f8955d214ce962b4b5fff17a5b0",
+    "custom-device-mqgoe7m3": "d8d71bae01b1b132ae96a9bda58b2985bb7cbfb0f569c2cc679e3b423fe8fe4b",
+    "custom-device-e2-gen2-copy": "b62ecc10204fb9ab97735d5c06df17687cba3078bb63d76394efe7d080093408",
+    "custom-device-e2-gen1-copy": "bb14c1f13cd5d3ff7e03cb65ca4c081ba20fa61f03054812fe122d180284052c",
+    "custom-device-mqiwsva9": "0775dfe0ea43ef50d60644b0f3add9a97b3bcae5e08a528440e6477528b2ebfd",
+    "custom-device-mqj3nj49": "7cc11b827befd9018b46a74893252376747cedd4562acda53519a723f2fbdd90",
+    "custom-device-mqj43gzs": "9fa1cbd04cd58a801cf7457cb20aafec0883721f2b777c8abbd295bdf819dfae",
+    "custom-device-custom-device-copy": "bc1d6fe4ef759a87c74e9b5a722223de6bcb36f5b90ff240025adf5c997eb9b6",
+    "custom-device-mqj4ksjd": "6cbf74d8d235d9c3a1b26d77f1147c2c270a716fcc8195058936ba04c066ff77",
+    "custom-device-m1-dp-hdmi-pro-tx-copy": "91b400d5450d99925b97ade983267785ad4e0583200e38e6a38ea94dc211bfdc",
+    "custom-device-mqkjqqqd": "9f5cf0952d71c4e8ee8c307ccde55f51eaadf6431da219bdc253b874ad6aa1d8",
+    "custom-device-atem-contellation-4-m-e-4k-copy": "5df5b7b62cf197506b1e6b41a42fb63baa9640d5fb05abe7d6b3cba0326eeee5",
+    "custom-device-mqkpef03": "7ff59dffc3e3ef7589ef51e35e405ab36d3e00e3e15ee4793cbbe72ec67e1fa8",
+    "custom-device-mqkqx8lg": "79bde12554f707733c9d8a8a1fce48c006fa64033c5071b1a809eb57cccda377",
+    "custom-device-mqkx04yg": "e0f4c90ddc92a6eca2a9eb0b9f560149856e1c7859f7bffc9ecfd02da18b8ac7",
+    "custom-device-mqkx8fji": "2e8d54c296d72d955f47657a3d86783577532dbcde4dec9e9c17cc3d63e7264f",
+    "custom-device-p20-copy": "4d9eba2f5264db7b3ece2d9b5b4f0c9b9d0171d2bfdfddd7b16b8dae4337b462",
+    "custom-device-mqqhbped": "5b52e808f38b2aa5e65b8dc4a8bef9b02359028516be06d52c577dc2809384f5",
+    "custom-device-mqqhmikz": "1272c67abe124428b6d3ea2a83e17ad8ae9d4145350a4fa96ee097db6ef8981d",
+    "custom-device-mqqhtywv": "a2b32b6c073baad5b1d01339a62d7ffd40aa1365a97da22fbdd1944e9061cd47",
+    "custom-device-mqqkh3lq": "a11dbc12eb3e164c74f1ad2ef02eb933db739effa77de94c796cf2a14e961795",
+    "custom-device-mqqmigja": "6491591344767b5df800931fc4156dfaf02e74adfa52aacb27646550ab546756",
+    "custom-device-mqqmmarc": "cc87ce567f06df17d19eff22034ff7d03dfe34286fd404b5452dd37b9d442f11",
+    "custom-device-mqv5z17y": "4ffea748870aa5b91305c37d9561877c01fab7732cad3a96d2d4003baad28426",
+    "custom-device-mqv6d5lu": "d13a60f77698b9cba53f8af5009f7f3152c0dea3e4eb1c6d5f318a31b657fe10",
+    "custom-device-mqv6jegr": "b96b0fa755b3f7bf3b7d51fb2ab4f47a06d4fc4db70930473ce6fb4b6bea9b22",
+    "custom-device-mqw9yhs8": "0569521aab80bcaa62aac861ea29dcf3e7b73f050deb3878b0244e39f417db08",
+    "custom-device-mqwcg4mc": "51594f5fc460197396cec19d7347f66e9fb31c9820b77fce5aa8f0a5f83a205c",
+    "custom-device-mqwdo4zp": "e39599529a2c3f788f55958c0165336d710b085021f3b9bb1161302bc0e6fda9",
+    "custom-device-dm7-copy": "f9e7dac107c7841c64bb5a1e1584c0e735ba0f3bf16d4aec326dcd9b860beb9a",
+    "custom-device-dm7-copy-2": "571380218b245f83eca3a8de350cc5a4ee0cf87039752df70e4cee32c6e9128c",
+    "custom-device-mqz417mi": "9e690998b2db559316b1792b5acf7a4232aeaed91a3ae98841c6d97ceb6ca68b",
+    "custom-device-mqz446pi": "1baef1f02c11fcdc3af82c32ba4576e4209f6186d307beb008e01b836aed9f76",
+    "custom-device-vx4s-copy": "47af4d87be6eb408271965cd10bf29cbf2e65cbb56eae3a4544f6642ebed7109",
+    "custom-device-mqz28eyz": "f7c78b82300945d9bec839a0a5abe7215a1a0f0de6c70756102bf169fa240587",
+    "custom-device-mrn1z47g": "b1c848fc9263d3e0247ef548f4051c189605ee1cc42ae2d894b2e9fbe600f3ac",
+    "custom-device-aquilon-rs2-copy-2": "a4ce1972c4cfa2aa22b6c63b0de5c467be40be47c12f2e804c5b69c3a72b5df2",
+    "custom-device-aquilon-rs4-copy-2": "fc8a1ee63c7c60bd28a74ff139fba7dd9925559191fda2c072319fd5118e9b78",
+    "custom-device-aquilon-rs6-copy-2": "a9e7a168fad5a476e2a47756a72433a6769f911e9b7af7ad2f0de420075934fa",
+    "custom-device-aquilon-rs-alpha-copy": "cb9fe4a89804e72c60c0f7529acaae3cbef932bea731cdf826866486f037e8f6",
+    "custom-device-aquilon-rs1-copy": "9cbea03b5069231b70bb5cd2ab6da737730683a3fd05e5bf9820fe092b65f362",
+    "custom-device-aquilon-rs2-copy": "134764627b8c5dd9b610561c82930485bf1503179691f3a59df6c672d5fc613e",
+    "custom-device-aquilon-rs3-copy": "52392dd6d83d76410cda7c4f6485f426414aa0cf95f743db1593cd30bc65e4f8",
+    "custom-device-aquilon-rs4-copy": "ef84be854cbcef6fc7ce1c8ff4e67b7c2351ba9c44a187f48939c7cf4ded7781",
+    "custom-device-aquilon-rs5-copy": "64089d6cf56a24ac4148df7d1125828b0d5a39d8376b6eada3f76309b5849430",
+    "custom-device-aquilon-rs6-copy": "b5bddad1516fffdc911e243217ead3253090de51dc333d632194d791a47b26b9",
+    "custom-device-mqz57vqs": "876ff8b51fbd4c441330287979d6c1a21edfadb4bfa2f289700a726aaceef375",
+    "barco-udx-4k40": "de199b4136953f5f639306bd825dde7f62a41925f5b2e69e3aa29cd881515ed1",
+    "barco-udx-4k22": "bf9e6c079c641433f60111ded615aad392348b343200035fe460ef948a265b54",
+    "custom-device-mtidnv7i": "d85121208d792c99b7a05e4eecd9216ff79b6e31694596d91101f319cfdebf87",
+    "custom-device-mticfthn": "1216146c40a00a9b4dcae4c7fc81d0abb62c1484af7df5626e2694167a1b1d71",
+    "custom-device-mticgo23": "dd7f38302590a294c72bbd820a2651cf3cfb38e73dd3c23d0f291c7062c8de57",
+    "custom-device-mtichhpp": "6828c4dffddfb21c8697ac3b9ebc2c39457487e01ade793e8856074fbd01911f",
+    "custom-device-mticj8aq": "c80c0b099e5d8ba2cb438b48a473c59a2d3df4966d61947ae555a12e3f8c5b00",
+    "panasonic-pt-rq25k": "8413a93be782f14a029d17faaa59de5787c286bfaa656d4cfa5d6a3cabab4d95",
+    "christie-griffyn-4k50-rgb": "f5c597ac2b06aa4f6d5b4433a8baaea07c695aa4e81dfde234d5f765e0511496",
+    "christie-sapphire-4k40-rgbh": "f92d6ba4764584e81e475c147b2caeebdd433c502d6e6b5ffba8abb0cfa20df7",
+    "brompton-tessera-sq200": "6334ef68a060da4a606d8392e43982604cc0fd2a25ade74ded39d8b8d950741b",
+    "brompton-tessera-sx40": "8c5ab54863d7c0487d43a3a805adbe475c3d77b7fe88822a9814b64d1c052886",
+    "brompton-tessera-s8": "6d196a9be382408d2d964785a01d799f284a189c0d748ffed9c3c397ececa101",
+    "brompton-tessera-qd-s": "4cde69968aac82c281d42f2ac9c4a3a037b9e51ca7b51c31dcb70009b0167ffd",
+    "brompton-tessera-xd-s": "c094c14fd177fdbcbe5d6e0b71788b93ef4a03e36505b7a4bc0617b7a258e61f",
+    "novastar-novapro-uhd-jr": "46b1f315aee0b994265179ffad71d3e0ccd9b3ed050a7ea9d7cf2cdc9e679799",
+    "125a-soca-distro": "86efe763c60e64445e0e428b370c972e0f51022e2d26d7b9dfe50c736c369a64",
+    "13a-plugboard": "9afe7dccbba8898510fd563f48a3ad9719c2d712bfa16a51e78a9794bbb14d8a",
+    "32a-soca-distro": "1158195da3471c53fdcaa9bd6bec41526e09522e7a55a849ef4ed6667615e6a0",
+    "400a-ses-db": "79075bd297eb4ff2612232bcb79f22b2b292749b22835aafbdc93494c4944da1",
+    "4k-hdmi-splitter": "15e2ee469e9b00bd85945f7ae3702b6d14fd8689cb4f8c62433a1f42d45c13e6",
+    "dgs-1024d": "116b6b24a5cdf95ae65685fdc6d426417ddce46e0ed88e6c4b592d470431f30b",
+    "fiber-extender-rx": "fc9d6fbd62f684ef7cd2aaf15eece77ea75eb6fb165117c6bcd68633e32a4b2a",
+    "fiber-extender-tx": "26ace9784486b27c461f499a33df9eed8e944d5db8092dabf5b7024ec15efbba",
+    "hdmi-to-dvi": "a8bda595ef4e7c2c0365449a7422ec9bd85a5cfb3fe640d19ddc37b7f06d2f69",
+    "mac-mini-m1": "307ab90a256a99308860c81229d4d428991b960bf53c232235fdc55c85298487",
+    "pixera-two-octo": "43ba53c564df962726910532d0ae7864b19a4e39aba14d2d042e27b37d03c55b",
+    "prosafe-xs508m": "4aac389c7ec440538aeabf12e03939171ebeeeff0cf0c56d19bdecd4742f53e2",
+    "soca-to-6x-16a": "cd3cd52e5e5fc3a73839f6b819602cb970e076e1a09c5964112afc4debe631f4",
+    "soca-to-6x-powercon": "f8aec191c7582a3e3b70fcbc67caaec0b47319a309e5e082c4fd09b099ec05fb",
+    "custom-device-mvaqvarp": "78ae2f2b3114c7e6561e4e915b6a3d6335ce80da566964b43ff93d3c9985008e",
+    "custom-device-mvevuyh2": "9f453d4aca15d3fc2c6c76650269adf8ee1e4cbc6a035c5f29ca99e07119aee0",
+    "custom-device-ex-2c-copy": "eaba0df57974b2a6af91c0bd8ffc45e269ee5b5bff222add8a993996fdca643d",
+    "custom-device-ex3-copy": "4c7b4fab7f33ac9f07e4b797d5f1eec1f6d293615785d84c79def5a19fbe1b19",
+    "custom-device-gx3-copy": "990d4159da9ff2a60e8a8679d9c4b767f6a9b6fb61e82ae4ba69f5670a49fd16",
+    "custom-device-gx3-copy-2": "48c354337dfc0ac6320232c876981fc03863a16726b2167135d80884cc941bbb",
+    "custom-device-gx3-copy-3": "dba216e9c54a0c24b0ee963cc72993c3f0fb20b5f9cc71ba7da7b4bdd4300ea2",
+    "custom-device-hippotizer-boreal-mk2-dp-1-2-copy": "cff2a5b6f7eedf28b582f6321468fba75736f7c33291fc2fcfdb3b4bac005f1c",
+    "custom-device-hippotizer-boreal-mk2-hdmi-2-0-copy": "210b400b6b49943da35821ba061fa636eafbcd50dfa8750d7dd200daa41a91a7",
+    "custom-device-modulo-player-pro-ruggedized-4x4k-copy": "a3600433b1a4eb2a475a921008256e2db07cc04bd570149f4b6255339d952408",
+    "custom-device-modulo-pro-ruggedized-4x4k-copy": "3cf1c738f0ca91cca40c0df34e557f380a9fa03d4f50129905e1287478217480",
+    "custom-device-mvf4q0db": "a7beb403387e02100ae5c82d11849f4da5008f74b8e971da788bec0c17ab0a7a",
+    "custom-device-mvgekxns": "e440c45dc3cb507e106f037a60a852cbbe89f9355566ef09defa5e95759ab896",
+    "custom-device-v-160hd-copy": "9a5a633e72df28ccb0ab39e08138531e7b68e5f49398e7047fcb8d76b205b3a4",
+    "custom-device-vx-4-copy": "f09e8185c852c6a6f2deacee3e1733a5edad8439574dd7e75d5c2cf7623b4b0e",
+    "custom-device-vx3-copy": "dfd0fbe54d8aae9c6fd941cb1159882faf1812980925030e8ccc80aedc48bcef",
+    "custom-device-vx3-copy-2": "a579b6e7d95f3a78cdf2e9bf69677bc21471378d37e46409286a27ab18225b13",
+    "custom-device-vx4-copy-2": "b0b61b3da3a7a242bc6694c3f9a5e504a237b8e2fe95bf17a3c680e5d6cc7ff4",
+    "modulo-pi-player-pro-ruggedized-4x4k": "90cc4f262c2332ec0ff1647d1a57a23f1ce55195971fc8c7056237da182732f5",
+    "personal-d21bdb6e-18a7-4ec1-9802-bcc383eeaadd": "8f0e5b82efbbaa02d387c52f7f253967015b92cca921480aa23c3c6bc935a3c7",
+    "custom-device-eikos-4k-copy": "dc753c3044242a581ddb88742af6315c50da42ac09f369090415cdbc43af2a58",
+    "custom-device-mvhqsv2w": "d9a714ece9c4caffd8de3a47cec0201614bd9bce89ba5bea807902471fbaf07c",
+    "custom-device-mvhz2z2t": "152b77c950f4eb7edfc3510ac2b828b23fd9c5d4905cfbd41864e05759fe2886",
+    "custom-device-mvi2qkk6": "ec50524042250800d1072bf7c77534ece188a4c29e080e47d7a9620177552b3f",
+    "custom-device-pulse-4k-copy": "e9cfd2ab44f2461cc61ebc4f8215969eb1de46b0a3e931d9a5b46e3eb442b33c",
+    "custom-device-quickmatrix-4k-copy": "2d9cc225a79d0ae222edf1421e390669e203d668e68fc830e2c833924e1c6a3d",
+    "custom-device-zenith-100-copy": "042038cc3ea53f4e9f920f89b50ccc7115e5518627ef510ce248c366465dc752",
+    "custom-device-zenith-200-copy-2": "50b357917fc5adafef5bd5a58f69c25341ad0fb8b0addc91b84b247e140f35a2",
+    "custom-device-e2-gen2-copy-2": "734882b462ac9ac76c6bac296e90b3c432a465d32088700c252afe05895b1c13",
+    "custom-device-hippotizer-boreal-mk2-hdmi-2-0-copy-2": "2ffca2f7be9981feef0b97eb3d18b1a5f52b87c692abec38a7e22db9e8660fb8",
+    "custom-device-mvjgk74g": "e9260a5ada90f40fe5cfdd04324b1b5a7bc1d5c5792c23fd1a9ce812f258da85",
+    "custom-device-q8-copy": "603e6a4330f0eb2915b5dddf173accd63d45ad7f61cc3cdb750412e39ed3993a",
+    "custom-device-v-80hd-copy": "78cf7e801b13ee1f1f716cb33e7b13b24a09afed65cf3e948363c3641d5ea35b",
+    "custom-device-mvp2ub68": "c8c56f3998c7050534c2f9daa92b7f6b4a5c0d1f381de9835d1fbd01d730d436",
+    "custom-device-mvp3nb9m": "2b452c301c1a659a87b1f2da3efee950e6f6a5c59593b69492785b3ffc32f285",
+    "custom-device-e2-gen2-copy-3": "39c42aa52f8f5db8f60c8da2995c387fd36c04b63fa38ecf607860dad947d8c4",
+    "custom-device-mvpjkcho": "1746fd37aa2eee9b70e26f1fa6e9a5f8652e816a4e6c9f098f421302178a9f7c",
+    "custom-device-mvpkodby": "c645245c640c82fcf34ef37e7ad12a363f86bedc94441d3c6eaeaed283371339",
+    "passive-xlr-snake-4ch": "47b7481a02162b5029358d8cf2268f42e4d5b408605d1ae97c3cc7dd4f9a9a90",
+    "generic-qsfp-breakout-lab": "450de25e18201ae139d3fc32e0dd6fe0e220816cea2e96055bc6ab203fbca250",
+    "generic-transceiver-configuration-lab": "6877a3d6357ed35df36f2fe2766c0a1002b56931055ac56fc38786544487cb98",
+    "custom-device-hdmi-sdi-bi-directional-copy": "7cfc6715bcde7643d43ba6bf9ada4b1174e600254db483e7715fdf549ab18982",
+    "custom-device-laptop-copy": "09dd375a37e0dec05fb7b81e4d315da4b87afd37a931e0415e027e5e24807f70",
+    "custom-device-laptop-copy-2": "e97c5f7e29be1d1c8fd0fe189c07e78d279645642245e74c4bbfabdaa804ccf6",
+    "custom-device-laptop-copy-3": "f2026ba3f33476521b1767bd843a767a9ef24fde734605328df60e73d3247247",
+    "custom-device-laptop-copy-4": "26588a109665369a118ca6c9cf2f437c5974422159999ac47eebd222b07df5b8",
+    "custom-device-md-hx-copy": "65ad719d50db5c82b1b50b784dca804077b05cf94f4b3ef03a4bb59d1d0bb913",
+    "custom-device-md-hx-copy-2": "2ec2b667a5674fe596bfba7a2125a4398ed4516439de66048d05b7a2bfafd0df",
+    "custom-device-micro-converter-hdmi-sdi-12g-copy": "862f56b668345c1040d6b01712bd36d7e453f13e025cfe3d561220c29a8b312f",
+    "custom-device-micro-converter-sdi-hdmi-12g-copy": "b4633b38fc3fa19ad1b0efae030c4b66583b678347263f88cf82830c17f6ef94",
+    "custom-device-modulo-player-pro-ruggedized-4x4k-copy-2": "74023cb74257589b776b102fc24d5c5ab2da2d9fa10536edfc990d37fa660f87",
+    "custom-device-modulo-player-pro-ruggedized-4x4k-copy-3": "02d79393397a5f0ce62db0c4c2b9b5125e6cc50003f660abe45a8b5feb4e76cc",
+    "custom-device-mwdl1enc": "29e17b3b0e2d789afe841c1ac1490a2d941d15681b8c1b4337f23895465a3f06",
+    "custom-device-mwkqpl2j": "69680c94fedf21c0eefde4595a4255a3ff08db7494c6d2db1c00e993ca9ba2a3",
+    "custom-device-mwlwbqrr": "e34e38650ff33dc9f060beba6ec603a6388ae738e83fc912c0ffc08150fc6c44",
+    "custom-device-mwlxeydn": "acd0cd91e399db83cb6ccab7696c3414ab249b0210fb8ebeced72481094990e6",
+    "custom-device-resolume-server-copy": "09c7310e3e2b8f9eec7335c0f4ca81e01b6b586262247245cb3b1b4561e6d5d1",
+    "personal-46995662-ff6e-4168-91f0-e163aeba728d": "dd620e93834c9b219df0139845fed3f2cf40d2af9ce6c9faeba2c598cc6bd937",
+    "custom-device-mwnac1cg": "4671da189578d5bd1a9f7fd5781e68ff99efde76d45a80e13c57ff96a86bad43",
+    "custom-device-mwnarvif": "14883fae2a04b3c69fec3c4d772ee987fb2d2785342e92c75f6eb705a346454e",
+    "custom-device-mwnb65sh": "30cb804e8d8bc3209f84d5b92f85b419120e4c2ab19a5ce70a533bf0ef681781"
+  },
+  "baselineNodeHashes": {
+    "nodes": "35a078cd7e5938450d1969432c76c75237cf7d5854105ce985e345191eed01e0",
+    "nodeTypes": "50a387fa6eaf4d4c64cb429e7daaf8e4bd25367b119d1fa6ad30a2576cd45589",
+    "nodeTags": "bbc930da4ddeb398bfe85339aa089d0929a043d4a9794d017720817e111394f5",
+    "nodeThumbnails": "b9674353e4b33310ebb4f42fae01c8457350a3c3820fb9967eaf9493e9f2d1b3",
+    "libraryThumbnails": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+  },
+  "originalAssets": {
+    "Devices/faceplates/E2.png": {
+      "sha256": "9797eecdb1b40462c458ac4699c6954b2f65850fd7561ecd2ce00dce47a86759",
+      "mime": "image/png",
+      "bytes": 42409
+    },
+    "Devices/faceplates/library/thumbs/barco-e2-gen2-barco-e2-gen2.png": {
+      "sha256": "08166e36c42837c2fc8a452b5459413f31f5697149816cb687ef9e3356211a95",
+      "mime": "image/png",
+      "bytes": 6380
+    },
+    "Devices/faceplates/library/novastar-mctrl4k-novastar-mctrl4k.png": {
+      "sha256": "0a537823720d8953f0a35d53a10c8e66ae02f53c9cafee78d1f647b8299a1b51",
+      "mime": "image/png",
+      "bytes": 40213
+    },
+    "Devices/faceplates/library/thumbs/novastar-mctrl4k-novastar-mctrl4k.png": {
+      "sha256": "98d817da3919c2e0713f5d1c48df7ec699ea0dfe14d886b9b8635bb86d0c29c0",
+      "mime": "image/png",
+      "bytes": 3617
+    },
+    "Devices/faceplates/library/avstumpfl-pixera-two-custom-device-mq7z05by.png": {
+      "sha256": "7c37c60e7e71aa0d7d5d15f41eb9e8ca642c54127cb1328de390acd811b0199a",
+      "mime": "image/png",
+      "bytes": 280363
+    },
+    "Devices/faceplates/library/thumbs/avstumpfl-pixera-two-custom-device-mq7z05by.png": {
+      "sha256": "a362cc209a6b20ede4ba1435363c72146529c106765321696a6151e45db5a265",
+      "mime": "image/png",
+      "bytes": 7009
+    },
+    "Devices/faceplates/library/apple-mac-studios-custom-device-mq803pb0.png": {
+      "sha256": "167a0fd43b9b972bef379a84ad69385ea0f57eca5da50cc0749815dd2a832366",
+      "mime": "image/png",
+      "bytes": 322408
+    },
+    "Devices/faceplates/library/thumbs/apple-mac-studios-custom-device-mq803pb0.png": {
+      "sha256": "0262dff5dbd49f956fe856158b79ca4c71664112b4fedca60bea1e184fb063ba",
+      "mime": "image/png",
+      "bytes": 11155
+    },
+    "Devices/faceplates/library/misc-laptop-custom-device-mq80gw7y.png": {
+      "sha256": "a6860e0469b49fff7bd8873884d4dc57d3c3bd16ceb13c418d266a1d09d9c964",
+      "mime": "image/png",
+      "bytes": 145331
+    },
+    "Devices/faceplates/library/thumbs/misc-laptop-custom-device-mq80gw7y.png": {
+      "sha256": "11660f438753ffb7de94fed4535b9dd295ab09e5f43b2c23a5c2d877dc919c2c",
+      "mime": "image/png",
+      "bytes": 11554
+    },
+    "Devices/faceplates/library/elgato-streamdeck-xl-custom-device-mq82015i.png": {
+      "sha256": "043d40edf0595dd61844f32f375c5ef05fc7ba298e90eae05742b68f2ba94ff9",
+      "mime": "image/png",
+      "bytes": 473929
+    },
+    "Devices/faceplates/library/thumbs/elgato-streamdeck-xl-custom-device-mq82015i.png": {
+      "sha256": "1ef940e626c534429552829c8958a4722365c386bbc35c4257d8eb6a0c24c520",
+      "mime": "image/png",
+      "bytes": 41214
+    },
+    "Devices/faceplates/library/pixelhue-p20-custom-device-mq84dpgn.png": {
+      "sha256": "aec84c985834836c9fb4bd11717088045bb93b473d275701f8fe28f6219c61b6",
+      "mime": "image/png",
+      "bytes": 543135
+    },
+    "Devices/faceplates/library/thumbs/pixelhue-p20-custom-device-mq84dpgn.png": {
+      "sha256": "8822ac9ed36877fc610b8f0dbf91b74304baff393c548f19429d5708cb0f3a4d",
+      "mime": "image/png",
+      "bytes": 10855
+    },
+    "Devices/faceplates/library/netgear-m4250-10-port-custom-device-mq93sah6.png": {
+      "sha256": "4b55b2f43f832be28184fa0aa38e552196a399ee2107db25252a39307ed1d33e",
+      "mime": "image/png",
+      "bytes": 146087
+    },
+    "Devices/faceplates/library/thumbs/netgear-m4250-10-port-custom-device-mq93sah6.png": {
+      "sha256": "5e0bddc75da541f1b8fab1d3ab60767f2ca80ae277b78544c32bbf5b6b03b278",
+      "mime": "image/png",
+      "bytes": 4946
+    },
+    "Devices/faceplates/library/resolume-server-custom-device-mq961ujb.png": {
+      "sha256": "5ef1efec572f56b09bc652906e6da396de868448a5f8ff95c47a174fb682afb8",
+      "mime": "image/png",
+      "bytes": 1401441
+    },
+    "Devices/faceplates/library/thumbs/resolume-server-custom-device-mq961ujb.png": {
+      "sha256": "e5976847e59021da9d95fd60e7008b70963cd447c8bf943a729e0f217e0542b5",
+      "mime": "image/png",
+      "bytes": 12163
+    },
+    "Devices/faceplates/library/blackmagick-design-hdmi-sdi-bi-directional-custom-device-mq96wvk9.png": {
+      "sha256": "df6bf10850a11a1287421fb2f3dc229233cd06ce32b767753f6ebfb0364d28d0",
+      "mime": "image/png",
+      "bytes": 204248
+    },
+    "Devices/faceplates/library/thumbs/blackmagick-design-hdmi-sdi-bi-directional-custom-device-mq96wvk9.png": {
+      "sha256": "6eece09b609c358744bb11181d17a279b3b3dedcf024529d824394c4f1e39f53",
+      "mime": "image/png",
+      "bytes": 29346
+    },
+    "Devices/faceplates/library/monitor-custom-device-mq9c2k14.png": {
+      "sha256": "9c50d833ea6b7359959ef5f91f80129dc421c098fb34b2512c15679dbd7a94b7",
+      "mime": "image/png",
+      "bytes": 224828
+    },
+    "Devices/faceplates/library/thumbs/monitor-custom-device-mq9c2k14.png": {
+      "sha256": "0afa7f83af27bb0c363d97502b6e5d652ab00ef46e171dcb287682e38e36f292",
+      "mime": "image/png",
+      "bytes": 6438
+    },
+    "Devices/faceplates/library/panasonic-aw-ue100-ptz-custom-device-mq9d8b77.png": {
+      "sha256": "cdd37c796de7c6d60bd05f14f1a7727547f96cb1926170ffd237e9d5c7e62a0e",
+      "mime": "image/png",
+      "bytes": 138647
+    },
+    "Devices/faceplates/library/thumbs/panasonic-aw-ue100-ptz-custom-device-mq9d8b77.png": {
+      "sha256": "8f39323675a00e8bee25a2356f4e71b7518c783569b5b854204d50828615bcd9",
+      "mime": "image/png",
+      "bytes": 5322
+    },
+    "Devices/faceplates/library/theatrixx-hdmi-da-custom-device-mq9dqm7w.png": {
+      "sha256": "81d8d91544074ccf68937b10da3bd269a34787fee4b9907d5ce1bc708aea34ca",
+      "mime": "image/png",
+      "bytes": 170103
+    },
+    "Devices/faceplates/library/thumbs/theatrixx-hdmi-da-custom-device-mq9dqm7w.png": {
+      "sha256": "79e33261b70ab1205af9eba4c672bea73630ea7297e020645de03c6bb41cf683",
+      "mime": "image/png",
+      "bytes": 6030
+    },
+    "Devices/faceplates/library/lightware-mx2-48-x-48-hdmi-custom-device-mq9k09sh.png": {
+      "sha256": "d855302ef432509313ecfaaac0fa91d3da65078fb57f8ea2cf20b8c0127317f3",
+      "mime": "image/png",
+      "bytes": 1399623
+    },
+    "Devices/faceplates/library/thumbs/lightware-mx2-48-x-48-hdmi-custom-device-mq9k09sh.png": {
+      "sha256": "580cb3b93aa83060373abad8f23e7ad294eadedd649f3e9465d1d01dc8be0929",
+      "mime": "image/png",
+      "bytes": 27770
+    },
+    "Devices/faceplates/library/interspace-industries-microcue-3-custom-device-mqgoe7m3.png": {
+      "sha256": "a38966412813313e77b386bd18d4a8dad4046705e8ef9c70399636adb47e277a",
+      "mime": "image/png",
+      "bytes": 174520
+    },
+    "Devices/faceplates/library/thumbs/interspace-industries-microcue-3-custom-device-mqgoe7m3.png": {
+      "sha256": "e8fab7a09eb0ab4a9d04f5c61bd09016310e867b21687a7db902c1a569acadfc",
+      "mime": "image/png",
+      "bytes": 5997
+    },
+    "Devices/faceplates/library/barco-e2-gen1-custom-device-e2-gen2-copy.png": {
+      "sha256": "006d0a2355cf7d585cd0788ccbeef3b029e312170bae14b8b188750d79756f2b",
+      "mime": "image/png",
+      "bytes": 41867
+    },
+    "Devices/faceplates/library/thumbs/barco-e2-gen1-custom-device-e2-gen2-copy.png": {
+      "sha256": "63f1a49fa07a16f0ab34b71f6a4a7fc4d21869bfcf8c7f1616b00d07799de965",
+      "mime": "image/png",
+      "bytes": 6399
+    },
+    "Devices/faceplates/S3.png": {
+      "sha256": "43a5aa43fc6e3e635b501623cf92c79411c52ca82051861a4275703d89e5214f",
+      "mime": "image/png",
+      "bytes": 34289
+    },
+    "Devices/faceplates/library/thumbs/barco-s3-custom-device-e2-gen1-copy.png": {
+      "sha256": "e21e0ed6d36b336fc18cda6dec273de3b52f703b0ee0a0731cfd8178bd280a57",
+      "mime": "image/png",
+      "bytes": 5134
+    },
+    "Devices/faceplates/library/novastar-mctrl660-pro-custom-device-mqiwsva9.png": {
+      "sha256": "d10b471a3c56d8c45c7057e283bdacafea452f08dd25c92917b1f2bae4ad680b",
+      "mime": "image/png",
+      "bytes": 197778
+    },
+    "Devices/faceplates/library/thumbs/novastar-mctrl660-pro-custom-device-mqiwsva9.png": {
+      "sha256": "c731b47de7be0ce31e7f7dfd73764256ffb46fec5330ebb36bcf35ef59ec3063",
+      "mime": "image/png",
+      "bytes": 3721
+    },
+    "Devices/faceplates/library/blustream-acm200-custom-device-mqj3nj49.png": {
+      "sha256": "51253220b41bb6ff3b19c3854ede82c8afcfdbc2ceb602fb6046f0022a922f68",
+      "mime": "image/png",
+      "bytes": 741131
+    },
+    "Devices/faceplates/library/thumbs/blustream-acm200-custom-device-mqj3nj49.png": {
+      "sha256": "ea7c07c004204a6944bfd2887fff8f50ae57e2bbac5cdc703f9fee32cf787971",
+      "mime": "image/png",
+      "bytes": 8828
+    },
+    "Devices/faceplates/library/blustream-ip50hd-rx-custom-device-mqj43gzs.png": {
+      "sha256": "19497c3a66e53079429a620a760d9b2b0598edc71dfddb9a4e4c44be9dfd1af7",
+      "mime": "image/png",
+      "bytes": 124455
+    },
+    "Devices/faceplates/library/thumbs/blustream-ip50hd-rx-custom-device-mqj43gzs.png": {
+      "sha256": "35c77e1b108dcf4d867a7fc58d9fe71f9d288871dc6404754c55be4558dc9a37",
+      "mime": "image/png",
+      "bytes": 5574
+    },
+    "Devices/faceplates/library/blustream-ip50hd-tx-custom-device-custom-device-copy.png": {
+      "sha256": "393a8f91261f0de1805c1caa6e1381519e62077c1b547705d195467cc249f4e1",
+      "mime": "image/png",
+      "bytes": 131326
+    },
+    "Devices/faceplates/library/thumbs/blustream-ip50hd-tx-custom-device-custom-device-copy.png": {
+      "sha256": "77735a0549809111106c2dbe1809988f2cdbd3437d5a56386d77e5e9a8fdb98b",
+      "mime": "image/png",
+      "bytes": 5464
+    },
+    "Devices/faceplates/library/beetek-m1-dp-hdmi-pro-rx-custom-device-m1-dp-hdmi-pro-tx-copy.png": {
+      "sha256": "033e4dcbff6c91e93c2ccbc0ae4f6ffbac97e3438ba527a89d15e5ecd30ba275",
+      "mime": "image/png",
+      "bytes": 223518
+    },
+    "Devices/faceplates/library/thumbs/beetek-m1-dp-hdmi-pro-rx-custom-device-m1-dp-hdmi-pro-tx-copy.png": {
+      "sha256": "a58cbf52c50ab2f313790cc6dc32121eb9b083fc1e5b4c5839df739db42631ae",
+      "mime": "image/png",
+      "bytes": 18507
+    },
+    "Devices/faceplates/library/black-magic-design-atem-contellation-4-m-e-4k-custom-device-mqkjqqqd.png": {
+      "sha256": "933488806183ae32d153ba61d978857dbbf45bdca7adb1b528be2aa2149b44bf",
+      "mime": "image/png",
+      "bytes": 348399
+    },
+    "Devices/faceplates/library/thumbs/black-magic-design-atem-contellation-4-m-e-4k-custom-device-mqkjqqqd.png": {
+      "sha256": "967113164d2f4f2f2b89a51ec4883589a4fd004dd5d1f1203598f9263dc92570",
+      "mime": "image/png",
+      "bytes": 7770
+    },
+    "Devices/faceplates/library/black-magic-design-atem-contellation-2-m-e-4k-copy-custom-device-atem-co.png": {
+      "sha256": "48790f75124d1757cc4d8c2c5e75caf16dbfad617522b7722f31d3a8e9d9daa0",
+      "mime": "image/png",
+      "bytes": 463831
+    },
+    "Devices/faceplates/library/thumbs/black-magic-design-atem-contellation-2-m-e-4k-copy-custom-device-atem-co.png": {
+      "sha256": "b684899f00ee3473af0c379ab691682000efc0ecadb8344e7fb648546c36ea0b",
+      "mime": "image/png",
+      "bytes": 5169
+    },
+    "Devices/faceplates/library/magnimage-mig-ec90-custom-device-mqkpef03.png": {
+      "sha256": "e9306c824552d0f9f32e13afcf8656a14eeda6a93893cc1d8c12b067e9888d33",
+      "mime": "image/png",
+      "bytes": 638399
+    },
+    "Devices/faceplates/library/thumbs/magnimage-mig-ec90-custom-device-mqkpef03.png": {
+      "sha256": "d6c5d59e0953e664f8499efec6784b17a4bafafcd9e42cd5c4db7cf96af82953",
+      "mime": "image/png",
+      "bytes": 22253
+    },
+    "Devices/faceplates/library/novastar-vx1000-custom-device-mqkqx8lg.png": {
+      "sha256": "d28c77b2938c442c2fe80b6c5ad311ddab0c10db9e0d38b4a276eb5d8c9e36c0",
+      "mime": "image/png",
+      "bytes": 1119703
+    },
+    "Devices/faceplates/library/thumbs/novastar-vx1000-custom-device-mqkqx8lg.png": {
+      "sha256": "94485b1ea79d25a788a8b513b9b9be3f3c4361de1223076256be7b918eae6e0d",
+      "mime": "image/png",
+      "bytes": 4270
+    },
+    "Devices/faceplates/library/apple-mac-mini-m2-custom-device-mqkx04yg.png": {
+      "sha256": "96ef9b7fdc8da88910d408772bb9a1b0c82e6d8dd4a5ac8b4740286798458ce5",
+      "mime": "image/png",
+      "bytes": 860015
+    },
+    "Devices/faceplates/library/thumbs/apple-mac-mini-m2-custom-device-mqkx04yg.png": {
+      "sha256": "e23bbd03d3d6ad757d7f4697657e14bfc73f235d00b0bc92aa71fb72eac8c9df",
+      "mime": "image/png",
+      "bytes": 12190
+    },
+    "Devices/faceplates/library/apple-macbook-pro-m4-max-custom-device-mqkx8fji.png": {
+      "sha256": "5841aaf012a50831286bbaf046475e8317f0c8e9d6cbac3cf269006a481e88dc",
+      "mime": "image/png",
+      "bytes": 1405638
+    },
+    "Devices/faceplates/library/thumbs/apple-macbook-pro-m4-max-custom-device-mqkx8fji.png": {
+      "sha256": "5c394523be8bc5d7ce62b28ac70c4779436b94cb2fada3f1a7b73310855a1839",
+      "mime": "image/png",
+      "bytes": 16261
+    },
+    "Devices/faceplates/library/pixelhue-p10-custom-device-p20-copy.png": {
+      "sha256": "8ab55c278217b5932541ce2e321ccaeb7308536366e40c178878845c8236217e",
+      "mime": "image/png",
+      "bytes": 91034
+    },
+    "Devices/faceplates/library/thumbs/pixelhue-p10-custom-device-p20-copy.png": {
+      "sha256": "32ebae4e602d5f580a55ad05ff26521dfd64509bac115104483e3a1c10d8985d",
+      "mime": "image/png",
+      "bytes": 7596
+    },
+    "Devices/faceplates/library/l-acoustics-kara-ii-custom-device-mqqhbped.png": {
+      "sha256": "654ad534c2831cb4de527783a1b5c933e62a7f6d9a259018179c6552ee48315d",
+      "mime": "image/png",
+      "bytes": 148674
+    },
+    "Devices/faceplates/library/thumbs/l-acoustics-kara-ii-custom-device-mqqhbped.png": {
+      "sha256": "50333e9e9f9c1c617de135f7bb6c3b7febf26012f58a886dcb66bb2c6444e21b",
+      "mime": "image/png",
+      "bytes": 10794
+    },
+    "Devices/faceplates/library/l-acoustics-sb18-custom-device-mqqhmikz.png": {
+      "sha256": "bb60e25f2c9a4fd3065d519f475f8f9a41b2701af18cace44ca16d51fdfc2f40",
+      "mime": "image/png",
+      "bytes": 173452
+    },
+    "Devices/faceplates/library/thumbs/l-acoustics-sb18-custom-device-mqqhmikz.png": {
+      "sha256": "119babd03d41a7d7c53e16d8ba9b22d8fa8af2822bab98dd82f4fd3739fa2418",
+      "mime": "image/png",
+      "bytes": 17026
+    },
+    "Devices/faceplates/library/l-acoustics-la8-custom-device-mqqhtywv.png": {
+      "sha256": "c03e5bff7a5a073717f656c1fdfd91e3f37c3c3e645df2c831364fc14453741d",
+      "mime": "image/png",
+      "bytes": 176078
+    },
+    "Devices/faceplates/library/thumbs/l-acoustics-la8-custom-device-mqqhtywv.png": {
+      "sha256": "fb4bd7df703aca3d030a0357dc96c2c236a36f35b6548e016cbd52ac4193f3f2",
+      "mime": "image/png",
+      "bytes": 7954
+    },
+    "Devices/faceplates/library/l-acoustics-la-panel-aes3-custom-device-mqqkh3lq.png": {
+      "sha256": "305af8133bf605cb3e37df485cb05f24c218e7ceca1651376db0432029da2815",
+      "mime": "image/png",
+      "bytes": 575594
+    },
+    "Devices/faceplates/library/thumbs/l-acoustics-la-panel-aes3-custom-device-mqqkh3lq.png": {
+      "sha256": "c1235e0efc136b97f78e3db3ddec9701f3ccd6f9f6da42df33068346be7dee21",
+      "mime": "image/png",
+      "bytes": 2864
+    },
+    "Devices/faceplates/library/l-acoustics-la-panel-custom-device-mqqmigja.png": {
+      "sha256": "357f7255898e498a9475abae3ab777985cfb278a9df8ba517725c77be78a1a68",
+      "mime": "image/png",
+      "bytes": 497084
+    },
+    "Devices/faceplates/library/thumbs/l-acoustics-la-panel-custom-device-mqqmigja.png": {
+      "sha256": "4f2f6a6aefd6bcc97b804e93a7308c5bd51fd929f5e35b4179a5e73a0f1a89d5",
+      "mime": "image/png",
+      "bytes": 4480
+    },
+    "Devices/faceplates/library/l-acoustics-la-power-custom-device-mqqmmarc.png": {
+      "sha256": "c59b75db343bc7670457454f59cec92d17baecff9fa85f08c90bd1d2939b513d",
+      "mime": "image/png",
+      "bytes": 541766
+    },
+    "Devices/faceplates/library/thumbs/l-acoustics-la-power-custom-device-mqqmmarc.png": {
+      "sha256": "9d6ec37c93734f40c7ef03b761fb99064140f6b03bd82eb5f5b9fc2b42ed33ce",
+      "mime": "image/png",
+      "bytes": 5260
+    },
+    "Devices/faceplates/library/l-acoustics-x12-custom-device-mqv5z17y.png": {
+      "sha256": "3de118c29aa4fc72cc3f5db34e178934dde6d2bf8e5a8e80c030e74448467a08",
+      "mime": "image/png",
+      "bytes": 851683
+    },
+    "Devices/faceplates/library/thumbs/l-acoustics-x12-custom-device-mqv5z17y.png": {
+      "sha256": "f7c71ce9194f98866dd660a5c1ef5bf3e450bb202c8a8f59f808abad1538fbc7",
+      "mime": "image/png",
+      "bytes": 29509
+    },
+    "Devices/faceplates/library/l-acoustics-x8-custom-device-mqv6d5lu.png": {
+      "sha256": "1672a3a67f9182e8e3143d4d66f8d81220c2ba7be76f33e1936ed9f46a3a9477",
+      "mime": "image/png",
+      "bytes": 101270
+    },
+    "Devices/faceplates/library/thumbs/l-acoustics-x8-custom-device-mqv6d5lu.png": {
+      "sha256": "5e8387b0574921b55ce53559dba503ad170654f2c5855de365ffb89bd8d26070",
+      "mime": "image/png",
+      "bytes": 18750
+    },
+    "Devices/faceplates/library/l-acoustics-la4x-custom-device-mqv6jegr.png": {
+      "sha256": "644f7dcd0690af5d8efb217c1a612a28e626ba552147d24e04c238946f20abb7",
+      "mime": "image/png",
+      "bytes": 155694
+    },
+    "Devices/faceplates/library/thumbs/l-acoustics-la4x-custom-device-mqv6jegr.png": {
+      "sha256": "8f2b11ed5736764462580ad4328c42b955bc6a889e78adfe553c949366633516",
+      "mime": "image/png",
+      "bytes": 5348
+    },
+    "Devices/faceplates/library/yamaha-dm7-custom-device-mqw9yhs8.png": {
+      "sha256": "0f1348149188571bed53f4a55eae2bfa48b2971138121f88e035d3ebdf315530",
+      "mime": "image/png",
+      "bytes": 4886691
+    },
+    "Devices/faceplates/library/thumbs/yamaha-dm7-custom-device-mqw9yhs8.png": {
+      "sha256": "86251a391c0b57c9c53776a5567292391814b8a7796d3b12398f589f08a9acd1",
+      "mime": "image/png",
+      "bytes": 26423
+    },
+    "Devices/faceplates/library/luminex-gigacore-10-neutrik-duo-custom-device-mqwcg4mc.png": {
+      "sha256": "0d609bc3621ac9e7f157ac85bb59134ce78776522d72d02639aae946b1fa7028",
+      "mime": "image/png",
+      "bytes": 371281
+    },
+    "Devices/faceplates/library/thumbs/luminex-gigacore-10-neutrik-duo-custom-device-mqwcg4mc.png": {
+      "sha256": "cd380ea9cf8a96f1cb9501da51679bce716c30fe006ee9f8ae48eeba1dfbd4d7",
+      "mime": "image/png",
+      "bytes": 13640
+    },
+    "Devices/faceplates/library/neutrik-na-2i-dline-custom-device-mqwdo4zp.png": {
+      "sha256": "390a1b42b1b1934afa56ce21969cb7cebe8169e102c2c72326c94f757d57272c",
+      "mime": "image/png",
+      "bytes": 153570
+    },
+    "Devices/faceplates/library/thumbs/neutrik-na-2i-dline-custom-device-mqwdo4zp.png": {
+      "sha256": "ffdec6a274f2d324fb0406c3a9afd054ca9120b58f6b5c28ea2fdb6e0df5b41f",
+      "mime": "image/png",
+      "bytes": 10489
+    },
+    "Devices/faceplates/library/yamaha-rio-1608-d2-custom-device-dm7-copy.png": {
+      "sha256": "64d286b1ff69c5cf17dd117070e5efb5aab009194543aa905e8da45f541eada1",
+      "mime": "image/png",
+      "bytes": 640354
+    },
+    "Devices/faceplates/library/thumbs/yamaha-rio-1608-d2-custom-device-dm7-copy.png": {
+      "sha256": "52c8d0c38de698522f2bd2b19d5e0344b4e532a1d912da09e30e68972a945a30",
+      "mime": "image/png",
+      "bytes": 14040
+    },
+    "Devices/faceplates/library/yamaha-rio-3234-d3-custom-device-dm7-copy-2.png": {
+      "sha256": "5d4fcfff8c13ee53616997c57e983a199c00dddeaea8ca336c9e218a0b085fee",
+      "mime": "image/png",
+      "bytes": 5336425
+    },
+    "Devices/faceplates/library/thumbs/yamaha-rio-3234-d3-custom-device-dm7-copy-2.png": {
+      "sha256": "8061991fe9de00cc672d8add6be8e424eb437c8bf781f711bac8cd86b656ad7b",
+      "mime": "image/png",
+      "bytes": 25841
+    },
+    "Devices/faceplates/library/focusrite-scarlet-solo-3rd-gen-custom-device-mqz417mi.png": {
+      "sha256": "3554f8ad501f3da36e37b645e190f7fe2a533ccd744b5798fe3243b79f726bd3",
+      "mime": "image/png",
+      "bytes": 1206449
+    },
+    "Devices/faceplates/library/thumbs/focusrite-scarlet-solo-3rd-gen-custom-device-mqz417mi.png": {
+      "sha256": "fc25351b13c68f58b518a91c9ae431ab0afb2cd62a84614d7a54cf40e10af8ee",
+      "mime": "image/png",
+      "bytes": 25612
+    },
+    "Devices/faceplates/library/rme-fireface-uc-custom-device-mqz446pi.png": {
+      "sha256": "83236ae0bd1a0ece2277d10703600dba75804e7de4aed04703a5e7fed34ddde1",
+      "mime": "image/png",
+      "bytes": 882967
+    },
+    "Devices/faceplates/library/thumbs/rme-fireface-uc-custom-device-mqz446pi.png": {
+      "sha256": "1497ec2d255634f7ae5ab839df80c28cf3ee969ca6d3f9f20656636a6c53a6cb",
+      "mime": "image/png",
+      "bytes": 25425
+    },
+    "Devices/faceplates/library/novastar-vx2s-custom-device-vx4s-copy.png": {
+      "sha256": "af94ae621005d682e7af7eb2ca117aeaad5c5c54366c1e23ce60768dac8478b9",
+      "mime": "image/png",
+      "bytes": 552768
+    },
+    "Devices/faceplates/library/thumbs/novastar-vx2s-custom-device-vx4s-copy.png": {
+      "sha256": "3f3b51337e771a199cc2aa74ea5e05de5f3c7d19f29924573b144b4f029a2044",
+      "mime": "image/png",
+      "bytes": 13761
+    },
+    "Devices/faceplates/library/epson-eb-pu2220b-custom-device-mrn1z47g.webp": {
+      "sha256": "0bfca097b6593b103748a228ca5134f43f52e60f1a215f606a84ac57fbc03642",
+      "mime": "image/webp",
+      "bytes": 5934
+    },
+    "Devices/faceplates/library/thumbs/epson-eb-pu2220b-custom-device-mrn1z47g.png": {
+      "sha256": "d313faf632cb435e3a7c39e9a476303688dab867dafdabcf939f6e1f99a3e4a5",
+      "mime": "image/png",
+      "bytes": 21093
+    },
+    "Devices/faceplates/library/analog-way-aquilon-c-custom-device-aquilon-rs2-copy-2.png": {
+      "sha256": "326a3d340c7da6f251d0a0749a4598b022eef52c5e56738db75a1307c09cd01d",
+      "mime": "image/png",
+      "bytes": 921457
+    },
+    "Devices/faceplates/library/thumbs/analog-way-aquilon-c-custom-device-aquilon-rs2-copy-2.png": {
+      "sha256": "b7b48a284e14b57eb9db13e9fe73ef3cec72ddef96a18a0eee70c54b3d1db603",
+      "mime": "image/png",
+      "bytes": 40127
+    },
+    "Devices/faceplates/library/analog-way-aquilon-c-custom-device-aquilon-rs4-copy-2.png": {
+      "sha256": "84008737391e494d2a48eadc87a77d36e2ffbfb40387c7dbaeb82447eacf46b2",
+      "mime": "image/png",
+      "bytes": 1052447
+    },
+    "Devices/faceplates/library/thumbs/analog-way-aquilon-c-custom-device-aquilon-rs4-copy-2.png": {
+      "sha256": "2b477d5f44068990bb25d88411c4513280dffabd51d6f6e8df75e654929f01ee",
+      "mime": "image/png",
+      "bytes": 43499
+    },
+    "Devices/faceplates/library/analog-way-aquilon-cmax-custom-device-aquilon-rs6-copy-2.png": {
+      "sha256": "a524790445aacffdd4df5f0c27388c373969d3184d14c305d2de7af338313b73",
+      "mime": "image/png",
+      "bytes": 1184937
+    },
+    "Devices/faceplates/library/thumbs/analog-way-aquilon-cmax-custom-device-aquilon-rs6-copy-2.png": {
+      "sha256": "46351815db91c41799c9916813bb8de465b86c907e4f64fc10d6215349d0a306",
+      "mime": "image/png",
+      "bytes": 48416
+    },
+    "Devices/faceplates/library/analog-way-aquilon-cmini-custom-device-aquilon-rs-alpha-copy.png": {
+      "sha256": "2dfd5e809b94741c77103467eeec5be7448015f12d0c5181817b1792a5ac4493",
+      "mime": "image/png",
+      "bytes": 765262
+    },
+    "Devices/faceplates/library/thumbs/analog-way-aquilon-cmini-custom-device-aquilon-rs-alpha-copy.png": {
+      "sha256": "7f2d096117f773b828ae24ffe6d6b8d459138ad409e403f46e7ec06900691b9e",
+      "mime": "image/png",
+      "bytes": 34586
+    },
+    "Devices/faceplates/library/analog-way-aquilon-rs-alpha-custom-device-aquilon-rs1-copy.png": {
+      "sha256": "cd63c748ccbb84c47771e01814809788f32ef81e2ec35bbccb299c139e463d04",
+      "mime": "image/png",
+      "bytes": 924568
+    },
+    "Devices/faceplates/library/thumbs/analog-way-aquilon-rs-alpha-custom-device-aquilon-rs1-copy.png": {
+      "sha256": "b15b7a956c7fab2340092b41bc441493475a79d1fb94ab118649f3154c8a9856",
+      "mime": "image/png",
+      "bytes": 40311
+    },
+    "Devices/faceplates/library/analog-way-aquilon-rs1-custom-device-aquilon-rs2-copy.png": {
+      "sha256": "eda723b1aae46c90a55507557de57b66425546458f99550e706e7c8f37ec1ead",
+      "mime": "image/png",
+      "bytes": 923319
+    },
+    "Devices/faceplates/library/thumbs/analog-way-aquilon-rs1-custom-device-aquilon-rs2-copy.png": {
+      "sha256": "cb25b3d7e722cec830346912e8c923a775a3fd304bffda3fa6c7ac3991cd930a",
+      "mime": "image/png",
+      "bytes": 40198
+    },
+    "Devices/faceplates/library/analog-way-aquilon-rs2-custom-device-aquilon-rs3-copy.png": {
+      "sha256": "4396d8c0cde689d9f3d06fd0da3997963edf7a7b28866b46b676d6ab1bbca060",
+      "mime": "image/png",
+      "bytes": 923296
+    },
+    "Devices/faceplates/library/thumbs/analog-way-aquilon-rs2-custom-device-aquilon-rs3-copy.png": {
+      "sha256": "771798ddd2e8a21e0f79258e27fc89788845e68cebf2720e1467e49586d472f9",
+      "mime": "image/png",
+      "bytes": 40204
+    },
+    "Devices/faceplates/library/analog-way-aquilon-rs3-custom-device-aquilon-rs4-copy.png": {
+      "sha256": "8018f1f81f72a0fd85033c2fb6366d72f59156c59311383807d7f0dd876b1853",
+      "mime": "image/png",
+      "bytes": 1054779
+    },
+    "Devices/faceplates/library/thumbs/analog-way-aquilon-rs3-custom-device-aquilon-rs4-copy.png": {
+      "sha256": "d24a3d06784f90d0658c8557199ca2fe9d6b5650f4d47fa1ab0739015e30c178",
+      "mime": "image/png",
+      "bytes": 42628
+    },
+    "Devices/faceplates/library/analog-way-aquilon-rs4-custom-device-aquilon-rs5-copy.png": {
+      "sha256": "04de05ff64cc0ac04d02e5bc203ca92177db78d3dc982cb950e551d7b032f87c",
+      "mime": "image/png",
+      "bytes": 1055199
+    },
+    "Devices/faceplates/library/thumbs/analog-way-aquilon-rs4-custom-device-aquilon-rs5-copy.png": {
+      "sha256": "149546267f29aa78a8deb8b2c724af78ef54876f3c0f7a1df3e057b8a4c8266a",
+      "mime": "image/png",
+      "bytes": 43560
+    },
+    "Devices/faceplates/library/analog-way-aquilon-rs5-custom-device-aquilon-rs6-copy.png": {
+      "sha256": "76f17f2293876fcce9583e2deaba83d5151fae94cbf6d0e75ca550c6341c4afb",
+      "mime": "image/png",
+      "bytes": 1184949
+    },
+    "Devices/faceplates/library/thumbs/analog-way-aquilon-rs5-custom-device-aquilon-rs6-copy.png": {
+      "sha256": "3fd1f5bb262d9b863774ef28ea9c0600d32e53d4fd24f95ccd7a0ed06c3b287c",
+      "mime": "image/png",
+      "bytes": 48360
+    },
+    "Devices/faceplates/library/analog-way-aquilon-rs6-custom-device-mqz57vqs.png": {
+      "sha256": "150f0e8b37e3d86241583722e3be57d9871e12a010e72a01fc5d1d2005109bf2",
+      "mime": "image/png",
+      "bytes": 1185337
+    },
+    "Devices/faceplates/library/thumbs/analog-way-aquilon-rs6-custom-device-mqz57vqs.png": {
+      "sha256": "7b3d3a60ca9cfeeb836b11d4d525b520d000b58b192607fa1947e3c45748f60c",
+      "mime": "image/png",
+      "bytes": 48368
+    },
+    "Devices/faceplates/library/barco-udx-series-projector.png": {
+      "sha256": "d6f9b60111ceffb5afc9b809a8fe2b156aee6577ce3b9941debd26d4dbcdac8a",
+      "mime": "image/png",
+      "bytes": 1645649
+    },
+    "Devices/faceplates/library/thumbs/barco-udx-series-projector.png": {
+      "sha256": "fe4d706a857b3c2f5c2702749e358caeccb7448b11b392a35628011e3e29c9cc",
+      "mime": "image/png",
+      "bytes": 69238
+    },
+    "Devices/faceplates/library/barco-udx-4k22-projector.png": {
+      "sha256": "4488ac0f6eb815577fb4bf618bc18d61344acbed1276663a1095ac4e7cb3009c",
+      "mime": "image/png",
+      "bytes": 1629847
+    },
+    "Devices/faceplates/library/thumbs/barco-udx-4k22-projector.png": {
+      "sha256": "b6d9c3407288246c6fcb6fe6b56d8b9e30c8be9868893bc0fbe61947e0455003",
+      "mime": "image/png",
+      "bytes": 68886
+    },
+    "Devices/faceplates/library/panasonic-pt-rq50k-projector.png": {
+      "sha256": "d72d2214a5b18716c2dbb232347ec155007d06ad8ae492b79c6e5f3875aa59bf",
+      "mime": "image/png",
+      "bytes": 303245
+    },
+    "Devices/faceplates/library/thumbs/panasonic-pt-rq50k-projector.png": {
+      "sha256": "8b33141f662a4bdeb10aa41934e8693f2ea65045bdb5b8df2b5028ebc42fbe67",
+      "mime": "image/png",
+      "bytes": 31351
+    },
+    "Devices/faceplates/library/panasonic-pt-rq25k-panasonic-pt-rq25k.png": {
+      "sha256": "1985d9ff312556db39226e4380096af05f736bddb8f0e5d9c3c5378781a5757c",
+      "mime": "image/png",
+      "bytes": 1499451
+    },
+    "Devices/faceplates/library/thumbs/panasonic-pt-rq25k-panasonic-pt-rq25k.png": {
+      "sha256": "5ea865fb453816cddd9dea7fe0ecb89774517aa41bf67bc184ce0cfed8957bd9",
+      "mime": "image/png",
+      "bytes": 41005
+    },
+    "Devices/faceplates/library/christie-griffyn-4k50-rgb-christie-griffyn-4k50-rgb.png": {
+      "sha256": "b8b7ac6eae37f265a3fdf3f02366ad9ee2c99509f010c41f5d83b48d2e85ed99",
+      "mime": "image/png",
+      "bytes": 1519973
+    },
+    "Devices/faceplates/library/thumbs/christie-griffyn-4k50-rgb-christie-griffyn-4k50-rgb.png": {
+      "sha256": "406af0b9b51cbe385b688e841cd9b739041c79190130c6e72a8509dabed7f5e1",
+      "mime": "image/png",
+      "bytes": 41736
+    },
+    "Devices/faceplates/library/brompton-tessera-sq200-brompton-tessera-sq200.png": {
+      "sha256": "3027f9981df67dcb2964ed8d0173ed64376cfcd2a9b73699892c9d02fc425b92",
+      "mime": "image/png",
+      "bytes": 969640
+    },
+    "Devices/faceplates/library/thumbs/brompton-tessera-sq200-brompton-tessera-sq200.png": {
+      "sha256": "d16b1894437b214b6f486d9154d564ac1ec8b7f82df4483f752a2c04fb719ba5",
+      "mime": "image/png",
+      "bytes": 24891
+    },
+    "Devices/faceplates/library/brompton-tessera-sx40-brompton-tessera-sx40.png": {
+      "sha256": "91d45ba4e70467dc4828766db6236167c6d282514ab21621b3d153436acce301",
+      "mime": "image/png",
+      "bytes": 953282
+    },
+    "Devices/faceplates/library/thumbs/brompton-tessera-sx40-brompton-tessera-sx40.png": {
+      "sha256": "6e460a9db5ff6c7224ea248d7d310980c00bb34b8af06a091a845404520e4d25",
+      "mime": "image/png",
+      "bytes": 21285
+    },
+    "Devices/faceplates/library/brompton-tessera-s8-brompton-tessera-s8.png": {
+      "sha256": "a7c36dd1240a997fa5f0784fffbbc042fd841c70359060ae2991d74768789161",
+      "mime": "image/png",
+      "bytes": 953093
+    },
+    "Devices/faceplates/library/thumbs/brompton-tessera-s8-brompton-tessera-s8.png": {
+      "sha256": "a9093a0e6874e19c81a469e29a2301d7e2e30cb825d8dbccb3fe136d9a2a9063",
+      "mime": "image/png",
+      "bytes": 21284
+    },
+    "Devices/faceplates/library/brompton-tessera-qd-s-brompton-tessera-qd-s.png": {
+      "sha256": "60b899f08cc80b0baf34808379c6f8806e5ff62a02e9171e78449f6e0d21ad9a",
+      "mime": "image/png",
+      "bytes": 836030
+    },
+    "Devices/faceplates/library/thumbs/brompton-tessera-qd-s-brompton-tessera-qd-s.png": {
+      "sha256": "2850af89d7778844e6b8f79ae7f082e718d3b08c17ca15bdd3ce9365e3cd07ae",
+      "mime": "image/png",
+      "bytes": 22868
+    },
+    "Devices/faceplates/library/brompton-tessera-xd-s-brompton-tessera-xd-s.png": {
+      "sha256": "99e2f1c6890eb77e03ba469ea552bfa864f4e2ec5e5cce2702049395d2bb1324",
+      "mime": "image/png",
+      "bytes": 825090
+    },
+    "Devices/faceplates/library/thumbs/brompton-tessera-xd-s-brompton-tessera-xd-s.png": {
+      "sha256": "970701cf197dd3fcc95f697a52c994ec4f878b5b32b76e46a8d2b50c74823763",
+      "mime": "image/png",
+      "bytes": 22672
+    },
+    "Devices/faceplates/library/novastar-novapro-uhd-jr-novastar-novapro-uhd-jr.png": {
+      "sha256": "6ceddf88b8141e317c10fb535114d67d86639a2e3f3bb6dd1a8141dcce1071cd",
+      "mime": "image/png",
+      "bytes": 687654
+    },
+    "Devices/faceplates/library/thumbs/novastar-novapro-uhd-jr-novastar-novapro-uhd-jr.png": {
+      "sha256": "798b856a2cc43feded0308a606097fcc249298e55adfa4dade544241d1720fe6",
+      "mime": "image/png",
+      "bytes": 20938
+    },
+    "Nodes/Thumbnails/blank.png": {
+      "sha256": "72ac51646dc2f5d722f89b593a99d5331cc6f7e2697718a44bc22d18dda6e15b",
+      "mime": "image/png",
+      "bytes": 130
+    },
+    "Nodes/Thumbnails/C13.png": {
+      "sha256": "43be4db7421451051dcc1ebc6e985732fc29949db0c62113d130a7a85649f424",
+      "mime": "image/png",
+      "bytes": 9478
+    },
+    "Nodes/Thumbnails/UK13A.png": {
+      "sha256": "cacae080619e3fc661acff040fefd2dec7ea08fe08ab45b75f4eaed0de21b3a1",
+      "mime": "image/png",
+      "bytes": 3366
+    },
+    "Nodes/Thumbnails/Schuko.png": {
+      "sha256": "f15bae643862d8dd248521931b77957501606d174a1a85dfafd564b9c716f94b",
+      "mime": "image/png",
+      "bytes": 7930
+    },
+    "Nodes/Thumbnails/powerCON.png": {
+      "sha256": "1ed4d51807489862f75909ea1af236a849e1599fc57dcf4b78005fb63fb79488",
+      "mime": "image/png",
+      "bytes": 13786
+    },
+    "Nodes/Thumbnails/powerCONTrue1.png": {
+      "sha256": "3d7f21a396150c81610deed7e3b25de71ade84c782c84c100603185b66b4017c",
+      "mime": "image/png",
+      "bytes": 11981
+    },
+    "Nodes/Thumbnails/socapex.png": {
+      "sha256": "6c28570b42bcaae5996830f9f84bf822915e58008c2b7a59c1d2308a11ad03e8",
+      "mime": "image/png",
+      "bytes": 15542
+    },
+    "Nodes/Thumbnails/Harting.png": {
+      "sha256": "0ae6b6340184bbfa3847db7b39e42a0bf68abe7c87fe2b59a0cdd111fa4464ed",
+      "mime": "image/png",
+      "bytes": 10991
+    },
+    "Nodes/Thumbnails/powerlock.png": {
+      "sha256": "b9b0f597b9903ad1170a5447efe8d7ab3c080c8abb36c2d5fdd4509111105d30",
+      "mime": "image/png",
+      "bytes": 6044
+    },
+    "Nodes/Thumbnails/NEMA.png": {
+      "sha256": "17d996fd1f7a0c46ceec2f175a88812dc41c2bcae49ea7c79183a1f981583aa1",
+      "mime": "image/png",
+      "bytes": 7300
+    },
+    "Nodes/Thumbnails/ceeform1ph110v.png": {
+      "sha256": "b2014979727398e2b2cdbf2d228919beba138ad8bac6cf9891bf55dced3b8825",
+      "mime": "image/png",
+      "bytes": 11710
+    },
+    "Nodes/Thumbnails/ceeform1ph.png": {
+      "sha256": "bd4a47e1ac33733ec9a09bc7f879dcf7a322d124521418e96bd3925e6c3c6bd7",
+      "mime": "image/png",
+      "bytes": 11517
+    },
+    "Nodes/Thumbnails/ceeform3ph.png": {
+      "sha256": "cef33b49edf9a36f21f56c618d7bfacb6a871c77fef26f64aeb18d7f55c1f55d",
+      "mime": "image/png",
+      "bytes": 13968
+    },
+    "Nodes/Thumbnails/bnc.png": {
+      "sha256": "d2a116fb5bc8faa6b878a2e3fb2ee26a10a4681b05c0bf0fceeb612e841fc762",
+      "mime": "image/png",
+      "bytes": 8358
+    },
+    "Nodes/Thumbnails/DVI.png": {
+      "sha256": "109d436f5d3a13057fb809a62d5c5516cf0f1784f5e7d771c30b96971e16f353",
+      "mime": "image/png",
+      "bytes": 11324
+    },
+    "Nodes/Thumbnails/DisplayPort.png": {
+      "sha256": "d07e059c3ebf3a97373479f01a5e591b82c0047dc02db0f617f519692da227b6",
+      "mime": "image/png",
+      "bytes": 10523
+    },
+    "Nodes/Thumbnails/MiniDisplayPort.png": {
+      "sha256": "404958d35027e94add448b94a7473d85d90479f7c8b416edc14e5d732c926150",
+      "mime": "image/png",
+      "bytes": 10200
+    },
+    "Nodes/Thumbnails/HDMI.png": {
+      "sha256": "f775daa87eb83ad2c6c480d52ba742c6a9452d64c37a85191936c56a0da932e4",
+      "mime": "image/png",
+      "bytes": 11673
+    },
+    "Nodes/Thumbnails/VGA.png": {
+      "sha256": "061e34e4f795ea582e8911e73b317a88daddb689549fa5e87ed7eb954a3016f4",
+      "mime": "image/png",
+      "bytes": 8462
+    },
+    "Nodes/Thumbnails/xlr_input.png": {
+      "sha256": "886d12f345dbeb5ce319d4a11f3670bd045bae2b51e0ed12d443d01c3de55a14",
+      "mime": "image/png",
+      "bytes": 11419
+    },
+    "Nodes/Thumbnails/XLR5Pin.png": {
+      "sha256": "59c4a2200c50da9c5cb8116a82c467e73c2d47ae2fb69b2d2abafd3c309479f4",
+      "mime": "image/png",
+      "bytes": 15368
+    },
+    "Nodes/Thumbnails/TRS.png": {
+      "sha256": "713389fd0ced572358ab4d613c7dcfc6f168b8514ff5cafc220a76dff6ea1375",
+      "mime": "image/png",
+      "bytes": 12235
+    },
+    "Nodes/Thumbnails/RCA.png": {
+      "sha256": "d4d931934ee84257c80506b60c4334f873b45ac1dd455173c28b9ba3bbcd9fb5",
+      "mime": "image/png",
+      "bytes": 9002
+    },
+    "Nodes/Thumbnails/XLR_Output.png": {
+      "sha256": "6090c0e8ac642d45ff07e6ae52b533b0ffe980446e75197b4259d14406cbab97",
+      "mime": "image/png",
+      "bytes": 13314
+    },
+    "Nodes/Thumbnails/MIDI.png": {
+      "sha256": "28e2f695ebde51c35073bb40e08a33f6cbe8280915413cf7ed08009d6c41f822",
+      "mime": "image/png",
+      "bytes": 13248
+    },
+    "Nodes/Thumbnails/PS2.png": {
+      "sha256": "9234646badbbd4d9b12755544967662fedaa8160a429a1752508f6a40d4a9f07",
+      "mime": "image/png",
+      "bytes": 9188
+    },
+    "Nodes/Thumbnails/CA-COM.png": {
+      "sha256": "e77093e3a165c609fdb01a23a6c46cf9340c2d7b9831a37c3432145bc68e10c2",
+      "mime": "image/png",
+      "bytes": 13737
+    },
+    "Nodes/Thumbnails/DOMM.png": {
+      "sha256": "a144566b5968ca11f990e35b4b4840496642534e72d5091521e788c307259044",
+      "mime": "image/png",
+      "bytes": 13021
+    },
+    "Nodes/Thumbnails/speakON.png": {
+      "sha256": "51b8bf67f004eed35ab92ba1b43c41d47567aaf2bc5fee973bc34575aae56c27",
+      "mime": "image/png",
+      "bytes": 12398
+    },
+    "Nodes/Thumbnails/LC.png": {
+      "sha256": "46e953b6be837a61543414e826e945837819f4ab32d5074e9b3c73e6e8e3ef3b",
+      "mime": "image/png",
+      "bytes": 11030
+    },
+    "Nodes/Thumbnails/SC.png": {
+      "sha256": "8aaf1d4236fafb1d067714b3b622234f710701e739b8054f994eb951d51b6c66",
+      "mime": "image/png",
+      "bytes": 9252
+    },
+    "Nodes/Thumbnails/FiberST.png": {
+      "sha256": "2dce98484a8e1dac280535a4ea6a4f7ec4d8f3fb713ca4701b8b0f958757a8fd",
+      "mime": "image/png",
+      "bytes": 9296
+    },
+    "Nodes/Thumbnails/fiberMPO.png": {
+      "sha256": "b062cb21ea8b2cbb33e64f4c52f7bb72db295a555e6276599a59ce8cabff15e9",
+      "mime": "image/png",
+      "bytes": 8515
+    },
+    "Nodes/Thumbnails/opticalCON.png": {
+      "sha256": "1b14042d0721b896ead82c4e91b6119484bb792166be286ad873ef178835f787",
+      "mime": "image/png",
+      "bytes": 8595
+    },
+    "Nodes/Thumbnails/FiberFox.png": {
+      "sha256": "e060a45b28f364ea5f62c8e58c95b131c426d322b64c66eb0b777ff3c231cdb5",
+      "mime": "image/png",
+      "bytes": 15442
+    },
+    "Nodes/Thumbnails/CXP.png": {
+      "sha256": "60a1038ea7b2692184605dc44ef67d71b0690febf6e82d913a9f839f5f75f2f1",
+      "mime": "image/png",
+      "bytes": 12994
+    },
+    "Nodes/Thumbnails/RJ45.png": {
+      "sha256": "084bd9680b6f095b57639cbdfe3bed3f3a6a434baa140c160c55d189c2ae28c8",
+      "mime": "image/png",
+      "bytes": 14926
+    },
+    "Nodes/Thumbnails/etherCON.png": {
+      "sha256": "9c621b034f18e0f930ddb2d6d79d40da9ca3c33f5c547271aafd16bbf7e9223e",
+      "mime": "image/png",
+      "bytes": 9600
+    },
+    "Nodes/Thumbnails/USBA.png": {
+      "sha256": "4ee23f32bac51d27f86e69501a87439dbc0a9419269da413aadcbb933f0320d5",
+      "mime": "image/png",
+      "bytes": 12231
+    },
+    "Nodes/Thumbnails/USBB.png": {
+      "sha256": "c4a2ba4f374d4335162797880bd1d6816f446778e526d566f1d32f4b625a4b6c",
+      "mime": "image/png",
+      "bytes": 11563
+    },
+    "Nodes/Thumbnails/USBC.png": {
+      "sha256": "570a0a3ca37acd5af934dc6e21ab41d4492f07552c06e4b4681671a26fdc3dc0",
+      "mime": "image/png",
+      "bytes": 6022
+    },
+    "Nodes/PowerPlugs/125-3ph-Male.svg": {
+      "sha256": "fc1ea9fbd6a205e38c7fcb091dbb948bb402d854ac8e1d0f5f18eafbfda708a5",
+      "mime": "image/svg+xml",
+      "bytes": 3409
+    },
+    "Nodes/PowerPlugs/125-3ph.svg": {
+      "sha256": "7fb7c99a824c4f2e799fbecf4baa6b231b1cdd5a86b3ab2f21ecd2d09b73ca75",
+      "mime": "image/svg+xml",
+      "bytes": 2653
+    },
+    "Nodes/PowerPlugs/13A-UK.svg": {
+      "sha256": "cfbb9a932b7094bff2fb7d4dd327d61f0cd380de4f0f5482d801e081e218425b",
+      "mime": "image/svg+xml",
+      "bytes": 2424
+    },
+    "Nodes/PowerPlugs/16-1ph-Male.svg": {
+      "sha256": "9928c978aeb5a364daa3fc61b916a64bc78c97cf26bea3d843423942d4fd7bf9",
+      "mime": "image/svg+xml",
+      "bytes": 3033
+    },
+    "Nodes/PowerPlugs/16-1ph.svg": {
+      "sha256": "052d1b650f6849f9482f0def411bb4fb9377d6599e5739472860f40bec14927b",
+      "mime": "image/svg+xml",
+      "bytes": 3010
+    },
+    "Nodes/PowerPlugs/16-1ph110v-Male.svg": {
+      "sha256": "0148e6d67a372b7f8849be734b02058d74e073faa1f5f664d2410a86e8c70e2a",
+      "mime": "image/svg+xml",
+      "bytes": 3035
+    },
+    "Nodes/PowerPlugs/16-1ph110v.svg": {
+      "sha256": "83d1cc273c77e083bb5097cfda29e47aee957b8746ef0c04f6a88f02f3cd4683",
+      "mime": "image/svg+xml",
+      "bytes": 3016
+    },
+    "Nodes/PowerPlugs/16-3ph-Male.svg": {
+      "sha256": "6c6aa48a9969ba5bd10f2fd52e760218d76aaae99cd505569024d943bcfc868b",
+      "mime": "image/svg+xml",
+      "bytes": 3458
+    },
+    "Nodes/PowerPlugs/16-3ph.svg": {
+      "sha256": "d24e57ee10c2e1fe2947db4456292587cbfc0fa68904f7dc3a24aeb2e5836f60",
+      "mime": "image/svg+xml",
+      "bytes": 3451
+    },
+    "Nodes/PowerPlugs/32-1ph-Male.svg": {
+      "sha256": "677e2a125e1d564eea6ffceb49cc2613ac333981db732dd50fcf5888712de2e0",
+      "mime": "image/svg+xml",
+      "bytes": 3054
+    },
+    "Nodes/PowerPlugs/32-1ph.svg": {
+      "sha256": "8090ba98cca4cfb60c2271d94e1dc92ac8b9e1faf151e65352937b5a1cdb6fed",
+      "mime": "image/svg+xml",
+      "bytes": 3036
+    },
+    "Nodes/PowerPlugs/32-1ph110v.svg": {
+      "sha256": "e25515aee3f99a145932f77b4dce49c981011c285e11944b0aeb967892eb7731",
+      "mime": "image/svg+xml",
+      "bytes": 3111
+    },
+    "Nodes/PowerPlugs/32-1ph110vMale.svg": {
+      "sha256": "4bdab0aca50ac0437d91c62f448ec5c24df2e6cbcb7cdd200806011d3740819a",
+      "mime": "image/svg+xml",
+      "bytes": 3118
+    },
+    "Nodes/PowerPlugs/32-3ph-Male.svg": {
+      "sha256": "fe4ca2bb98426da92d0d8e6b1cca54f62769a53b75b2fbc2f5d68a8f399dbfad",
+      "mime": "image/svg+xml",
+      "bytes": 3483
+    },
+    "Nodes/PowerPlugs/32-3ph.svg": {
+      "sha256": "29fcda51548f883fd383a3e6c117e6745cc887a7a94ef16edfc8d5b8cfdea626",
+      "mime": "image/svg+xml",
+      "bytes": 3475
+    },
+    "Nodes/PowerPlugs/63-3ph-Male.svg": {
+      "sha256": "687ed9815431544600d85a154d2cf25661d45c988fdd47eb960cfe85da65fe92",
+      "mime": "image/svg+xml",
+      "bytes": 3478
+    },
+    "Nodes/PowerPlugs/63-3ph.svg": {
+      "sha256": "169975e80bb4fd3cc4ca4578839ffd3f2d52fa83c08a0756f3d4936fb53ed11e",
+      "mime": "image/svg+xml",
+      "bytes": 3470
+    },
+    "Nodes/PowerPlugs/HartingFemale.svg": {
+      "sha256": "bc7ce0674981ac43a2a1089d925c90c6745d0206bd9aa5adfd1293b6b7c76c8d",
+      "mime": "image/svg+xml",
+      "bytes": 27363
+    },
+    "Nodes/PowerPlugs/HartingMale.svg": {
+      "sha256": "2a61499037db57e67c7a4a3b0bff5f30da1c783d0b34b100b88b0e2f50187266",
+      "mime": "image/svg+xml",
+      "bytes": 27361
+    },
+    "Nodes/PowerPlugs/NEMA.svg": {
+      "sha256": "ba7e52efee725d204263acb5aaacfd3d2ff247638863ce84326f253e65ebd91c",
+      "mime": "image/svg+xml",
+      "bytes": 2405
+    },
+    "Nodes/PowerPlugs/Powelock drain.svg": {
+      "sha256": "786cb0d3de2faaa1a77c316ce937b88fef664d38bd76c126b0c01dcbaf854035",
+      "mime": "image/svg+xml",
+      "bytes": 4678
+    },
+    "Nodes/PowerPlugs/Powelock source.svg": {
+      "sha256": "8e0f1441f416a1e3add1e85200df73f06d3c41b773931b1a1f84ad3e0289bb7a",
+      "mime": "image/svg+xml",
+      "bytes": 5296
+    },
+    "Nodes/PowerPlugs/Schuko.svg": {
+      "sha256": "944438d3999e529b2aad9530407d9973b9146c14ed460b89002df39554d5e7ac",
+      "mime": "image/svg+xml",
+      "bytes": 3479
+    },
+    "Nodes/PowerPlugs/SocapexFemale.svg": {
+      "sha256": "119381149a07a04d54d7cea5720232e3106df45814a84b438c5ee47e3d43d7fb",
+      "mime": "image/svg+xml",
+      "bytes": 6693
+    },
+    "Nodes/PowerPlugs/SocapexMale.svg": {
+      "sha256": "fa43627c17b40b59f76528ec0cacf321b8ca52909905c19b2debd5b0d0e6faa8",
+      "mime": "image/svg+xml",
+      "bytes": 6350
+    },
+    "Nodes/PowerPlugs/powerCON_Blue.svg": {
+      "sha256": "fc1c9cd494b085574d70edab33ac77a81b799cf516a4e38005d92461d601d2b3",
+      "mime": "image/svg+xml",
+      "bytes": 3238
+    },
+    "Nodes/PowerPlugs/powerCON_True1_Female.svg": {
+      "sha256": "de2feb2d0d7314adbd58f58bd4a0d4255d7d3c2f0862f892747e7a4a69c79dd9",
+      "mime": "image/svg+xml",
+      "bytes": 3588
+    },
+    "Nodes/PowerPlugs/powerCON_True1_Male.svg": {
+      "sha256": "e9d62d85f3531dd2b9421717ac5ef29190abdafdbcb121237095f1496e5c75a5",
+      "mime": "image/svg+xml",
+      "bytes": 3937
+    },
+    "Nodes/PowerPlugs/powerCON_White.svg": {
+      "sha256": "3c31b9fcd28a8495884c30436abb61ab31d22b46409b2c84a416424eee524647",
+      "mime": "image/svg+xml",
+      "bytes": 3004
+    },
+    "assets/factory/52694fbd5ad7e598eda8e5807a75e8437bec4a1010861b486f98fd8abb26469c.png": {
+      "sha256": "52694fbd5ad7e598eda8e5807a75e8437bec4a1010861b486f98fd8abb26469c",
+      "bytes": 60825,
+      "mime": "image/png"
+    },
+    "assets/factory/87e5cca90b0516047f61104fec8d0049684f77813f9d6ae883fe750350f18881.png": {
+      "sha256": "87e5cca90b0516047f61104fec8d0049684f77813f9d6ae883fe750350f18881",
+      "bytes": 298072,
+      "mime": "image/png"
+    },
+    "assets/factory/88a7654d94d9dd699d4d9fac51425b422fe02fce97514939f61b6a5cfba10849.png": {
+      "sha256": "88a7654d94d9dd699d4d9fac51425b422fe02fce97514939f61b6a5cfba10849",
+      "bytes": 692861,
+      "mime": "image/png"
+    },
+    "assets/factory/8e9f362681427d1a50c9a03a3e7c060ade3f7576a0a62c7318f5d302f3e61198.png": {
+      "sha256": "8e9f362681427d1a50c9a03a3e7c060ade3f7576a0a62c7318f5d302f3e61198",
+      "bytes": 295929,
+      "mime": "image/png"
+    },
+    "assets/factory/8f2d6c6dc62f5af42d453b0b931f2308a2acf410fa6ebbdd448643be5420cecd.png": {
+      "sha256": "8f2d6c6dc62f5af42d453b0b931f2308a2acf410fa6ebbdd448643be5420cecd",
+      "bytes": 14208,
+      "mime": "image/png"
+    },
+    "assets/factory/a7932304ebd8c8377e11b164077154fe1a260e835ced7c0bbe91bf7348ce5904.png": {
+      "sha256": "a7932304ebd8c8377e11b164077154fe1a260e835ced7c0bbe91bf7348ce5904",
+      "bytes": 531181,
+      "mime": "image/png"
+    },
+    "assets/factory/ca965c5c5d4e2fa5eb48c232171c8f842ae2d6dd462736c81259c413c7ea8c03.png": {
+      "sha256": "ca965c5c5d4e2fa5eb48c232171c8f842ae2d6dd462736c81259c413c7ea8c03",
+      "bytes": 11179,
+      "mime": "image/png"
+    },
+    "assets/factory/ed955549f8afc24659e5a3f3319a4aff6015494e2e645f4dbeba7d589ecb0339.png": {
+      "sha256": "ed955549f8afc24659e5a3f3319a4aff6015494e2e645f4dbeba7d589ecb0339",
+      "bytes": 15954,
+      "mime": "image/png"
+    },
+    "assets/factory/f54ba446a5eb8dcbacb22a106a54d39b5edb96e48ae7d8bd8400dd88bfe0a1ce.png": {
+      "sha256": "f54ba446a5eb8dcbacb22a106a54d39b5edb96e48ae7d8bd8400dd88bfe0a1ce",
+      "bytes": 14315,
+      "mime": "image/png"
+    },
+    "assets/factory/f599424515035243e1a631de595d5cfe9f6df6119252f6408fdb9272c332df9b.png": {
+      "sha256": "f599424515035243e1a631de595d5cfe9f6df6119252f6408fdb9272c332df9b",
+      "bytes": 12536,
+      "mime": "image/png"
+    },
+    "assets/factory/f645dad0dbff693a888af9d5b6a8a2e9d4fbe68068983522746e7b8685f22751.png": {
+      "sha256": "f645dad0dbff693a888af9d5b6a8a2e9d4fbe68068983522746e7b8685f22751",
+      "bytes": 13810,
+      "mime": "image/png"
+    },
+    "assets/factory/f6bc20bacafe1fb55c7eb28df433834b841cadd70bf389e82889aa559851349a.png": {
+      "sha256": "f6bc20bacafe1fb55c7eb28df433834b841cadd70bf389e82889aa559851349a",
+      "bytes": 130083,
+      "mime": "image/png"
+    },
+    "assets/factory/05b1606bcc03ef0540ee18f3bb905ef37a17858377c0756a9c451056d0b48527.png": {
+      "sha256": "05b1606bcc03ef0540ee18f3bb905ef37a17858377c0756a9c451056d0b48527",
+      "bytes": 360367,
+      "mime": "image/png"
+    },
+    "assets/factory/42704e2e9c85a6e1a094b3ce7f991cbc275023b719523936dd689eef6b75f43b.png": {
+      "sha256": "42704e2e9c85a6e1a094b3ce7f991cbc275023b719523936dd689eef6b75f43b",
+      "bytes": 17396,
+      "mime": "image/png"
+    },
+    "assets/factory/6180e29e2db5186e9859f0283e616c184c8b8f25c521b9740758f9093e4d8dae.png": {
+      "sha256": "6180e29e2db5186e9859f0283e616c184c8b8f25c521b9740758f9093e4d8dae",
+      "bytes": 11501,
+      "mime": "image/png"
+    },
+    "assets/factory/eb28ea61b70ca2fb7cf68ff6c15eb69e991d61883b91e11382b5a32eeab844b8.png": {
+      "sha256": "eb28ea61b70ca2fb7cf68ff6c15eb69e991d61883b91e11382b5a32eeab844b8",
+      "bytes": 693710,
+      "mime": "image/png"
+    },
+    "assets/factory/05ba982b62ff55261fd4b9569cff739bed7f697e2c9028e7a35fa27418843e3d.png": {
+      "sha256": "05ba982b62ff55261fd4b9569cff739bed7f697e2c9028e7a35fa27418843e3d",
+      "bytes": 14049,
+      "mime": "image/png"
+    },
+    "assets/factory/1292ab4efdf634c510b9b82c889dc3d1f669cc32094231a950dd7cb5ab585bc6.png": {
+      "sha256": "1292ab4efdf634c510b9b82c889dc3d1f669cc32094231a950dd7cb5ab585bc6",
+      "bytes": 665502,
+      "mime": "image/png"
+    },
+    "assets/factory/18e0c37e1c8a7af35c05df72eaed677529a08785a47c12bd4e4f6f17cf99c76e.png": {
+      "sha256": "18e0c37e1c8a7af35c05df72eaed677529a08785a47c12bd4e4f6f17cf99c76e",
+      "bytes": 3010382,
+      "mime": "image/png"
+    },
+    "assets/factory/1b7a8fe00a1b96bd9f601b040157c3b13f775149a717f65e0ca06ef53a736e24.png": {
+      "sha256": "1b7a8fe00a1b96bd9f601b040157c3b13f775149a717f65e0ca06ef53a736e24",
+      "bytes": 954981,
+      "mime": "image/png"
+    },
+    "assets/factory/1ff820589e210b99067fdfc124bdf622b7b87aa7511fd1e6ffd8088112b6cc84.png": {
+      "sha256": "1ff820589e210b99067fdfc124bdf622b7b87aa7511fd1e6ffd8088112b6cc84",
+      "bytes": 1773588,
+      "mime": "image/png"
+    },
+    "assets/factory/24abcd8521a5319c7e6de8ea8a127117f5fce0aa6368646e3aba7b72c381300a.png": {
+      "sha256": "24abcd8521a5319c7e6de8ea8a127117f5fce0aa6368646e3aba7b72c381300a",
+      "bytes": 32323,
+      "mime": "image/png"
+    },
+    "assets/factory/2de0c5f7b9fe2d9d68a98ce75f69b812f011d3d4da86cf93d2eb5d5151846bef.png": {
+      "sha256": "2de0c5f7b9fe2d9d68a98ce75f69b812f011d3d4da86cf93d2eb5d5151846bef",
+      "bytes": 44974,
+      "mime": "image/png"
+    },
+    "assets/factory/46557d74861e221b2a8ba7a42d2faab8f2c570e9c72f17dbd419c7bcbad1f397.png": {
+      "sha256": "46557d74861e221b2a8ba7a42d2faab8f2c570e9c72f17dbd419c7bcbad1f397",
+      "bytes": 50467,
+      "mime": "image/png"
+    },
+    "assets/factory/485be3b2e3550ccad5f1d44e2b49a45a7a65633ac8fcb26fdb27efd0998245ac.png": {
+      "sha256": "485be3b2e3550ccad5f1d44e2b49a45a7a65633ac8fcb26fdb27efd0998245ac",
+      "bytes": 174068,
+      "mime": "image/png"
+    },
+    "assets/factory/4a2585a7dab325dd4409fe0edf1c2a53e2277b441bbaaac6990d200a033a9b54.png": {
+      "sha256": "4a2585a7dab325dd4409fe0edf1c2a53e2277b441bbaaac6990d200a033a9b54",
+      "bytes": 56616,
+      "mime": "image/png"
+    },
+    "assets/factory/4a733134a61d984d34bca68f16103ac1cccc456c76d71259d1eb58afbed88f7c.png": {
+      "sha256": "4a733134a61d984d34bca68f16103ac1cccc456c76d71259d1eb58afbed88f7c",
+      "bytes": 14427,
+      "mime": "image/png"
+    },
+    "assets/factory/4c8e417530538a91073f8c4830c0656a1113feeb71ca829df53a5d81f22d433a.png": {
+      "sha256": "4c8e417530538a91073f8c4830c0656a1113feeb71ca829df53a5d81f22d433a",
+      "bytes": 16423,
+      "mime": "image/png"
+    },
+    "assets/factory/4caaffe1562c399a218d194844b4060ea7d42df086c451d7d7710277f1b9a83d.png": {
+      "sha256": "4caaffe1562c399a218d194844b4060ea7d42df086c451d7d7710277f1b9a83d",
+      "bytes": 277851,
+      "mime": "image/png"
+    },
+    "assets/factory/4cb8d56feee1f522eebdf5a23334e585bda55bb1a96c596d2f2076cde380aaf3.png": {
+      "sha256": "4cb8d56feee1f522eebdf5a23334e585bda55bb1a96c596d2f2076cde380aaf3",
+      "bytes": 56995,
+      "mime": "image/png"
+    },
+    "assets/factory/5038c1abb4529c1375cbfab1444ed08ed0d1f4d4cde721bd3a683b6ead7cd7a3.png": {
+      "sha256": "5038c1abb4529c1375cbfab1444ed08ed0d1f4d4cde721bd3a683b6ead7cd7a3",
+      "bytes": 55891,
+      "mime": "image/png"
+    },
+    "assets/factory/534109ef6d7f28c2e16163719f57752635a460535a34cb85fd0cef80339f3918.png": {
+      "sha256": "534109ef6d7f28c2e16163719f57752635a460535a34cb85fd0cef80339f3918",
+      "bytes": 3004397,
+      "mime": "image/png"
+    },
+    "assets/factory/5ad34b6bbcc5efda5b481f2eb0935aad47ec5e242f23a9d758281b81b1f552ac.png": {
+      "sha256": "5ad34b6bbcc5efda5b481f2eb0935aad47ec5e242f23a9d758281b81b1f552ac",
+      "bytes": 248578,
+      "mime": "image/png"
+    },
+    "assets/factory/6d063a82525f3cb5347e54ecbf6fef2e577e387e12c4a4a0b8a1c31eb72cdcd6.png": {
+      "sha256": "6d063a82525f3cb5347e54ecbf6fef2e577e387e12c4a4a0b8a1c31eb72cdcd6",
+      "bytes": 33373,
+      "mime": "image/png"
+    },
+    "assets/factory/8f92d78a4dc408917aa82c0b2fae0c9f3ef25159b607cc5846ac2335e43182e8.png": {
+      "sha256": "8f92d78a4dc408917aa82c0b2fae0c9f3ef25159b607cc5846ac2335e43182e8",
+      "bytes": 58337,
+      "mime": "image/png"
+    },
+    "assets/factory/98cdff4aead11deef57c33ffa0c1b0430c12093fa81334dae0134614fd14dfa9.png": {
+      "sha256": "98cdff4aead11deef57c33ffa0c1b0430c12093fa81334dae0134614fd14dfa9",
+      "bytes": 929204,
+      "mime": "image/png"
+    },
+    "assets/factory/a899cb17e48e9231782cc1e04b0c1c2c8105d3dd4a49979f1c795956b5159836.png": {
+      "sha256": "a899cb17e48e9231782cc1e04b0c1c2c8105d3dd4a49979f1c795956b5159836",
+      "bytes": 2208525,
+      "mime": "image/png"
+    },
+    "assets/factory/a9043538431d58703bac72d79942bf3827bdf0aa77cb48c60205073c265a12b6.png": {
+      "sha256": "a9043538431d58703bac72d79942bf3827bdf0aa77cb48c60205073c265a12b6",
+      "bytes": 39806,
+      "mime": "image/png"
+    },
+    "assets/factory/b282af9d347cc38f834ac0f0594c92c1c7e6d583b2f4da57b821e7970cf1be7b.png": {
+      "sha256": "b282af9d347cc38f834ac0f0594c92c1c7e6d583b2f4da57b821e7970cf1be7b",
+      "bytes": 14735,
+      "mime": "image/png"
+    },
+    "assets/factory/b2d9591993b3a862605709fc6cd92455a96489aad4bc032935058634809d2b0e.png": {
+      "sha256": "b2d9591993b3a862605709fc6cd92455a96489aad4bc032935058634809d2b0e",
+      "bytes": 708205,
+      "mime": "image/png"
+    },
+    "assets/factory/b2f313dbcb7bec86660faf3a74110544e70fff525bcc068c91c28a57d3ce2a9b.png": {
+      "sha256": "b2f313dbcb7bec86660faf3a74110544e70fff525bcc068c91c28a57d3ce2a9b",
+      "bytes": 58479,
+      "mime": "image/png"
+    },
+    "assets/factory/b4342a4c48b5967fbd36991824be24c36dd5f3bfad10f2a347550dbb31ae6efb.png": {
+      "sha256": "b4342a4c48b5967fbd36991824be24c36dd5f3bfad10f2a347550dbb31ae6efb",
+      "bytes": 57952,
+      "mime": "image/png"
+    },
+    "assets/factory/bcd3ce6f6861e4a3fb92ee9f73197b8eb1fd90fddb60d344e6b6fa752b958129.png": {
+      "sha256": "bcd3ce6f6861e4a3fb92ee9f73197b8eb1fd90fddb60d344e6b6fa752b958129",
+      "bytes": 57128,
+      "mime": "image/png"
+    },
+    "assets/factory/d3d1e1a34aec523d8bef6881e54ea58e6e95a652e62e60b4697cb4dad63f0e67.png": {
+      "sha256": "d3d1e1a34aec523d8bef6881e54ea58e6e95a652e62e60b4697cb4dad63f0e67",
+      "bytes": 51800,
+      "mime": "image/png"
+    },
+    "assets/factory/d5903367d88871045f7d0157815654ee91ce9fdb819055e4ed952b67eabaddb0.png": {
+      "sha256": "d5903367d88871045f7d0157815654ee91ce9fdb819055e4ed952b67eabaddb0",
+      "bytes": 50482,
+      "mime": "image/png"
+    },
+    "assets/factory/e5472001eed3acf284698d82279e893b608a701c62ccb6a2ac8f734a37c944b8.png": {
+      "sha256": "e5472001eed3acf284698d82279e893b608a701c62ccb6a2ac8f734a37c944b8",
+      "bytes": 2661368,
+      "mime": "image/png"
+    },
+    "assets/factory/01027bef1c2a288b469a76ff33b9dfdc68bfc7ffd1e2a98fb05b5e1910ecd716.png": {
+      "sha256": "01027bef1c2a288b469a76ff33b9dfdc68bfc7ffd1e2a98fb05b5e1910ecd716",
+      "bytes": 1551063,
+      "mime": "image/png"
+    },
+    "assets/factory/041d05cf9b5a70d1ebdf73925046f338ea448df5b13b5087b4a0603ffa8450f9.png": {
+      "sha256": "041d05cf9b5a70d1ebdf73925046f338ea448df5b13b5087b4a0603ffa8450f9",
+      "bytes": 954223,
+      "mime": "image/png"
+    },
+    "assets/factory/0445cdfc031fad391b3f813a05716bc31caf16cd5f239dc183a042aa78a045ac.png": {
+      "sha256": "0445cdfc031fad391b3f813a05716bc31caf16cd5f239dc183a042aa78a045ac",
+      "bytes": 30408,
+      "mime": "image/png"
+    },
+    "assets/factory/0977ac56937aee61efcb40ca5db0169cc50cf03b75623c06ea9afb6f887cbcde.png": {
+      "sha256": "0977ac56937aee61efcb40ca5db0169cc50cf03b75623c06ea9afb6f887cbcde",
+      "bytes": 21837,
+      "mime": "image/png"
+    },
+    "assets/factory/0ec816d7766b7168656665c33e08635bea390ea0d1ed729c655103aed0932511.png": {
+      "sha256": "0ec816d7766b7168656665c33e08635bea390ea0d1ed729c655103aed0932511",
+      "bytes": 1088077,
+      "mime": "image/png"
+    },
+    "assets/factory/36945b68c6b5147efb8dcde04047b15c763e28c0c95f447f5d4026874205927b.png": {
+      "sha256": "36945b68c6b5147efb8dcde04047b15c763e28c0c95f447f5d4026874205927b",
+      "bytes": 1052485,
+      "mime": "image/png"
+    },
+    "assets/factory/781be031e741a60d87f764e6a4a9c79db92605439f07683f01c246c9c28d60a6.png": {
+      "sha256": "781be031e741a60d87f764e6a4a9c79db92605439f07683f01c246c9c28d60a6",
+      "bytes": 30860,
+      "mime": "image/png"
+    },
+    "assets/factory/7c2764a4430e00142e67cbddf108c90a1f60cc2fe953866744ad8d8509629b5d.png": {
+      "sha256": "7c2764a4430e00142e67cbddf108c90a1f60cc2fe953866744ad8d8509629b5d",
+      "bytes": 23400,
+      "mime": "image/png"
+    },
+    "assets/factory/7d28c2207756b200eefe2b36c302c13ef3e9f5f343eca8b49aa8ef3f19c9bf99.png": {
+      "sha256": "7d28c2207756b200eefe2b36c302c13ef3e9f5f343eca8b49aa8ef3f19c9bf99",
+      "bytes": 650182,
+      "mime": "image/png"
+    },
+    "assets/factory/89e96918fdd41dc08b38ec3373a253f9188dcf4862b085e2a68fabcddce250bd.png": {
+      "sha256": "89e96918fdd41dc08b38ec3373a253f9188dcf4862b085e2a68fabcddce250bd",
+      "bytes": 68827,
+      "mime": "image/png"
+    },
+    "assets/factory/99d9b30cb23a3ff2d4ae84501eee30c67f7d446083b4b92f9c893a7d76b24a81.png": {
+      "sha256": "99d9b30cb23a3ff2d4ae84501eee30c67f7d446083b4b92f9c893a7d76b24a81",
+      "bytes": 965004,
+      "mime": "image/png"
+    },
+    "assets/factory/aa7e34165cc6f5e0c766c65cb2b3e6861b9f85f57555fa167f8512683bb84d7f.png": {
+      "sha256": "aa7e34165cc6f5e0c766c65cb2b3e6861b9f85f57555fa167f8512683bb84d7f",
+      "bytes": 23427,
+      "mime": "image/png"
+    },
+    "assets/factory/bb585f3d930d42217c56acfcb128d9ad1765d161b65d9cc516f0f1d9fb96fbcb.png": {
+      "sha256": "bb585f3d930d42217c56acfcb128d9ad1765d161b65d9cc516f0f1d9fb96fbcb",
+      "bytes": 965659,
+      "mime": "image/png"
+    },
+    "assets/factory/dab820e2b2a43ba45bbbdd336354b6b505038023ee33a48057af1f18250ebefc.png": {
+      "sha256": "dab820e2b2a43ba45bbbdd336354b6b505038023ee33a48057af1f18250ebefc",
+      "bytes": 53909,
+      "mime": "image/png"
+    },
+    "assets/factory/e9bb20d18ee20c89621cd6ffa3076616b28fd49b475c2bdb27be6620a5294cdf.png": {
+      "sha256": "e9bb20d18ee20c89621cd6ffa3076616b28fd49b475c2bdb27be6620a5294cdf",
+      "bytes": 22070,
+      "mime": "image/png"
+    },
+    "assets/factory/ec1ca38fd6f288e8d9007283c3b4f5f45178a315fc5dd9c084d1896e135870b6.png": {
+      "sha256": "ec1ca38fd6f288e8d9007283c3b4f5f45178a315fc5dd9c084d1896e135870b6",
+      "bytes": 1572477,
+      "mime": "image/png"
+    },
+    "assets/factory/112384966656438f16bb0875bb0aa1587450269c8bf7dfe586d1cba863fdbdac.png": {
+      "sha256": "112384966656438f16bb0875bb0aa1587450269c8bf7dfe586d1cba863fdbdac",
+      "bytes": 35343,
+      "mime": "image/png"
+    },
+    "assets/factory/28320ebedd66729835865a56a9b6e1e87a6b52b41e17289703a8f37242164205.png": {
+      "sha256": "28320ebedd66729835865a56a9b6e1e87a6b52b41e17289703a8f37242164205",
+      "bytes": 29526,
+      "mime": "image/png"
+    },
+    "assets/factory/564f7e66f65ca303d326ce5bca4f97fedff8c48afeb67610666c5e9b2d09d80a.png": {
+      "sha256": "564f7e66f65ca303d326ce5bca4f97fedff8c48afeb67610666c5e9b2d09d80a",
+      "bytes": 293242,
+      "mime": "image/png"
+    },
+    "assets/factory/6e5c9bc216ab2faf5948c07815447b98f8168b219717e61b1844f7f9cda6c95d.png": {
+      "sha256": "6e5c9bc216ab2faf5948c07815447b98f8168b219717e61b1844f7f9cda6c95d",
+      "bytes": 360750,
+      "mime": "image/png"
+    },
+    "assets/factory/8bbdb15a38e5e85f3e56bf0d25b4f90ea5ec2c419989cb2d56b716768f99b616.png": {
+      "sha256": "8bbdb15a38e5e85f3e56bf0d25b4f90ea5ec2c419989cb2d56b716768f99b616",
+      "bytes": 1045090,
+      "mime": "image/png"
+    },
+    "assets/factory/93c5286653db213882040591b323fd8f739f8994854c9353b0c885e97c6f9e0f.png": {
+      "sha256": "93c5286653db213882040591b323fd8f739f8994854c9353b0c885e97c6f9e0f",
+      "bytes": 225877,
+      "mime": "image/png"
+    },
+    "assets/factory/a5fe2454c22d30472a83163defd50ec4e4379a906ad34b7050fd076d94bfcf22.png": {
+      "sha256": "a5fe2454c22d30472a83163defd50ec4e4379a906ad34b7050fd076d94bfcf22",
+      "bytes": 38641,
+      "mime": "image/png"
+    },
+    "assets/factory/ba751b43602c37f6daac5b3d67ec141a5c17680ae569653e4085a8f7191ef8c3.png": {
+      "sha256": "ba751b43602c37f6daac5b3d67ec141a5c17680ae569653e4085a8f7191ef8c3",
+      "bytes": 573029,
+      "mime": "image/png"
+    },
+    "assets/factory/cff62331faeb897999789e36c731371724415015b6514e75cec29c5c8dbaaad9.png": {
+      "sha256": "cff62331faeb897999789e36c731371724415015b6514e75cec29c5c8dbaaad9",
+      "bytes": 11799,
+      "mime": "image/png"
+    },
+    "assets/factory/f12731599343eae986166a3cb4b0bda009fdc1a316949490f4d680f2ef269250.png": {
+      "sha256": "f12731599343eae986166a3cb4b0bda009fdc1a316949490f4d680f2ef269250",
+      "bytes": 21702,
+      "mime": "image/png"
+    },
+    "assets/factory/c7720e8855091f315546a1d2dd753a84de02236de079820de60c1fa7c0430d04.png": {
+      "sha256": "c7720e8855091f315546a1d2dd753a84de02236de079820de60c1fa7c0430d04",
+      "bytes": 154128,
+      "mime": "image/png"
+    },
+    "assets/factory/d476036bba3d0689eccecc2367d2b43b2490a383937a9ff9410e7ad898fc329c.png": {
+      "sha256": "d476036bba3d0689eccecc2367d2b43b2490a383937a9ff9410e7ad898fc329c",
+      "bytes": 14035,
+      "mime": "image/png"
+    },
+    "assets/factory/f18ae79a5aff9bbae9d1e836c29cc06742131575a368b8c9ceee8df97b2cfe00.png": {
+      "sha256": "f18ae79a5aff9bbae9d1e836c29cc06742131575a368b8c9ceee8df97b2cfe00",
+      "bytes": 742221,
+      "mime": "image/png"
+    },
+    "assets/factory/1810a83b01ed172f5d85434bfc520d5ef0eb89b6749add6a56eb30ef28a5184b.png": {
+      "sha256": "1810a83b01ed172f5d85434bfc520d5ef0eb89b6749add6a56eb30ef28a5184b",
+      "bytes": 599584,
+      "mime": "image/png"
+    },
+    "assets/factory/18649a34bf2662104f3e5b3d7f03682787d8f6d3e77b99d88aabcb098b37d291.png": {
+      "sha256": "18649a34bf2662104f3e5b3d7f03682787d8f6d3e77b99d88aabcb098b37d291",
+      "bytes": 6337611,
+      "mime": "image/png"
+    },
+    "assets/factory/4fea4706f184057720977168b3d506a418798134266cf7270664039578ebd3a0.png": {
+      "sha256": "4fea4706f184057720977168b3d506a418798134266cf7270664039578ebd3a0",
+      "bytes": 514550,
+      "mime": "image/png"
+    },
+    "assets/factory/579a398749c502e8c69738ee9cc357b3f5b0d5c4d4e3325b693ccbdf8d76f58c.png": {
+      "sha256": "579a398749c502e8c69738ee9cc357b3f5b0d5c4d4e3325b693ccbdf8d76f58c",
+      "bytes": 27531,
+      "mime": "image/png"
+    },
+    "assets/factory/916277febeaec5d28c86feba774836eef5b63e167f1b10e76e0235daded7f243.png": {
+      "sha256": "916277febeaec5d28c86feba774836eef5b63e167f1b10e76e0235daded7f243",
+      "bytes": 2258605,
+      "mime": "image/png"
+    },
+    "assets/factory/97668ee3286b9fea77b60e347322a5d850050490f3cf0df44eec32086b82d60f.png": {
+      "sha256": "97668ee3286b9fea77b60e347322a5d850050490f3cf0df44eec32086b82d60f",
+      "bytes": 801881,
+      "mime": "image/png"
+    },
+    "assets/factory/cefb8af87685e29d09eded59282b5ec0cfb5414d5d6f07b6c65145cbd45f43eb.png": {
+      "sha256": "cefb8af87685e29d09eded59282b5ec0cfb5414d5d6f07b6c65145cbd45f43eb",
+      "bytes": 13367,
+      "mime": "image/png"
+    },
+    "assets/factory/d627bf74069639c1e83e60dc2c5dc0a4ad6b37f6b9fa7997d8f442f94da9794c.png": {
+      "sha256": "d627bf74069639c1e83e60dc2c5dc0a4ad6b37f6b9fa7997d8f442f94da9794c",
+      "bytes": 13230,
+      "mime": "image/png"
+    },
+    "assets/factory/eb854c1798c6eb057dfa17c4ed79cf7f5b18ac9413627613d0f96619ea9f71b9.png": {
+      "sha256": "eb854c1798c6eb057dfa17c4ed79cf7f5b18ac9413627613d0f96619ea9f71b9",
+      "bytes": 766442,
+      "mime": "image/png"
+    },
+    "assets/factory/034eb4bbf64d811acee7da2960d8ee1755d0f0a6d52bed01008eace87ef282e5.png": {
+      "sha256": "034eb4bbf64d811acee7da2960d8ee1755d0f0a6d52bed01008eace87ef282e5",
+      "bytes": 46440,
+      "mime": "image/png"
+    },
+    "assets/factory/08c0d67ac3d878922ae46e5244ff23ef8d25255df4371e3055ec262b543b18b6.png": {
+      "sha256": "08c0d67ac3d878922ae46e5244ff23ef8d25255df4371e3055ec262b543b18b6",
+      "bytes": 3496517,
+      "mime": "image/png"
+    },
+    "assets/factory/0e351239bb17bd8406e28f95696dca70b71b31fc94d9f4276a64692d864f510c.png": {
+      "sha256": "0e351239bb17bd8406e28f95696dca70b71b31fc94d9f4276a64692d864f510c",
+      "bytes": 448535,
+      "mime": "image/png"
+    },
+    "assets/factory/0e9bb56f2ea00708a4765ae31bf411a26b7bf0e95b3a4ba23602a7fea52d5963.png": {
+      "sha256": "0e9bb56f2ea00708a4765ae31bf411a26b7bf0e95b3a4ba23602a7fea52d5963",
+      "bytes": 2779365,
+      "mime": "image/png"
+    },
+    "assets/factory/116e29381a443f38bfd5484abd9a01758aba9b6cebdddaecbc7f50f709d9f5fa.png": {
+      "sha256": "116e29381a443f38bfd5484abd9a01758aba9b6cebdddaecbc7f50f709d9f5fa",
+      "bytes": 1282931,
+      "mime": "image/png"
+    },
+    "assets/factory/13aa8433964f70dd3af1621dc872384be1fcf52efa66329ebf55a1274b162a89.png": {
+      "sha256": "13aa8433964f70dd3af1621dc872384be1fcf52efa66329ebf55a1274b162a89",
+      "bytes": 68117,
+      "mime": "image/png"
+    },
+    "assets/factory/184410f3a06d730a6cf8981d8f70355d12170b5dd719c7e0a100ad3b335e6bef.png": {
+      "sha256": "184410f3a06d730a6cf8981d8f70355d12170b5dd719c7e0a100ad3b335e6bef",
+      "bytes": 26467,
+      "mime": "image/png"
+    },
+    "assets/factory/1a3e2b3cb5177c2e430518993a8faed9495ecc3e65cb131ca825d43f09eb7e36.png": {
+      "sha256": "1a3e2b3cb5177c2e430518993a8faed9495ecc3e65cb131ca825d43f09eb7e36",
+      "bytes": 3060630,
+      "mime": "image/png"
+    },
+    "assets/factory/1df9c50bae46f0fd49a59106d1fad6553ba482edf6c03ba73d43992b4a97e49b.png": {
+      "sha256": "1df9c50bae46f0fd49a59106d1fad6553ba482edf6c03ba73d43992b4a97e49b",
+      "bytes": 2473066,
+      "mime": "image/png"
+    },
+    "assets/factory/2851c6cd2353c91dbcfd80a3ced32c19a1ba0aa966e38d3fcdec6fa77a03a8e7.png": {
+      "sha256": "2851c6cd2353c91dbcfd80a3ced32c19a1ba0aa966e38d3fcdec6fa77a03a8e7",
+      "bytes": 45694,
+      "mime": "image/png"
+    },
+    "assets/factory/291d58c0f45ba963154b4744ba5eadf7ea7ece432ac4f1dabb1b3b37c00ba214.png": {
+      "sha256": "291d58c0f45ba963154b4744ba5eadf7ea7ece432ac4f1dabb1b3b37c00ba214",
+      "bytes": 65824,
+      "mime": "image/png"
+    },
+    "assets/factory/29d18f5f51b4ec6f350e1e6240347cc82f02a18f4bfa1217feb42927f948416e.png": {
+      "sha256": "29d18f5f51b4ec6f350e1e6240347cc82f02a18f4bfa1217feb42927f948416e",
+      "bytes": 25570,
+      "mime": "image/png"
+    },
+    "assets/factory/349c4e2e0bacdb2b6139d70888fb1e32cf265f214594952fe6a40279f828532c.png": {
+      "sha256": "349c4e2e0bacdb2b6139d70888fb1e32cf265f214594952fe6a40279f828532c",
+      "bytes": 41251,
+      "mime": "image/png"
+    },
+    "assets/factory/4a9c822fc3d0339794bd42ff64016432a01755648613bf57cb41a515345a3736.png": {
+      "sha256": "4a9c822fc3d0339794bd42ff64016432a01755648613bf57cb41a515345a3736",
+      "bytes": 1518929,
+      "mime": "image/png"
+    },
+    "assets/factory/4acc7033b51cdf77bdafbffb6e906abe2010ae32a971b6fc68e54f1717bb2b2f.png": {
+      "sha256": "4acc7033b51cdf77bdafbffb6e906abe2010ae32a971b6fc68e54f1717bb2b2f",
+      "bytes": 46076,
+      "mime": "image/png"
+    },
+    "assets/factory/4b9d9ab72538ea7c8913058d85b65e1278b67c7d3fb49ca7a535f1f49039e946.png": {
+      "sha256": "4b9d9ab72538ea7c8913058d85b65e1278b67c7d3fb49ca7a535f1f49039e946",
+      "bytes": 54323,
+      "mime": "image/png"
+    },
+    "assets/factory/5cddfd4592c0e75696b9686808d6d5e8bb1ae2bb3480c4974aede20a82b33b33.png": {
+      "sha256": "5cddfd4592c0e75696b9686808d6d5e8bb1ae2bb3480c4974aede20a82b33b33",
+      "bytes": 1797784,
+      "mime": "image/png"
+    },
+    "assets/factory/61e82698e416047dc6025970b8932971236ead064931ba8a9c91d6dd53606be4.png": {
+      "sha256": "61e82698e416047dc6025970b8932971236ead064931ba8a9c91d6dd53606be4",
+      "bytes": 1131994,
+      "mime": "image/png"
+    },
+    "assets/factory/63033c4b263afe1bd04431b0cb4d5afbbb82895b8f8ec64790335c361868497e.png": {
+      "sha256": "63033c4b263afe1bd04431b0cb4d5afbbb82895b8f8ec64790335c361868497e",
+      "bytes": 2734140,
+      "mime": "image/png"
+    },
+    "assets/factory/67d08fafb551f9a985b7b715bdea5d5590b9fa8e1cd1d57aca1e27af5ccdd2e0.png": {
+      "sha256": "67d08fafb551f9a985b7b715bdea5d5590b9fa8e1cd1d57aca1e27af5ccdd2e0",
+      "bytes": 2131887,
+      "mime": "image/png"
+    },
+    "assets/factory/707bbd19bb81492947a68eed7dd1f42207b5a79a32dcc38a23c802431c4321b7.png": {
+      "sha256": "707bbd19bb81492947a68eed7dd1f42207b5a79a32dcc38a23c802431c4321b7",
+      "bytes": 1301482,
+      "mime": "image/png"
+    },
+    "assets/factory/90f1df5f3ccb1e31e20954c1964e1671ad884ac7e84b916c85d463f5927e6d58.png": {
+      "sha256": "90f1df5f3ccb1e31e20954c1964e1671ad884ac7e84b916c85d463f5927e6d58",
+      "bytes": 2173718,
+      "mime": "image/png"
+    },
+    "assets/factory/aa214e5b998045f8127e0744e15a55748b4c904b885eb6fc938686630c5a5602.png": {
+      "sha256": "aa214e5b998045f8127e0744e15a55748b4c904b885eb6fc938686630c5a5602",
+      "bytes": 2280255,
+      "mime": "image/png"
+    },
+    "assets/factory/af90cccdb9b3648562e7313afd2f00c0d495b878453462a82eee3d19a5ffc08e.png": {
+      "sha256": "af90cccdb9b3648562e7313afd2f00c0d495b878453462a82eee3d19a5ffc08e",
+      "bytes": 37568,
+      "mime": "image/png"
+    },
+    "assets/factory/bfee8980012639152d32667e41c15191423ffaa6b8a22e6cee1835a3fbfe0aff.png": {
+      "sha256": "bfee8980012639152d32667e41c15191423ffaa6b8a22e6cee1835a3fbfe0aff",
+      "bytes": 60101,
+      "mime": "image/png"
+    },
+    "assets/factory/c92d668886b1c06018f25822c3252bfe39058a096b829ce065ab81f439def007.png": {
+      "sha256": "c92d668886b1c06018f25822c3252bfe39058a096b829ce065ab81f439def007",
+      "bytes": 36134,
+      "mime": "image/png"
+    },
+    "assets/factory/cbc95c38fc9ced79fa3b01a30c0fdfb344a318a4efc0393282781b41df49c3cb.png": {
+      "sha256": "cbc95c38fc9ced79fa3b01a30c0fdfb344a318a4efc0393282781b41df49c3cb",
+      "bytes": 60501,
+      "mime": "image/png"
+    },
+    "assets/factory/d5fb12a67dc7589ac73e8aceaf22b19a19ce5c342dd58f9fdb93dcf285989239.png": {
+      "sha256": "d5fb12a67dc7589ac73e8aceaf22b19a19ce5c342dd58f9fdb93dcf285989239",
+      "bytes": 39525,
+      "mime": "image/png"
+    },
+    "assets/factory/e0cbe4e844f179685061f114731d766a8f90b6d58e946e2152bc4ed9d130515f.png": {
+      "sha256": "e0cbe4e844f179685061f114731d766a8f90b6d58e946e2152bc4ed9d130515f",
+      "bytes": 1477405,
+      "mime": "image/png"
+    },
+    "assets/factory/e5be84403fa8e85fb320228e46b64670a4b1cbcac7da1649ba6dd821352212a8.png": {
+      "sha256": "e5be84403fa8e85fb320228e46b64670a4b1cbcac7da1649ba6dd821352212a8",
+      "bytes": 35872,
+      "mime": "image/png"
+    },
+    "assets/factory/e8e923461b809e99f731b96c479adb83457e0c4310b22ff4d918b2db35cc73de.png": {
+      "sha256": "e8e923461b809e99f731b96c479adb83457e0c4310b22ff4d918b2db35cc73de",
+      "bytes": 2525071,
+      "mime": "image/png"
+    },
+    "assets/factory/f0ecf85669bdc9c3b36087c0ee22ceffd1374bdbdc5342a15d4c25cf3b58e2f9.png": {
+      "sha256": "f0ecf85669bdc9c3b36087c0ee22ceffd1374bdbdc5342a15d4c25cf3b58e2f9",
+      "bytes": 58767,
+      "mime": "image/png"
+    },
+    "assets/factory/f37fd89df8253fc44e0db5c5ff16a7c190e539c2fe99fad495eadcdd0818fd5a.png": {
+      "sha256": "f37fd89df8253fc44e0db5c5ff16a7c190e539c2fe99fad495eadcdd0818fd5a",
+      "bytes": 382290,
+      "mime": "image/png"
+    },
+    "assets/factory/f807a296d2c8cd600e2c7f57fd88730aa717b3466a01704bbc50741f944226af.png": {
+      "sha256": "f807a296d2c8cd600e2c7f57fd88730aa717b3466a01704bbc50741f944226af",
+      "bytes": 1893419,
+      "mime": "image/png"
+    },
+    "assets/factory/fb380b3267e8306abd09215433b56b741b144fd0ccdc3d3ed1e50c3803194e1d.png": {
+      "sha256": "fb380b3267e8306abd09215433b56b741b144fd0ccdc3d3ed1e50c3803194e1d",
+      "bytes": 2491990,
+      "mime": "image/png"
+    },
+    "assets/factory/391210529d4d2da72df23587d870a0fe8108f8d6d918e73b4df3f35e1bec5f4d.png": {
+      "sha256": "391210529d4d2da72df23587d870a0fe8108f8d6d918e73b4df3f35e1bec5f4d",
+      "bytes": 40661,
+      "mime": "image/png"
+    },
+    "assets/factory/67c096fce760baf6e4ee9caea962087271489d6a17fd7b0fe1f138a5639e7b7d.png": {
+      "sha256": "67c096fce760baf6e4ee9caea962087271489d6a17fd7b0fe1f138a5639e7b7d",
+      "bytes": 51012,
+      "mime": "image/png"
+    },
+    "assets/factory/bf1bbe8c6eaa8bb3f2a1a32c9cd7a7a41ee9a172d6642c09ff976c4ee539e742.png": {
+      "sha256": "bf1bbe8c6eaa8bb3f2a1a32c9cd7a7a41ee9a172d6642c09ff976c4ee539e742",
+      "bytes": 40240,
+      "mime": "image/png"
+    },
+    "assets/factory/df7eccfcf1940af9e1c8b4c1aaa666ade7abcf2e09e85f87540d2e674b08123b.png": {
+      "sha256": "df7eccfcf1940af9e1c8b4c1aaa666ade7abcf2e09e85f87540d2e674b08123b",
+      "bytes": 2560951,
+      "mime": "image/png"
+    },
+    "assets/factory/f2fb39964b6cda6a31adaef44bdc55775ef819dab888a038d36b2e7b093623ae.png": {
+      "sha256": "f2fb39964b6cda6a31adaef44bdc55775ef819dab888a038d36b2e7b093623ae",
+      "bytes": 1770160,
+      "mime": "image/png"
+    },
+    "assets/factory/fd28582c852accfe27775a6d087b1da785d7c6c2effab6f72c74810b184e491c.png": {
+      "sha256": "fd28582c852accfe27775a6d087b1da785d7c6c2effab6f72c74810b184e491c",
+      "bytes": 1974270,
+      "mime": "image/png"
+    }
+  },
+  "addedAssets": {
+    "assets/factory/6bffc3474d505483d96ec54ece410da2657a3afadb8bbc9b963c4f834cf3d492.png": {
+      "sha256": "6bffc3474d505483d96ec54ece410da2657a3afadb8bbc9b963c4f834cf3d492",
+      "bytes": 2165953,
+      "mime": "image/png"
+    },
+    "assets/factory/87b4679b3be9c6423887e5e486115f23aae8223fa574c551b4c1e47dbbbb9e39.png": {
+      "sha256": "87b4679b3be9c6423887e5e486115f23aae8223fa574c551b4c1e47dbbbb9e39",
+      "bytes": 48610,
+      "mime": "image/png"
+    },
+    "assets/factory/a0c70b712968bd2f21b4ee761c9eb9d362637aada5eb6f434e4b78f669a062f0.png": {
+      "sha256": "a0c70b712968bd2f21b4ee761c9eb9d362637aada5eb6f434e4b78f669a062f0",
+      "bytes": 42818,
+      "mime": "image/png"
+    },
+    "assets/factory/e0f026b325b7c2b72ed5d94c95dcf57c0ecba768d5fe291f5b62a310a612dbd3.png": {
+      "sha256": "e0f026b325b7c2b72ed5d94c95dcf57c0ecba768d5fe291f5b62a310a612dbd3",
+      "bytes": 1971817,
+      "mime": "image/png"
+    }
+  },
+  "expectedDefinitionHashes": {
+    "custom-device-mwngz8p4": "b873065c38ce9338180082d32d5d60c2744623e22d880515678666c0170cc71b",
+    "personal-78d26af9-feb3-486a-8069-3f679262c1bc": "8acd5a1987f438f9ad38320723fbdbfb4f935ec70013f7a9d75546b6b4cd28d0"
+  }
+}

@@ -7,8 +7,23 @@ const latest = JSON.parse(await readFile(new URL("../fixtures/factory-library-20
 const november = JSON.parse(await readFile(new URL("../fixtures/factory-library-2026-11-19.json", import.meta.url)));
 const connectorAdditions = JSON.parse(await readFile(new URL("../fixtures/mini-usb-triax-nodes.json", import.meta.url)));
 const ajaAuthorship = JSON.parse(await readFile(new URL("../fixtures/factory-aja-attribution-2026-11-19.json", import.meta.url)));
+const ajaDa = JSON.parse(await readFile(new URL("../fixtures/factory-aja-da-2026-11-19.json", import.meta.url)));
+
+export function beforeAjaDaAdditions(catalogue) {
+  if (!catalogue.promotions.some(p => p.packageId === ajaDa.packageId)) return catalogue;
+  const hash = value => createHash("sha256").update(JSON.stringify(value)).digest("hex");
+  for (const [id, expected] of Object.entries({ ...ajaDa.baselineDeviceHashes, ...ajaDa.expectedDefinitionHashes })) {
+    assert.equal(hash(catalogue.devices.find(d => d.id === id)), expected, id);
+  }
+  for (const [key, expected] of Object.entries(ajaDa.baselineNodeHashes)) assert.equal(hash(catalogue[key]), expected, key);
+  for (const [path, asset] of Object.entries({ ...ajaDa.originalAssets, ...ajaDa.addedAssets })) assert.deepEqual(catalogue.assets[path], asset, path);
+  const added = new Set(ajaDa.devices.map(d => d.id));
+  return { ...catalogue, devices: catalogue.devices.filter(d => !added.has(d.id)), assets: ajaDa.originalAssets,
+    promotions: catalogue.promotions.filter(p => p.packageId !== ajaDa.packageId) };
+}
 
 export function beforeFactoryAuthorship(catalogue) {
+  catalogue = beforeAjaDaAdditions(catalogue);
   if (!catalogue.promotions.some(p => p.packageId === ajaAuthorship.authorshipPackageId)) return catalogue;
   const added = new Set(ajaAuthorship.additions.map(d => d.id));
   const devices = catalogue.devices.map(d => {

@@ -5,7 +5,8 @@ import {createHash} from 'node:crypto';
 import {promotionDevice,promotionFingerprint} from '../src/factoryPromotion.js';
 import {inlineProjectArtwork,imageDataUrl,imageMime} from '../src/imageAssets.js';
 import {attributionLabel,newDeviceAttribution,collectDevicePackage,encodeDevicePackage,decodeDevicePackage,verifyDeviceAttribution} from '../src/devicePackage.js';
-const catalogue=JSON.parse(await readFile(new URL('../data/factory-catalogue.json',import.meta.url)));
+import {beforeAjaDaAdditions} from './helpers/factoryImportHistory.mjs';
+const catalogue=beforeAjaDaAdditions(JSON.parse(await readFile(new URL('../data/factory-catalogue.json',import.meta.url))));
 const inventory=JSON.parse(await readFile(new URL('./fixtures/factory-aja-attribution-2026-11-19.json',import.meta.url)));
 const hash=v=>createHash('sha256').update(v).digest('hex');
 
