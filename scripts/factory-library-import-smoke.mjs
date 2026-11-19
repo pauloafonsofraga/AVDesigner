@@ -53,6 +53,10 @@ try {
       return { id: d.id, name: d.name, connectors: d.connectors.length, cards: d.cardTypes.length, slots: d.cardSlots.length, faceImage: d.faceImage };
     });
     for (const key of ["id", "name", "connectors", "cards", "slots"]) assert.equal(edited[key], expected[key], `${expected.name}: ${key}`);
+    if (inventory.factoryAuthor) {
+      await page.waitForFunction(author => document.getElementById("editorDeviceCreator").textContent === `${author} (unverified)`, inventory.factoryAuthor);
+      assert.equal(await page.locator("#editorDeviceCreatedAt").innerText(), "Unknown date");
+    }
     if (expected.hasArtwork !== false) assert.ok(await page.evaluate(async src => { const image = new Image(); image.src = src; await image.decode(); return image.naturalWidth > 0; }, edited.faceImage));
     else assert.equal(await page.evaluate(() => currentEditorTemplate().isStageboxSnake), true, "non-bitmap entry must retain its schematic end model");
     await page.screenshot({ path: join(dir, `editor-${index}.png`) });

@@ -57,7 +57,8 @@ test('connector collisions preserve custom node capabilities, nested cards and c
   assert.equal(prepared.nodes.find(n=>n.id===mapped.compatibilityType).color,parent.color);
 });
 test('historical devices remain unattributed, authenticated new definitions use public names, never email fallbacks',async()=>{
-  const payload=await collect(root());assert.equal(payload.devices[0].attribution,undefined);
+  const historical=root();delete historical.attribution;
+  const payload=await collect(historical);assert.equal(payload.devices[0].attribution,undefined);
   assert.match(packages.attributionLabel().name,/Unknown creator \(unverified\)/);
   assert.equal(packages.publicDisplayName({full_name:'user@example.test',email:'user@example.test'}),'WireNexus contributor');
   assert.equal(packages.newDeviceAttribution(null),undefined);

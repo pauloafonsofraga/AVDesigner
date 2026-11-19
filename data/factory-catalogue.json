@@ -135,6 +135,12 @@
           "errors": [],
           "warnings": []
         }
+      },
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
       }
     },
     {
@@ -611,7 +617,13 @@
         }
       },
       "isProjector": false,
-      "projectorLenses": []
+      "projectorLenses": [],
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "id": "barco-e2-gen2",
@@ -2913,6 +2925,12 @@
           "errors": [],
           "warnings": []
         }
+      },
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
       }
     },
     {
@@ -4337,6 +4355,12 @@
           "errors": [],
           "warnings": []
         }
+      },
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
       }
     },
     {
@@ -6783,6 +6807,12 @@
           "errors": [],
           "warnings": []
         }
+      },
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
       }
     },
     {
@@ -7980,7 +8010,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "Devices/faceplates/library/thumbs/apple-mac-studios-custom-device-mq803pb0.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Generic",
@@ -8420,7 +8456,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "Devices/faceplates/library/thumbs/misc-laptop-custom-device-mq80gw7y.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "id": "custom-device-mq82015i",
@@ -8527,6 +8569,12 @@
           "errors": [],
           "warnings": []
         }
+      },
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
       }
     },
     {
@@ -12799,7 +12847,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "Devices/faceplates/library/thumbs/pixelhue-p20-custom-device-mq84dpgn.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "id": "custom-device-mq939de6",
@@ -12943,6 +12997,12 @@
           "errors": [],
           "warnings": []
         }
+      },
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
       }
     },
     {
@@ -13857,7 +13917,13 @@
       "switchPortType": "10g-rj45",
       "techSpecs": "",
       "thumbnailImage": "Devices/faceplates/library/thumbs/netgear-m4250-10-port-custom-device-mq93sah6.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "",
@@ -14432,7 +14498,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "Devices/faceplates/library/thumbs/resolume-server-custom-device-mq961ujb.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Blackmagick Design",
@@ -14703,7 +14775,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "Devices/faceplates/library/thumbs/blackmagick-design-hdmi-sdi-bi-directional-custom-device-mq96wvk9.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "id": "custom-device-mq9c2k14",
@@ -14940,6 +15018,12 @@
           "errors": [],
           "warnings": []
         }
+      },
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
       }
     },
     {
@@ -15359,7 +15443,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "Devices/faceplates/library/thumbs/panasonic-aw-ue100-ptz-custom-device-mq9d8b77.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "id": "custom-device-mq9dqm7w",
@@ -15672,6 +15762,12 @@
           "errors": [],
           "warnings": []
         }
+      },
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
       }
     },
     {
@@ -16086,6 +16182,12 @@
           "errors": [],
           "warnings": []
         }
+      },
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
       }
     },
     {
@@ -16455,6 +16557,12 @@
           "errors": [],
           "warnings": []
         }
+      },
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
       }
     },
     {
@@ -20681,7 +20789,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "Devices/faceplates/library/thumbs/lightware-mx2-48-x-48-hdmi-custom-device-mq9k09sh.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "id": "custom-device-mqgoe7m3",
@@ -21015,6 +21129,12 @@
           "errors": [],
           "warnings": []
         }
+      },
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
       }
     },
     {
@@ -24101,7 +24221,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "Devices/faceplates/library/thumbs/barco-e2-gen1-custom-device-e2-gen2-copy.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "id": "custom-device-e2-gen1-copy",
@@ -27054,6 +27180,12 @@
           "errors": [],
           "warnings": []
         }
+      },
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
       }
     },
     {
@@ -28145,7 +28277,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "Devices/faceplates/library/thumbs/novastar-mctrl660-pro-custom-device-mqiwsva9.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "id": "custom-device-mqj3nj49",
@@ -28438,6 +28576,12 @@
           "errors": [],
           "warnings": []
         }
+      },
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
       }
     },
     {
@@ -28938,7 +29082,13 @@
         }
       },
       "isProjector": false,
-      "projectorLenses": []
+      "projectorLenses": [],
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "id": "custom-device-custom-device-copy",
@@ -29539,7 +29689,13 @@
         }
       },
       "isProjector": false,
-      "projectorLenses": []
+      "projectorLenses": [],
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "id": "custom-device-mqj4ksjd",
@@ -30098,7 +30254,13 @@
         }
       },
       "isProjector": false,
-      "projectorLenses": []
+      "projectorLenses": [],
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "id": "custom-device-m1-dp-hdmi-pro-tx-copy",
@@ -30702,7 +30864,13 @@
         }
       },
       "isProjector": false,
-      "projectorLenses": []
+      "projectorLenses": [],
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Blackmagic Design",
@@ -34349,7 +34517,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "Devices/faceplates/library/thumbs/black-magic-design-atem-contellation-4-m-e-4k-custom-device-mqkjqqqd.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Blackmagic Design",
@@ -36116,7 +36290,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "Devices/faceplates/library/thumbs/black-magic-design-atem-contellation-2-m-e-4k-copy-custom-device-atem-co.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Magnimage",
@@ -37120,7 +37300,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "Devices/faceplates/library/thumbs/magnimage-mig-ec90-custom-device-mqkpef03.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Novastar",
@@ -38454,7 +38640,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "Devices/faceplates/library/thumbs/novastar-vx1000-custom-device-mqkqx8lg.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Apple",
@@ -38994,7 +39186,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "Devices/faceplates/library/thumbs/apple-mac-mini-m2-custom-device-mqkx04yg.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Apple",
@@ -39331,7 +39529,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "Devices/faceplates/library/thumbs/apple-macbook-pro-m4-max-custom-device-mqkx8fji.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "PixelHue",
@@ -41356,7 +41560,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "Devices/faceplates/library/thumbs/pixelhue-p10-custom-device-p20-copy.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "id": "custom-device-mqqhbped",
@@ -41496,6 +41706,12 @@
           "errors": [],
           "warnings": []
         }
+      },
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
       }
     },
     {
@@ -41636,6 +41852,12 @@
           "errors": [],
           "warnings": []
         }
+      },
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
       }
     },
     {
@@ -42207,7 +42429,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "Devices/faceplates/library/thumbs/l-acoustics-la8-custom-device-mqqhtywv.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "id": "custom-device-mqqkh3lq",
@@ -42511,6 +42739,12 @@
           "errors": [],
           "warnings": []
         }
+      },
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
       }
     },
     {
@@ -42841,7 +43075,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "Devices/faceplates/library/thumbs/l-acoustics-la-panel-custom-device-mqqmigja.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "L'Acoustics",
@@ -43185,7 +43425,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "Devices/faceplates/library/thumbs/l-acoustics-la-power-custom-device-mqqmmarc.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "id": "custom-device-mqv5z17y",
@@ -43325,6 +43571,12 @@
           "errors": [],
           "warnings": []
         }
+      },
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
       }
     },
     {
@@ -43465,6 +43717,12 @@
           "errors": [],
           "warnings": []
         }
+      },
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
       }
     },
     {
@@ -44178,7 +44436,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "Devices/faceplates/library/thumbs/l-acoustics-la4x-custom-device-mqv6jegr.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Yamaha",
@@ -46888,7 +47152,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "Devices/faceplates/library/thumbs/yamaha-dm7-custom-device-mqw9yhs8.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Luminex",
@@ -47515,7 +47785,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "Devices/faceplates/library/thumbs/luminex-gigacore-10-neutrik-duo-custom-device-mqwcg4mc.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Neutrik",
@@ -47793,7 +48069,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "Devices/faceplates/library/thumbs/neutrik-na-2i-dline-custom-device-mqwdo4zp.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Yamaha",
@@ -49056,7 +49338,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "Devices/faceplates/library/thumbs/yamaha-rio-1608-d2-custom-device-dm7-copy.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Yamaha",
@@ -51716,7 +52004,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "Devices/faceplates/library/thumbs/yamaha-rio-3234-d3-custom-device-dm7-copy-2.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Focusrite",
@@ -52027,7 +52321,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "Devices/faceplates/library/thumbs/focusrite-scarlet-solo-3rd-gen-custom-device-mqz417mi.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "RME",
@@ -53035,7 +53335,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "Devices/faceplates/library/thumbs/rme-fireface-uc-custom-device-mqz446pi.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Novastar",
@@ -53853,7 +54159,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "VX4 can load 2.3 million (2,359,396)\n(2048×1152@60Hz) pixels in maximum.\n\n The width of lateral load can reach 3840 pixels in maximum \n(3840×600@60Hz);\n\n the longitudinal load can reach to 1920 pixels in maximum \n(1200x1920@60Hz).",
       "thumbnailImage": "Devices/faceplates/library/thumbs/novastar-vx2s-custom-device-vx4s-copy.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Novastar",
@@ -54781,7 +55093,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "VX4 can load 2.3 million (2,359,396)\n(2048×1152@60Hz) pixels in maximum.\n\n The width of lateral load can reach 3840 pixels in maximum \n(3840×600@60Hz);\n\n the longitudinal load can reach to 1920 pixels in maximum \n(1200x1920@60Hz).",
       "thumbnailImage": "Devices/faceplates/library/thumbs/novastar-vx2s-custom-device-vx4s-copy.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Epson",
@@ -55434,7 +55752,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "Devices/faceplates/library/thumbs/epson-eb-pu2220b-custom-device-mrn1z47g.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "id": "custom-device-aquilon-rs2-copy-2",
@@ -60000,6 +60324,12 @@
           "errors": [],
           "warnings": []
         }
+      },
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
       }
     },
     {
@@ -64587,6 +64917,12 @@
           "errors": [],
           "warnings": []
         }
+      },
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
       }
     },
     {
@@ -69195,6 +69531,12 @@
           "errors": [],
           "warnings": []
         }
+      },
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
       }
     },
     {
@@ -73800,7 +74142,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "Devices/faceplates/library/thumbs/analog-way-aquilon-cmini-custom-device-aquilon-rs-alpha-copy.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "id": "custom-device-aquilon-rs1-copy",
@@ -78338,6 +78686,12 @@
           "errors": [],
           "warnings": []
         }
+      },
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
       }
     },
     {
@@ -82897,6 +83251,12 @@
           "errors": [],
           "warnings": []
         }
+      },
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
       }
     },
     {
@@ -87463,6 +87823,12 @@
           "errors": [],
           "warnings": []
         }
+      },
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
       }
     },
     {
@@ -92043,6 +92409,12 @@
           "errors": [],
           "warnings": []
         }
+      },
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
       }
     },
     {
@@ -96630,6 +97002,12 @@
           "errors": [],
           "warnings": []
         }
+      },
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
       }
     },
     {
@@ -101231,6 +101609,12 @@
           "errors": [],
           "warnings": []
         }
+      },
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
       }
     },
     {
@@ -105839,6 +106223,12 @@
           "errors": [],
           "warnings": []
         }
+      },
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
       }
     },
     {
@@ -107961,7 +108351,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "Devices/faceplates/library/thumbs/barco-udx-series-projector.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Barco",
@@ -110083,7 +110479,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "Devices/faceplates/library/thumbs/barco-udx-4k22-projector.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Panasonic",
@@ -111437,7 +111839,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "Devices/faceplates/library/thumbs/panasonic-pt-rq50k-projector.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "id": "custom-device-mticfthn",
@@ -111578,6 +111986,12 @@
           "errors": [],
           "warnings": []
         }
+      },
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
       }
     },
     {
@@ -111714,6 +112128,12 @@
           "errors": [],
           "warnings": []
         }
+      },
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
       }
     },
     {
@@ -111859,6 +112279,12 @@
           "errors": [],
           "warnings": []
         }
+      },
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
       }
     },
     {
@@ -111996,6 +112422,12 @@
           "errors": [],
           "warnings": []
         }
+      },
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
       }
     },
     {
@@ -113310,7 +113742,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "Devices/faceplates/library/thumbs/panasonic-pt-rq25k-panasonic-pt-rq25k.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Christie",
@@ -115883,7 +116321,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "Devices/faceplates/library/thumbs/christie-griffyn-4k50-rgb-christie-griffyn-4k50-rgb.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Christie",
@@ -118456,7 +118900,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "Devices/faceplates/library/thumbs/christie-griffyn-4k50-rgb-christie-griffyn-4k50-rgb.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Brompton",
@@ -119676,7 +120126,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "Devices/faceplates/library/thumbs/brompton-tessera-sq200-brompton-tessera-sq200.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Brompton",
@@ -121021,7 +121477,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "Devices/faceplates/library/thumbs/brompton-tessera-sx40-brompton-tessera-sx40.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Brompton",
@@ -122258,7 +122720,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "Devices/faceplates/library/thumbs/brompton-tessera-s8-brompton-tessera-s8.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Brompton",
@@ -122991,7 +123459,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "Devices/faceplates/library/thumbs/brompton-tessera-qd-s-brompton-tessera-qd-s.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Brompton",
@@ -123724,7 +124198,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "Devices/faceplates/library/thumbs/brompton-tessera-xd-s-brompton-tessera-xd-s.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Novastar",
@@ -125585,7 +126065,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "Devices/faceplates/library/thumbs/novastar-novapro-uhd-jr-novastar-novapro-uhd-jr.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "",
@@ -126288,7 +126774,13 @@
       "switchPortCount": 8,
       "switchPortType": "1g-rj45",
       "techSpecs": "",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "",
@@ -126661,7 +127153,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "",
-      "width": 190
+      "width": 190,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "",
@@ -127014,7 +127512,13 @@
       "switchPortCount": 8,
       "switchPortType": "1g-rj45",
       "techSpecs": "",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "",
@@ -128167,7 +128671,13 @@
       "switchPortCount": 8,
       "switchPortType": "1g-rj45",
       "techSpecs": "",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "DTech",
@@ -128684,7 +129194,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "assets/factory/f645dad0dbff693a888af9d5b6a8a2e9d4fbe68068983522746e7b8685f22751.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "D-Link",
@@ -130083,7 +130599,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "assets/factory/8f2d6c6dc62f5af42d453b0b931f2308a2acf410fa6ebbdd448643be5420cecd.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "HDCTV",
@@ -130544,7 +131066,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "assets/factory/ca965c5c5d4e2fa5eb48c232171c8f842ae2d6dd462736c81259c413c7ea8c03.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "HDCTV",
@@ -131069,7 +131597,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "assets/factory/f599424515035243e1a631de595d5cfe9f6df6119252f6408fdb9272c332df9b.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "",
@@ -131216,7 +131750,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "",
-      "width": 190
+      "width": 190,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Apple",
@@ -131681,7 +132221,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "assets/factory/f54ba446a5eb8dcbacb22a106a54d39b5edb96e48ae7d8bd8400dd88bfe0a1ce.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "AVStumpfl",
@@ -134141,7 +134687,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "Devices/faceplates/library/thumbs/avstumpfl-pixera-two-custom-device-mq7z05by.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Netgear",
@@ -134750,7 +135302,13 @@
       "switchPortType": "10g-rj45",
       "techSpecs": "",
       "thumbnailImage": "assets/factory/ed955549f8afc24659e5a3f3319a4aff6015494e2e645f4dbeba7d589ecb0339.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "",
@@ -135123,7 +135681,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "",
-      "width": 190
+      "width": 190,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "",
@@ -135496,7 +136060,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "",
-      "width": 190
+      "width": 190,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Megapixel",
@@ -136438,7 +137008,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "assets/factory/6180e29e2db5186e9859f0283e616c184c8b8f25c521b9740758f9093e4d8dae.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Megapixel",
@@ -137235,7 +137811,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "assets/factory/42704e2e9c85a6e1a094b3ce7f991cbc275023b719523936dd689eef6b75f43b.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Disguise",
@@ -138583,7 +139165,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "assets/factory/05ba982b62ff55261fd4b9569cff739bed7f697e2c9028e7a35fa27418843e3d.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Disguise",
@@ -140115,7 +140703,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "assets/factory/4a733134a61d984d34bca68f16103ac1cccc456c76d71259d1eb58afbed88f7c.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Disguise",
@@ -142529,7 +143123,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "assets/factory/5038c1abb4529c1375cbfab1444ed08ed0d1f4d4cde721bd3a683b6ead7cd7a3.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Disguise",
@@ -143074,7 +143674,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "assets/factory/4c8e417530538a91073f8c4830c0656a1113feeb71ca829df53a5d81f22d433a.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Disguise",
@@ -144652,7 +145258,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "assets/factory/b282af9d347cc38f834ac0f0594c92c1c7e6d583b2f4da57b821e7970cf1be7b.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Green Hippo",
@@ -146763,7 +147375,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "assets/factory/6d063a82525f3cb5347e54ecbf6fef2e577e387e12c4a4a0b8a1c31eb72cdcd6.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Green Hippo",
@@ -147988,7 +148606,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "assets/factory/a9043538431d58703bac72d79942bf3827bdf0aa77cb48c60205073c265a12b6.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Modulo Pi",
@@ -151122,7 +151746,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "Official hardware reference RMP-PRO-4x4K; 6 x physical DP 1.4, 2 x 10GbE RJ45, 2 x balanced XLR outputs, 4 rear + 2 front USB 3.0, TRUE1 mains, 850 W rated PSU, typical high-load power ~450 W. Capture combinations are alternative modes, not additive. No guaranteed physical card-slot count is implied by the template.",
       "thumbnailImage": "assets/factory/2de0c5f7b9fe2d9d68a98ce75f69b812f011d3d4da86cf93d2eb5d5151846bef.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Modulo Pi",
@@ -154129,7 +154759,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "Official hardware reference RMP-PRO-4x4K; 6 x physical DP 1.4, 2 x 10GbE RJ45, 2 x balanced XLR outputs, 4 rear + 2 front USB 3.0, TRUE1 mains, 850 W rated PSU, typical high-load power ~450 W. Capture combinations are alternative modes, not additive. No guaranteed physical card-slot count is implied by the template.",
       "thumbnailImage": "assets/factory/2de0c5f7b9fe2d9d68a98ce75f69b812f011d3d4da86cf93d2eb5d5151846bef.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "PixelHue",
@@ -158918,7 +159554,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "assets/factory/46557d74861e221b2a8ba7a42d2faab8f2c570e9c72f17dbd419c7bcbad1f397.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Roland",
@@ -160813,7 +161455,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "assets/factory/d5903367d88871045f7d0157815654ee91ce9fdb819055e4ed952b67eabaddb0.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Roland",
@@ -162228,7 +162876,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "assets/factory/4cb8d56feee1f522eebdf5a23334e585bda55bb1a96c596d2f2076cde380aaf3.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Green Hippo",
@@ -163453,7 +164107,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "assets/factory/a9043538431d58703bac72d79942bf3827bdf0aa77cb48c60205073c265a12b6.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Disguise",
@@ -165676,7 +166336,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "assets/factory/4a2585a7dab325dd4409fe0edf1c2a53e2277b441bbaaac6990d200a033a9b54.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Disguise",
@@ -168144,7 +168810,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "assets/factory/24abcd8521a5319c7e6de8ea8a127117f5fce0aa6368646e3aba7b72c381300a.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Disguise",
@@ -170742,7 +171414,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "assets/factory/8f92d78a4dc408917aa82c0b2fae0c9f3ef25159b607cc5846ac2335e43182e8.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Modulo Pi",
@@ -173876,7 +174554,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "Official hardware reference RMP-PRO-4x4K; 6 x physical DP 1.4, 2 x 10GbE RJ45, 2 x balanced XLR outputs, 4 rear + 2 front USB 3.0, TRUE1 mains, 850 W rated PSU, typical high-load power ~450 W. Capture combinations are alternative modes, not additive. No guaranteed physical card-slot count is implied by the template.",
       "thumbnailImage": "assets/factory/2de0c5f7b9fe2d9d68a98ce75f69b812f011d3d4da86cf93d2eb5d5151846bef.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Disguise",
@@ -176481,7 +177165,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "assets/factory/d3d1e1a34aec523d8bef6881e54ea58e6e95a652e62e60b4697cb4dad63f0e67.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Analog Way",
@@ -178137,7 +178827,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "QuickVu 4K (QVU-4K)\nEntry-level presentation switcher.\n1× 4K Program + 1× Full HD AUX output.\nMixer mode only.\nNo edge blending.\n\n\nQuickMatrix 4K (QMX-4K)\nDual-output presentation switcher.\n2× independent 4K Program outputs.\nMatrix mode only.\nNo edge blending.\n\n\nPulse 4K (PLS-4K)\nFlexible presentation switcher.\n2× independent 4K outputs in Matrix mode.\n1× 4K Program + AUX in Mixer mode.\nNo edge blending.\n\n\nEikos 4K (EKS-4K)\nAdvanced presentation switcher.\nSame Matrix and Mixer capabilities as Pulse 4K.\nAdds hard/soft edge blending for projection.\n\n\nCommon features: 10 video inputs, dedicated multiviewer, fixed video I/O, mirrored HDMI/SDI outputs, optional Analog + Dante audio card, 2U chassis and 95 W maximum power consumption.",
       "thumbnailImage": "assets/factory/7c2764a4430e00142e67cbddf108c90a1f60cc2fe953866744ad8d8509629b5d.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Christie",
@@ -181019,7 +181715,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "assets/factory/89e96918fdd41dc08b38ec3373a253f9188dcf4862b085e2a68fabcddce250bd.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Analog Way",
@@ -183703,7 +184405,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "assets/factory/0445cdfc031fad391b3f813a05716bc31caf16cd5f239dc183a042aa78a045ac.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Analog Way",
@@ -187780,7 +188488,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "assets/factory/dab820e2b2a43ba45bbbdd336354b6b505038023ee33a48057af1f18250ebefc.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Analog Way",
@@ -189436,7 +190150,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "QuickVu 4K (QVU-4K)\nEntry-level presentation switcher.\n1× 4K Program + 1× Full HD AUX output.\nMixer mode only.\nNo edge blending.\n\n\nQuickMatrix 4K (QMX-4K)\nDual-output presentation switcher.\n2× independent 4K Program outputs.\nMatrix mode only.\nNo edge blending.\n\n\nPulse 4K (PLS-4K)\nFlexible presentation switcher.\n2× independent 4K outputs in Matrix mode.\n1× 4K Program + AUX in Mixer mode.\nNo edge blending.\n\n\nEikos 4K (EKS-4K)\nAdvanced presentation switcher.\nSame Matrix and Mixer capabilities as Pulse 4K.\nAdds hard/soft edge blending for projection.\n\n\nCommon features: 10 video inputs, dedicated multiviewer, fixed video I/O, mirrored HDMI/SDI outputs, optional Analog + Dante audio card, 2U chassis and 95 W maximum power consumption.",
       "thumbnailImage": "assets/factory/aa7e34165cc6f5e0c766c65cb2b3e6861b9f85f57555fa167f8512683bb84d7f.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Analog Way",
@@ -191092,7 +191812,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "QuickVu 4K (QVU-4K)\nEntry-level presentation switcher.\n1× 4K Program + 1× Full HD AUX output.\nMixer mode only.\nNo edge blending.\n\n\nQuickMatrix 4K (QMX-4K)\nDual-output presentation switcher.\n2× independent 4K Program outputs.\nMatrix mode only.\nNo edge blending.\n\n\nPulse 4K (PLS-4K)\nFlexible presentation switcher.\n2× independent 4K outputs in Matrix mode.\n1× 4K Program + AUX in Mixer mode.\nNo edge blending.\n\n\nEikos 4K (EKS-4K)\nAdvanced presentation switcher.\nSame Matrix and Mixer capabilities as Pulse 4K.\nAdds hard/soft edge blending for projection.\n\n\nCommon features: 10 video inputs, dedicated multiviewer, fixed video I/O, mirrored HDMI/SDI outputs, optional Analog + Dante audio card, 2U chassis and 95 W maximum power consumption.",
       "thumbnailImage": "assets/factory/0977ac56937aee61efcb40ca5db0169cc50cf03b75623c06ea9afb6f887cbcde.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Analog Way",
@@ -192748,7 +193474,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "QuickVu 4K (QVU-4K)\nEntry-level presentation switcher.\n1× 4K Program + 1× Full HD AUX output.\nMixer mode only.\nNo edge blending.\n\n\nQuickMatrix 4K (QMX-4K)\nDual-output presentation switcher.\n2× independent 4K Program outputs.\nMatrix mode only.\nNo edge blending.\n\n\nPulse 4K (PLS-4K)\nFlexible presentation switcher.\n2× independent 4K outputs in Matrix mode.\n1× 4K Program + AUX in Mixer mode.\nNo edge blending.\n\n\nEikos 4K (EKS-4K)\nAdvanced presentation switcher.\nSame Matrix and Mixer capabilities as Pulse 4K.\nAdds hard/soft edge blending for projection.\n\n\nCommon features: 10 video inputs, dedicated multiviewer, fixed video I/O, mirrored HDMI/SDI outputs, optional Analog + Dante audio card, 2U chassis and 95 W maximum power consumption.",
       "thumbnailImage": "assets/factory/e9bb20d18ee20c89621cd6ffa3076616b28fd49b475c2bdb27be6620a5294cdf.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Analog Way",
@@ -194918,7 +195650,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "assets/factory/781be031e741a60d87f764e6a4a9c79db92605439f07683f01c246c9c28d60a6.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Barco",
@@ -197006,7 +197744,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "assets/factory/f12731599343eae986166a3cb4b0bda009fdc1a316949490f4d680f2ef269250.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Kommander",
@@ -198061,7 +198805,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "assets/factory/cff62331faeb897999789e36c731371724415015b6514e75cec29c5c8dbaaad9.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Theatrixx",
@@ -205939,7 +206689,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "assets/factory/28320ebedd66729835865a56a9b6e1e87a6b52b41e17289703a8f37242164205.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "PixelHue",
@@ -210687,7 +211443,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "assets/factory/a5fe2454c22d30472a83163defd50ec4e4379a906ad34b7050fd076d94bfcf22.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Roland",
@@ -211596,7 +212358,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "assets/factory/112384966656438f16bb0875bb0aa1587450269c8bf7dfe586d1cba863fdbdac.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "backplate": {
@@ -212580,7 +213348,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "assets/factory/d476036bba3d0689eccecc2367d2b43b2490a383937a9ff9410e7ad898fc329c.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "",
@@ -212727,7 +213501,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "",
-      "width": 190
+      "width": 190,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "backplate": {
@@ -214608,7 +215388,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "assets/factory/cefb8af87685e29d09eded59282b5ec0cfb5414d5d6f07b6c65145cbd45f43eb.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "backplate": {
@@ -215634,7 +216420,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "assets/factory/d627bf74069639c1e83e60dc2c5dc0a4ad6b37f6b9fa7997d8f442f94da9794c.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "backplate": {
@@ -216356,7 +217148,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "assets/factory/579a398749c502e8c69738ee9cc357b3f5b0d5c4d4e3325b693ccbdf8d76f58c.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "",
@@ -216820,7 +217618,13 @@
       "switchPortCount": 8,
       "switchPortType": "1g-rj45",
       "techSpecs": "",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "id": "generic-qsfp-breakout-lab",
@@ -217126,7 +217930,13 @@
             ]
           }
         }
-      ]
+      ],
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "id": "generic-transceiver-configuration-lab",
@@ -217241,7 +218051,13 @@
             ]
           }
         }
-      ]
+      ],
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Blackmagick Design",
@@ -217530,7 +218346,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "assets/factory/2851c6cd2353c91dbcfd80a3ced32c19a1ba0aa966e38d3fcdec6fa77a03a8e7.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Dell",
@@ -217938,7 +218760,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "Dell Vostro 3510 Laptop, 15.6&#34; FHD 1080p Display, Intel i7-1165G7 (4 Cores), 12GB RAM, 512GB PCIe SSD, Webcam, WiFi and Bluetooth, SD Card Reader, Windows 11 Pro, Carbon Black\nClick to see full view\nDell Vostro 3510 Laptop, 15.6\" FHD 1080p Display, Intel i7-1165G7 (4 Cores), 12GB RAM, 512GB PCIe SSD, Webcam, WiFi and Bluetooth, SD Card Reader, Windows 11 Pro, Carbon Black",
       "thumbnailImage": "assets/factory/f0ecf85669bdc9c3b36087c0ee22ceffd1374bdbdc5342a15d4c25cf3b58e2f9.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Lenovo",
@@ -218396,7 +219224,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "Lenovo (Upgraded) LOQ 15IRX10 Gaming Laptop, 15.6\" FHD IPS 144Hz Display, Intel Core i7-13650HX, 16GB DDR5 RAM, 512GB SSD, GeForce RTX 5060 8GB Graphics, White Backlit ENG Keyboard, Luna Grey",
       "thumbnailImage": "assets/factory/4acc7033b51cdf77bdafbffb6e906abe2010ae32a971b6fc68e54f1717bb2b2f.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Asus",
@@ -218958,7 +219792,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "• Processor: Intel Core i7-8750H (6 cores, 12 threads, 2.2 GHz base up to 4.1 GHz boost)\n\n• Graphics: NVIDIA GeForce GTX 1060 with 6GB GDDR5 VRAM\n\n• Display: 17.3-inch Full HD (1920 x 1080) matte display featuring a 120 Hz or 144 Hz refresh rate (depending on the specific sub-model variant)\n\n• Memory (RAM): 16 GB DDR4 (expandable up to 32 GB at 2666 MHz)\n\n• Storage: Combination of a 256 GB M.2 NVMe SSD and a 1 TB HDD/SSHD\n\n• Operating System: Windows 10 Home (64-bit)\n\n• Weight & Dimensions: Approximately 2.95 kg (6.5 lbs) with dimensions of 41.5 x 28 x 2.4 cm\n\nConnectivity & Ports\n\n• 4 x USB Type-A 3.1 Gen 1\n• 1 x USB Type-C 3.1 Gen 2\n• 1 x HDMI 2.0 and 1 x Mini DisplayPort\n\n• 1 x RJ45 Gigabit Ethernet LAN jack\n\n• 1 x SD Card Reader and a 3.5mm headphone/microphone combo jack\n\n• Wi-Fi (802.11ac) and Bluetooth 4.1",
       "thumbnailImage": "assets/factory/cbc95c38fc9ced79fa3b01a30c0fdfb344a318a4efc0393282781b41df49c3cb.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "MSI",
@@ -219462,7 +220302,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "\nKey Specifications & Features\n\n• Processor: Intel Core i7-12700H (2.3 GHz base frequency, 14 cores / 20 threads)\n\n• Graphics: NVIDIA GeForce RTX 3070 Ti (8GB GDDR6, up to 150W TGP)\n\n• Display: 15.6-inch QHD (2560 x 1440) high-refresh-rate IPS-level display (typically 165Hz)\n\n• Memory & Storage: 16GB DDR4 RAM (expandable up to 64GB across 2 slots) and a fast 1TB NVMe PCIe Gen4 SSD\n\n• Keyboard & Audio: SteelSeries per-key RGB gaming keyboard with Dynaudio-tuned speakers\n\n• Connectivity: Wi-Fi 6E (AX211), Bluetooth 5.2, Gigabit / 2.5G Ethernet, USB Type-C with DisplayPort, HDMI, and Mini DisplayPort\n\n• Power & Design: 4-cell 65Whr battery with a 280W AC adapter, weighing approximately 2.38 kg",
       "thumbnailImage": "assets/factory/bfee8980012639152d32667e41c15191423ffaa6b8a22e6cee1835a3fbfe0aff.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Decimator Design",
@@ -220005,7 +220851,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "assets/factory/c92d668886b1c06018f25822c3252bfe39058a096b829ce065ab81f439def007.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Decimator Design",
@@ -220502,7 +221354,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "assets/factory/291d58c0f45ba963154b4744ba5eadf7ea7ece432ac4f1dabb1b3b37c00ba214.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Blackmagic Design",
@@ -220789,7 +221647,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "assets/factory/349c4e2e0bacdb2b6139d70888fb1e32cf265f214594952fe6a40279f828532c.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Blackmagic Design",
@@ -221076,7 +221940,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "assets/factory/e5be84403fa8e85fb320228e46b64670a4b1cbcac7da1649ba6dd821352212a8.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "backplate": {
@@ -222604,7 +223474,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "Official hardware reference RMP-PRO-4x4K; 6 x physical DP 1.4, 2 x 10GbE RJ45, 2 x balanced XLR outputs, 4 rear + 2 front USB 3.0, TRUE1 mains, 850 W rated PSU, typical high-load power ~450 W. Capture combinations are alternative modes, not additive. No guaranteed physical card-slot count is implied by the template.",
       "thumbnailImage": "assets/factory/29d18f5f51b4ec6f350e1e6240347cc82f02a18f4bfa1217feb42927f948416e.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Twoloox",
@@ -225698,7 +226574,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "THIS DEVICE MIGHT NOT BE ACCURATE",
       "thumbnailImage": "assets/factory/af90cccdb9b3648562e7313afd2f00c0d495b878453462a82eee3d19a5ffc08e.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "backplate": {
@@ -227425,7 +228307,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "assets/factory/184410f3a06d730a6cf8981d8f70355d12170b5dd719c7e0a100ad3b335e6bef.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "backplate": {
@@ -230021,7 +230909,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "assets/factory/034eb4bbf64d811acee7da2960d8ee1755d0f0a6d52bed01008eace87ef282e5.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Decimator Design",
@@ -230518,7 +231412,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "assets/factory/13aa8433964f70dd3af1621dc872384be1fcf52efa66329ebf55a1274b162a89.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Blackmagic Design",
@@ -230805,7 +231705,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "assets/factory/d5fb12a67dc7589ac73e8aceaf22b19a19ce5c342dd58f9fdb93dcf285989239.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Generic",
@@ -231380,7 +232286,13 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "Devices/faceplates/library/thumbs/resolume-server-custom-device-mq961ujb.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     },
     {
       "brand": "Blackmagic Design",
@@ -231667,7 +232579,1468 @@
       "switchPortType": "1g-rj45",
       "techSpecs": "",
       "thumbnailImage": "assets/factory/4b9d9ab72538ea7c8913058d85b65e1278b67c7d3fb49ca7a535f1f49039e946.png",
-      "width": 380
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
+    },
+    {
+      "brand": "AJA",
+      "cardSlots": [],
+      "cardTypes": [],
+      "category": "Converters",
+      "connectorRelationships": [],
+      "connectorTopology": {
+        "relationships": [],
+        "schemaVersion": 2,
+        "validation": {
+          "errors": [],
+          "warnings": []
+        }
+      },
+      "connectors": [
+        {
+          "anchors": [
+            {
+              "id": "left",
+              "label": "",
+              "primary": true,
+              "side": "left",
+              "x": 0,
+              "y": 235
+            }
+          ],
+          "connectorType": "sdi",
+          "customColor": "",
+          "customText": "",
+          "customTextCaption": "",
+          "direction": "input",
+          "displaySide": "left",
+          "empty": false,
+          "faceplateSide": false,
+          "fiberCapability": null,
+          "fiberMode": "",
+          "id": "input-slot-1",
+          "includeInMatrix": true,
+          "infoFields": [],
+          "installedModuleType": "",
+          "label": "SDI",
+          "matrixPortTouched": false,
+          "moduleCapability": null,
+          "nameCustom": false,
+          "nameText": "IN 1",
+          "nameTextCaption": "",
+          "operationalStatus": "working",
+          "physicalType": "sdi",
+          "powerMetadata": null,
+          "powerPlug": null,
+          "primaryAnchorId": "left",
+          "resolutionFrameRate": "12G/6G/3G/ 1.5G",
+          "resolutionFrameRateCaption": "",
+          "rowIndex": 0,
+          "schemaVersion": 2,
+          "signalDirection": "input",
+          "signalIndex": 0,
+          "type": "sdi",
+          "x": 0,
+          "y": 235
+        },
+        {
+          "anchors": [
+            {
+              "id": "left",
+              "label": "",
+              "primary": true,
+              "side": "left",
+              "x": 0,
+              "y": 289
+            }
+          ],
+          "connectorType": "sdi",
+          "customColor": "",
+          "customText": "",
+          "customTextCaption": "",
+          "direction": "input",
+          "displaySide": "left",
+          "empty": false,
+          "faceplateSide": false,
+          "fiberCapability": null,
+          "fiberMode": "",
+          "id": "input-slot-2",
+          "includeInMatrix": true,
+          "infoFields": [],
+          "installedModuleType": "",
+          "label": "SDI",
+          "matrixPortTouched": false,
+          "moduleCapability": null,
+          "nameCustom": false,
+          "nameText": "IN 2",
+          "nameTextCaption": "",
+          "operationalStatus": "working",
+          "physicalType": "sdi",
+          "powerMetadata": null,
+          "powerPlug": null,
+          "primaryAnchorId": "left",
+          "resolutionFrameRate": "12G/6G/3G/ 1.5G",
+          "resolutionFrameRateCaption": "",
+          "rowIndex": 1,
+          "schemaVersion": 2,
+          "signalDirection": "input",
+          "signalIndex": 0,
+          "type": "sdi",
+          "x": 0,
+          "y": 289
+        },
+        {
+          "anchors": [
+            {
+              "id": "left",
+              "label": "",
+              "primary": true,
+              "side": "left",
+              "x": 0,
+              "y": 343
+            }
+          ],
+          "connectorType": "sdi",
+          "customColor": "",
+          "customText": "",
+          "customTextCaption": "",
+          "direction": "input",
+          "displaySide": "left",
+          "empty": false,
+          "faceplateSide": false,
+          "fiberCapability": null,
+          "fiberMode": "",
+          "id": "input-slot-3",
+          "includeInMatrix": true,
+          "infoFields": [],
+          "installedModuleType": "",
+          "label": "SDI",
+          "matrixPortTouched": false,
+          "moduleCapability": null,
+          "nameCustom": false,
+          "nameText": "IN 3",
+          "nameTextCaption": "",
+          "operationalStatus": "working",
+          "physicalType": "sdi",
+          "powerMetadata": null,
+          "powerPlug": null,
+          "primaryAnchorId": "left",
+          "resolutionFrameRate": "12G/6G/3G/ 1.5G",
+          "resolutionFrameRateCaption": "",
+          "rowIndex": 2,
+          "schemaVersion": 2,
+          "signalDirection": "input",
+          "signalIndex": 0,
+          "type": "sdi",
+          "x": 0,
+          "y": 343
+        },
+        {
+          "anchors": [
+            {
+              "id": "left",
+              "label": "",
+              "primary": true,
+              "side": "left",
+              "x": 0,
+              "y": 397
+            }
+          ],
+          "connectorType": "sdi",
+          "customColor": "",
+          "customText": "",
+          "customTextCaption": "",
+          "direction": "input",
+          "displaySide": "left",
+          "empty": false,
+          "faceplateSide": false,
+          "fiberCapability": null,
+          "fiberMode": "",
+          "id": "input-slot-4",
+          "includeInMatrix": true,
+          "infoFields": [],
+          "installedModuleType": "",
+          "label": "SDI",
+          "matrixPortTouched": false,
+          "moduleCapability": null,
+          "nameCustom": false,
+          "nameText": "IN 4",
+          "nameTextCaption": "",
+          "operationalStatus": "working",
+          "physicalType": "sdi",
+          "powerMetadata": null,
+          "powerPlug": null,
+          "primaryAnchorId": "left",
+          "resolutionFrameRate": "12G/6G/3G/ 1.5G",
+          "resolutionFrameRateCaption": "",
+          "rowIndex": 3,
+          "schemaVersion": 2,
+          "signalDirection": "input",
+          "signalIndex": 0,
+          "type": "sdi",
+          "x": 0,
+          "y": 397
+        },
+        {
+          "anchors": [
+            {
+              "id": "left",
+              "label": "",
+              "primary": true,
+              "side": "left",
+              "x": 0,
+              "y": 505
+            }
+          ],
+          "connectorType": "new-node",
+          "customColor": "",
+          "customText": "",
+          "customTextCaption": "",
+          "direction": "input",
+          "displaySide": "left",
+          "empty": false,
+          "faceplateSide": false,
+          "fiberCapability": null,
+          "fiberMode": "",
+          "id": "input-slot-5",
+          "includeInMatrix": true,
+          "infoFields": [],
+          "installedModuleType": "",
+          "label": "Barrel Jack",
+          "matrixPortTouched": false,
+          "moduleCapability": null,
+          "nameCustom": true,
+          "nameText": "A/C IN",
+          "nameTextCaption": "",
+          "operationalStatus": "working",
+          "physicalType": "new-node",
+          "powerMetadata": null,
+          "powerPlug": null,
+          "primaryAnchorId": "left",
+          "resolutionFrameRate": "",
+          "resolutionFrameRateCaption": "",
+          "rowIndex": 5,
+          "schemaVersion": 2,
+          "signalDirection": "input",
+          "signalIndex": 0,
+          "type": "new-node",
+          "x": 0,
+          "y": 505
+        },
+        {
+          "anchors": [
+            {
+              "id": "right",
+              "label": "",
+              "primary": true,
+              "side": "right",
+              "x": 380,
+              "y": 235
+            }
+          ],
+          "connectorType": "sdi",
+          "customColor": "",
+          "customText": "",
+          "customTextCaption": "",
+          "direction": "output",
+          "displaySide": "right",
+          "empty": false,
+          "faceplateSide": false,
+          "fiberCapability": null,
+          "fiberMode": "",
+          "id": "output-slot-1",
+          "includeInMatrix": true,
+          "infoFields": [],
+          "installedModuleType": "",
+          "label": "SDI",
+          "matrixPortTouched": false,
+          "moduleCapability": null,
+          "nameCustom": false,
+          "nameText": "OUT 1",
+          "nameTextCaption": "",
+          "operationalStatus": "working",
+          "physicalType": "sdi",
+          "powerMetadata": null,
+          "powerPlug": null,
+          "primaryAnchorId": "right",
+          "resolutionFrameRate": "12G/6G/3G/ 1.5G",
+          "resolutionFrameRateCaption": "",
+          "rowIndex": 0,
+          "schemaVersion": 2,
+          "signalDirection": "output",
+          "signalIndex": 0,
+          "type": "sdi",
+          "x": 380,
+          "y": 235
+        },
+        {
+          "anchors": [
+            {
+              "id": "right",
+              "label": "",
+              "primary": true,
+              "side": "right",
+              "x": 380,
+              "y": 289
+            }
+          ],
+          "connectorType": "sdi",
+          "customColor": "",
+          "customText": "",
+          "customTextCaption": "",
+          "direction": "output",
+          "displaySide": "right",
+          "empty": false,
+          "faceplateSide": false,
+          "fiberCapability": null,
+          "fiberMode": "",
+          "id": "output-slot-2",
+          "includeInMatrix": true,
+          "infoFields": [],
+          "installedModuleType": "",
+          "label": "SDI",
+          "matrixPortTouched": false,
+          "moduleCapability": null,
+          "nameCustom": false,
+          "nameText": "OUT 2",
+          "nameTextCaption": "",
+          "operationalStatus": "working",
+          "physicalType": "sdi",
+          "powerMetadata": null,
+          "powerPlug": null,
+          "primaryAnchorId": "right",
+          "resolutionFrameRate": "12G/6G/3G/ 1.5G",
+          "resolutionFrameRateCaption": "",
+          "rowIndex": 1,
+          "schemaVersion": 2,
+          "signalDirection": "output",
+          "signalIndex": 0,
+          "type": "sdi",
+          "x": 380,
+          "y": 289
+        },
+        {
+          "anchors": [
+            {
+              "id": "right",
+              "label": "",
+              "primary": true,
+              "side": "right",
+              "x": 380,
+              "y": 343
+            }
+          ],
+          "connectorType": "sdi",
+          "customColor": "",
+          "customText": "",
+          "customTextCaption": "",
+          "direction": "output",
+          "displaySide": "right",
+          "empty": false,
+          "faceplateSide": false,
+          "fiberCapability": null,
+          "fiberMode": "",
+          "id": "output-slot-3",
+          "includeInMatrix": true,
+          "infoFields": [],
+          "installedModuleType": "",
+          "label": "SDI",
+          "matrixPortTouched": false,
+          "moduleCapability": null,
+          "nameCustom": false,
+          "nameText": "OUT 3",
+          "nameTextCaption": "",
+          "operationalStatus": "working",
+          "physicalType": "sdi",
+          "powerMetadata": null,
+          "powerPlug": null,
+          "primaryAnchorId": "right",
+          "resolutionFrameRate": "12G/6G/3G/ 1.5G",
+          "resolutionFrameRateCaption": "",
+          "rowIndex": 2,
+          "schemaVersion": 2,
+          "signalDirection": "output",
+          "signalIndex": 0,
+          "type": "sdi",
+          "x": 380,
+          "y": 343
+        },
+        {
+          "anchors": [
+            {
+              "id": "right",
+              "label": "",
+              "primary": true,
+              "side": "right",
+              "x": 380,
+              "y": 397
+            }
+          ],
+          "connectorType": "sdi",
+          "customColor": "",
+          "customText": "",
+          "customTextCaption": "",
+          "direction": "output",
+          "displaySide": "right",
+          "empty": false,
+          "faceplateSide": false,
+          "fiberCapability": null,
+          "fiberMode": "",
+          "id": "output-slot-4",
+          "includeInMatrix": true,
+          "infoFields": [],
+          "installedModuleType": "",
+          "label": "SDI",
+          "matrixPortTouched": false,
+          "moduleCapability": null,
+          "nameCustom": false,
+          "nameText": "OUT 4",
+          "nameTextCaption": "",
+          "operationalStatus": "working",
+          "physicalType": "sdi",
+          "powerMetadata": null,
+          "powerPlug": null,
+          "primaryAnchorId": "right",
+          "resolutionFrameRate": "12G/6G/3G/ 1.5G",
+          "resolutionFrameRateCaption": "",
+          "rowIndex": 3,
+          "schemaVersion": 2,
+          "signalDirection": "output",
+          "signalIndex": 0,
+          "type": "sdi",
+          "x": 380,
+          "y": 397
+        },
+        {
+          "anchors": [
+            {
+              "id": "left",
+              "label": "",
+              "primary": false,
+              "side": "left",
+              "x": 0,
+              "y": 451
+            },
+            {
+              "id": "right",
+              "label": "",
+              "primary": true,
+              "side": "right",
+              "x": 380,
+              "y": 451
+            }
+          ],
+          "connectorType": "mini-usb-a",
+          "customColor": "",
+          "customText": "",
+          "customTextCaption": "",
+          "direction": "output",
+          "displaySide": "both",
+          "empty": false,
+          "faceplateSide": false,
+          "fiberCapability": null,
+          "fiberMode": "",
+          "id": "output-slot-5",
+          "includeInMatrix": false,
+          "infoFields": [],
+          "installedModuleType": "",
+          "label": "Mini-USB-A",
+          "matrixPortTouched": false,
+          "moduleCapability": null,
+          "nameCustom": true,
+          "nameText": "",
+          "nameTextCaption": "",
+          "operationalStatus": "working",
+          "physicalType": "mini-usb-a",
+          "powerMetadata": null,
+          "powerPlug": null,
+          "primaryAnchorId": "right",
+          "resolutionFrameRate": "Control",
+          "resolutionFrameRateCaption": "Purpose",
+          "rowIndex": 4,
+          "schemaVersion": 2,
+          "signalDirection": "bidirectional",
+          "signalIndex": 0,
+          "type": "mini-usb-a",
+          "x": 380,
+          "y": 451
+        }
+      ],
+      "defaultConfiguration": null,
+      "description": "",
+      "deviceDefinitionVersion": 2,
+      "faceImage": "assets/factory/df7eccfcf1940af9e1c8b4c1aaa666ade7abcf2e09e85f87540d2e674b08123b.png",
+      "faceImageLayout": {
+        "connectorBounds": {
+          "height": 152.46597052620322,
+          "width": 231.25815061502442,
+          "x": 74.37092469248779,
+          "y": 46
+        },
+        "contentBounds": {
+          "height": 0.9599609375,
+          "sourceHeight": 1024,
+          "sourceWidth": 1536,
+          "width": 0.970703125,
+          "x": 0,
+          "y": 0.0244140625
+        },
+        "height": 168.46597052620322,
+        "topAligned": true
+      },
+      "faceImageNaturalHeight": 1024,
+      "faceImageNaturalWidth": 1536,
+      "faceImageOffsetX": 0,
+      "faceImageOffsetY": 0,
+      "faceImageScale": 0.7006993319617263,
+      "faceImageScaleX": 0.7006993319617263,
+      "faceImageScaleY": 0.7006993319617263,
+      "faceplateDeleted": false,
+      "hasSwappableCards": false,
+      "height": 581,
+      "id": "custom-device-mwnac1cg",
+      "isAdapterBreakout": false,
+      "isEthernetSwitch": false,
+      "isLedProcessor": false,
+      "isMatrixRouter": false,
+      "isPartOfPair": false,
+      "isPowerDistro": false,
+      "isProjector": false,
+      "ledOutputCount": 16,
+      "manualHeight": 0,
+      "model": "12G-SDI to/from SDI Muxer/DeMuxer",
+      "name": "12G-SDI to/from SDI Muxer/DeMuxer",
+      "objectType": "device",
+      "pairPlaceFirst": false,
+      "pairedTemplateId": "",
+      "powerDistroFaceHeight": 0,
+      "powerDistroFaceY": 38,
+      "powerUnit": "watts",
+      "powerWatts": 12,
+      "projectorLenses": [],
+      "schemaVersion": 2,
+      "switchPortCount": 8,
+      "switchPortType": "1g-rj45",
+      "techSpecs": "12GM is a compact SDI transport Mini-Converter that enables 12G-SDI to quad link 3G-SDI and quad link 3G-SDI to 12G-SDI conversion. The muxer/demuxer supports 4K, UltraHD, 2K, HD and SD workflows and conversions from quad link SDI signals to single link SDI signals, and vice versa at 12G, 6G, 3G and 1.5G bit rates, as well as Dual-Link and Dual-Stream conversions. Both Square Division (Quadrant) and Two Sample Interleave (2SI) input and output mappings are supported.",
+      "thumbnailImage": "assets/factory/67c096fce760baf6e4ee9caea962087271489d6a17fd7b0fe1f138a5639e7b7d.png",
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
+    },
+    {
+      "brand": "AJA",
+      "cardSlots": [],
+      "cardTypes": [],
+      "category": "Converters",
+      "connectorRelationships": [],
+      "connectorTopology": {
+        "relationships": [],
+        "schemaVersion": 2,
+        "validation": {
+          "errors": [],
+          "warnings": []
+        }
+      },
+      "connectors": [
+        {
+          "anchors": [
+            {
+              "id": "left",
+              "label": "",
+              "primary": true,
+              "side": "left",
+              "x": 0,
+              "y": 204
+            }
+          ],
+          "connectorType": "sdi",
+          "customColor": "",
+          "customText": "",
+          "customTextCaption": "",
+          "direction": "input",
+          "displaySide": "left",
+          "empty": false,
+          "faceplateSide": false,
+          "fiberCapability": null,
+          "fiberMode": "",
+          "id": "input-slot-1",
+          "includeInMatrix": true,
+          "infoFields": [],
+          "installedModuleType": "",
+          "label": "SDI",
+          "matrixPortTouched": false,
+          "moduleCapability": null,
+          "nameCustom": true,
+          "nameText": "IN",
+          "nameTextCaption": "",
+          "operationalStatus": "working",
+          "physicalType": "sdi",
+          "powerMetadata": null,
+          "powerPlug": null,
+          "primaryAnchorId": "left",
+          "resolutionFrameRate": "",
+          "resolutionFrameRateCaption": "",
+          "rowIndex": 0,
+          "schemaVersion": 2,
+          "signalDirection": "input",
+          "signalIndex": 0,
+          "type": "sdi",
+          "x": 0,
+          "y": 204
+        },
+        {
+          "anchors": [
+            {
+              "id": "left",
+              "label": "",
+              "primary": true,
+              "side": "left",
+              "x": 0,
+              "y": 258
+            }
+          ],
+          "connectorType": "bnc",
+          "customColor": "",
+          "customText": "",
+          "customTextCaption": "",
+          "direction": "input",
+          "displaySide": "left",
+          "empty": false,
+          "faceplateSide": false,
+          "fiberCapability": null,
+          "fiberMode": "",
+          "id": "input-slot-2",
+          "includeInMatrix": true,
+          "infoFields": [],
+          "installedModuleType": "",
+          "label": "BNC",
+          "matrixPortTouched": false,
+          "moduleCapability": null,
+          "nameCustom": false,
+          "nameText": "IN 2",
+          "nameTextCaption": "",
+          "operationalStatus": "working",
+          "physicalType": "bnc",
+          "powerMetadata": null,
+          "powerPlug": null,
+          "primaryAnchorId": "left",
+          "resolutionFrameRate": "",
+          "resolutionFrameRateCaption": "",
+          "rowIndex": 1,
+          "schemaVersion": 2,
+          "signalDirection": "input",
+          "signalIndex": 0,
+          "type": "bnc",
+          "x": 0,
+          "y": 258
+        },
+        {
+          "anchors": [
+            {
+              "id": "left",
+              "label": "",
+              "primary": true,
+              "side": "left",
+              "x": 0,
+              "y": 312
+            },
+            {
+              "id": "right",
+              "label": "",
+              "primary": false,
+              "side": "right",
+              "x": 380,
+              "y": 312
+            }
+          ],
+          "connectorType": "mini-usb-a",
+          "customColor": "",
+          "customText": "",
+          "customTextCaption": "",
+          "direction": "input",
+          "displaySide": "both",
+          "empty": false,
+          "faceplateSide": false,
+          "fiberCapability": null,
+          "fiberMode": "",
+          "id": "input-slot-3",
+          "includeInMatrix": false,
+          "infoFields": [],
+          "installedModuleType": "",
+          "label": "Mini-USB-A",
+          "matrixPortTouched": false,
+          "moduleCapability": null,
+          "nameCustom": true,
+          "nameText": "",
+          "nameTextCaption": "",
+          "operationalStatus": "working",
+          "physicalType": "mini-usb-a",
+          "powerMetadata": null,
+          "powerPlug": null,
+          "primaryAnchorId": "left",
+          "resolutionFrameRate": "Control",
+          "resolutionFrameRateCaption": "Purpose",
+          "rowIndex": 2,
+          "schemaVersion": 2,
+          "signalDirection": "bidirectional",
+          "signalIndex": 0,
+          "type": "mini-usb-a",
+          "x": 0,
+          "y": 312
+        },
+        {
+          "anchors": [
+            {
+              "id": "left",
+              "label": "",
+              "primary": true,
+              "side": "left",
+              "x": 0,
+              "y": 366
+            }
+          ],
+          "connectorType": "new-node",
+          "customColor": "",
+          "customText": "",
+          "customTextCaption": "",
+          "direction": "input",
+          "displaySide": "left",
+          "empty": false,
+          "faceplateSide": false,
+          "fiberCapability": null,
+          "fiberMode": "",
+          "id": "input-slot-4",
+          "includeInMatrix": true,
+          "infoFields": [],
+          "installedModuleType": "",
+          "label": "Barrel Jack",
+          "matrixPortTouched": false,
+          "moduleCapability": null,
+          "nameCustom": true,
+          "nameText": "A/C IN",
+          "nameTextCaption": "",
+          "operationalStatus": "working",
+          "physicalType": "new-node",
+          "powerMetadata": null,
+          "powerPlug": null,
+          "primaryAnchorId": "left",
+          "resolutionFrameRate": "",
+          "resolutionFrameRateCaption": "",
+          "rowIndex": 3,
+          "schemaVersion": 2,
+          "signalDirection": "input",
+          "signalIndex": 0,
+          "type": "new-node",
+          "x": 0,
+          "y": 366
+        },
+        {
+          "anchors": [
+            {
+              "id": "right",
+              "label": "",
+              "primary": true,
+              "side": "right",
+              "x": 380,
+              "y": 204
+            }
+          ],
+          "connectorType": "sdi",
+          "customColor": "",
+          "customText": "",
+          "customTextCaption": "",
+          "direction": "output",
+          "displaySide": "right",
+          "empty": false,
+          "faceplateSide": false,
+          "fiberCapability": null,
+          "fiberMode": "",
+          "id": "output-slot-1",
+          "includeInMatrix": true,
+          "infoFields": [],
+          "installedModuleType": "",
+          "label": "SDI",
+          "matrixPortTouched": false,
+          "moduleCapability": null,
+          "nameCustom": true,
+          "nameText": "OUT",
+          "nameTextCaption": "",
+          "operationalStatus": "working",
+          "physicalType": "sdi",
+          "powerMetadata": null,
+          "powerPlug": null,
+          "primaryAnchorId": "right",
+          "resolutionFrameRate": "",
+          "resolutionFrameRateCaption": "",
+          "rowIndex": 0,
+          "schemaVersion": 2,
+          "signalDirection": "output",
+          "signalIndex": 0,
+          "type": "sdi",
+          "x": 380,
+          "y": 204
+        },
+        {
+          "anchors": [
+            {
+              "id": "right",
+              "label": "",
+              "primary": true,
+              "side": "right",
+              "x": 380,
+              "y": 258
+            }
+          ],
+          "connectorType": "hdmi",
+          "customColor": "",
+          "customText": "",
+          "customTextCaption": "",
+          "direction": "output",
+          "displaySide": "right",
+          "empty": false,
+          "faceplateSide": false,
+          "fiberCapability": null,
+          "fiberMode": "",
+          "id": "output-slot-2",
+          "includeInMatrix": true,
+          "infoFields": [],
+          "installedModuleType": "",
+          "label": "HDMI",
+          "matrixPortTouched": false,
+          "moduleCapability": null,
+          "nameCustom": true,
+          "nameText": "OUT",
+          "nameTextCaption": "",
+          "operationalStatus": "working",
+          "physicalType": "hdmi",
+          "powerMetadata": null,
+          "powerPlug": null,
+          "primaryAnchorId": "right",
+          "resolutionFrameRate": "",
+          "resolutionFrameRateCaption": "",
+          "rowIndex": 1,
+          "schemaVersion": 2,
+          "signalDirection": "output",
+          "signalIndex": 0,
+          "type": "hdmi",
+          "x": 380,
+          "y": 258
+        },
+        {
+          "anchors": [
+            {
+              "id": "right",
+              "label": "",
+              "primary": true,
+              "side": "right",
+              "x": 380,
+              "y": 366
+            }
+          ],
+          "connectorType": "rca",
+          "customColor": "",
+          "customText": "",
+          "customTextCaption": "",
+          "direction": "output",
+          "displaySide": "right",
+          "empty": false,
+          "faceplateSide": false,
+          "fiberCapability": null,
+          "fiberMode": "",
+          "id": "output-slot-3",
+          "includeInMatrix": true,
+          "infoFields": [],
+          "installedModuleType": "",
+          "label": "RCA",
+          "matrixPortTouched": false,
+          "moduleCapability": null,
+          "nameCustom": true,
+          "nameText": "AUDIO R",
+          "nameTextCaption": "",
+          "operationalStatus": "working",
+          "physicalType": "rca",
+          "powerMetadata": null,
+          "powerPlug": null,
+          "primaryAnchorId": "right",
+          "resolutionFrameRate": "",
+          "resolutionFrameRateCaption": "",
+          "rowIndex": 3,
+          "schemaVersion": 2,
+          "signalDirection": "output",
+          "signalIndex": 0,
+          "type": "rca",
+          "x": 380,
+          "y": 366
+        },
+        {
+          "anchors": [
+            {
+              "id": "right",
+              "label": "",
+              "primary": true,
+              "side": "right",
+              "x": 380,
+              "y": 420
+            }
+          ],
+          "connectorType": "rca",
+          "customColor": "",
+          "customText": "",
+          "customTextCaption": "",
+          "direction": "output",
+          "displaySide": "right",
+          "empty": false,
+          "faceplateSide": false,
+          "fiberCapability": null,
+          "fiberMode": "",
+          "id": "output-slot-4",
+          "includeInMatrix": true,
+          "infoFields": [],
+          "installedModuleType": "",
+          "label": "RCA",
+          "matrixPortTouched": false,
+          "moduleCapability": null,
+          "nameCustom": true,
+          "nameText": "AUDIO L",
+          "nameTextCaption": "",
+          "operationalStatus": "working",
+          "physicalType": "rca",
+          "powerMetadata": null,
+          "powerPlug": null,
+          "primaryAnchorId": "right",
+          "resolutionFrameRate": "",
+          "resolutionFrameRateCaption": "",
+          "rowIndex": 4,
+          "schemaVersion": 2,
+          "signalDirection": "output",
+          "signalIndex": 0,
+          "type": "rca",
+          "x": 380,
+          "y": 420
+        }
+      ],
+      "defaultConfiguration": null,
+      "description": "",
+      "deviceDefinitionVersion": 2,
+      "faceImage": "assets/factory/fd28582c852accfe27775a6d087b1da785d7c6c2effab6f72c74810b184e491c.png",
+      "faceImageLayout": {
+        "connectorBounds": {
+          "height": 121.85260864557785,
+          "width": 220.173192980023,
+          "x": 79.9134035099885,
+          "y": 46
+        },
+        "contentBounds": {
+          "height": 0.9836244541484717,
+          "sourceHeight": 916,
+          "sourceWidth": 1718,
+          "width": 0.9476135040745053,
+          "x": 0,
+          "y": 0.016375545851528384
+        },
+        "height": 137.85260864557785,
+        "topAligned": true
+      },
+      "faceImageNaturalHeight": 916,
+      "faceImageNaturalWidth": 1718,
+      "faceImageOffsetX": 0,
+      "faceImageOffsetY": 0,
+      "faceImageScale": 0.6833674402725819,
+      "faceImageScaleX": 0.6833674402725819,
+      "faceImageScaleY": 0.6833674402725819,
+      "faceplateDeleted": false,
+      "hasSwappableCards": false,
+      "height": 496,
+      "id": "custom-device-mwnarvif",
+      "isAdapterBreakout": false,
+      "isEthernetSwitch": false,
+      "isLedProcessor": false,
+      "isMatrixRouter": false,
+      "isPartOfPair": false,
+      "isPowerDistro": false,
+      "isProjector": false,
+      "ledOutputCount": 16,
+      "manualHeight": 0,
+      "model": "FS-Mini Frame Synchronizer",
+      "name": "FS-Mini Frame Synchronizer",
+      "objectType": "device",
+      "pairPlaceFirst": false,
+      "pairedTemplateId": "",
+      "powerDistroFaceHeight": 0,
+      "powerDistroFaceY": 38,
+      "powerUnit": "watts",
+      "powerWatts": 7,
+      "projectorLenses": [],
+      "schemaVersion": 2,
+      "switchPortCount": 8,
+      "switchPortType": "1g-rj45",
+      "techSpecs": "The FS-Mini is a broadcast quality utility frame sync that packs the production-proven reliability of AJA’s leading FS frame sync technology into a portable Mini-Converter supporting frame synchronization of untimed 3G-SDI, HD, and SD video signals at an affordable price. \n\nFS-Mini allows users to synchronize and convert a wide range of video formats to their house standard with a 3G-SDI input and output, HDMI output, and a 2-channel RCA style audio output. The FS-Mini also provides high quality up, down, cross-conversion.\n\nThe device also features a reference input that can be used to lock to a local reference.  It can be simply controlled via local DIP switches or USB with AJA's Mini-Config application.",
+      "thumbnailImage": "assets/factory/bf1bbe8c6eaa8bb3f2a1a32c9cd7a7a41ee9a172d6642c09ff976c4ee539e742.png",
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
+    },
+    {
+      "brand": "AJA",
+      "cardSlots": [],
+      "cardTypes": [],
+      "category": "Synchronizers",
+      "connectorRelationships": [],
+      "connectorTopology": {
+        "relationships": [],
+        "schemaVersion": 2,
+        "validation": {
+          "errors": [],
+          "warnings": []
+        }
+      },
+      "connectors": [
+        {
+          "anchors": [
+            {
+              "id": "left",
+              "label": "",
+              "primary": true,
+              "side": "left",
+              "x": 0,
+              "y": 217
+            }
+          ],
+          "connectorType": "new-node",
+          "customColor": "",
+          "customText": "",
+          "customTextCaption": "",
+          "direction": "input",
+          "displaySide": "left",
+          "empty": false,
+          "faceplateSide": false,
+          "fiberCapability": null,
+          "fiberMode": "",
+          "id": "input-slot-1",
+          "includeInMatrix": true,
+          "infoFields": [],
+          "installedModuleType": "",
+          "label": "Barrel Jack",
+          "matrixPortTouched": false,
+          "moduleCapability": null,
+          "nameCustom": true,
+          "nameText": "A/C IN",
+          "nameTextCaption": "",
+          "operationalStatus": "working",
+          "physicalType": "new-node",
+          "powerMetadata": null,
+          "powerPlug": null,
+          "primaryAnchorId": "left",
+          "resolutionFrameRate": "",
+          "resolutionFrameRateCaption": "",
+          "rowIndex": 0,
+          "schemaVersion": 2,
+          "signalDirection": "input",
+          "signalIndex": 0,
+          "type": "new-node",
+          "x": 0,
+          "y": 217
+        },
+        {
+          "anchors": [
+            {
+              "id": "right",
+              "label": "",
+              "primary": true,
+              "side": "right",
+              "x": 380,
+              "y": 217
+            }
+          ],
+          "connectorType": "bnc",
+          "customColor": "",
+          "customText": "Color Black, 75% Color Bars",
+          "customTextCaption": "SD Sync",
+          "direction": "output",
+          "displaySide": "right",
+          "empty": false,
+          "faceplateSide": false,
+          "fiberCapability": null,
+          "fiberMode": "",
+          "id": "output-slot-1",
+          "includeInMatrix": true,
+          "infoFields": [],
+          "installedModuleType": "",
+          "label": "BNC",
+          "matrixPortTouched": false,
+          "moduleCapability": null,
+          "nameCustom": false,
+          "nameText": "OUT 1",
+          "nameTextCaption": "",
+          "operationalStatus": "working",
+          "physicalType": "bnc",
+          "powerMetadata": null,
+          "powerPlug": null,
+          "primaryAnchorId": "right",
+          "resolutionFrameRate": "Tri-level",
+          "resolutionFrameRateCaption": "HD Sync",
+          "rowIndex": 0,
+          "schemaVersion": 2,
+          "signalDirection": "output",
+          "signalIndex": 0,
+          "type": "bnc",
+          "x": 380,
+          "y": 217
+        },
+        {
+          "anchors": [
+            {
+              "id": "right",
+              "label": "",
+              "primary": true,
+              "side": "right",
+              "x": 380,
+              "y": 271
+            }
+          ],
+          "connectorType": "bnc",
+          "customColor": "",
+          "customText": "Color Black, 75% Color Bars",
+          "customTextCaption": "SD Sync",
+          "direction": "output",
+          "displaySide": "right",
+          "empty": false,
+          "faceplateSide": false,
+          "fiberCapability": null,
+          "fiberMode": "",
+          "id": "output-slot-2",
+          "includeInMatrix": true,
+          "infoFields": [],
+          "installedModuleType": "",
+          "label": "BNC",
+          "matrixPortTouched": false,
+          "moduleCapability": null,
+          "nameCustom": false,
+          "nameText": "OUT 2",
+          "nameTextCaption": "",
+          "operationalStatus": "working",
+          "physicalType": "bnc",
+          "powerMetadata": null,
+          "powerPlug": null,
+          "primaryAnchorId": "right",
+          "resolutionFrameRate": "Tri-level",
+          "resolutionFrameRateCaption": "HD Sync",
+          "rowIndex": 1,
+          "schemaVersion": 2,
+          "signalDirection": "output",
+          "signalIndex": 0,
+          "type": "bnc",
+          "x": 380,
+          "y": 271
+        },
+        {
+          "anchors": [
+            {
+              "id": "right",
+              "label": "",
+              "primary": true,
+              "side": "right",
+              "x": 380,
+              "y": 325
+            }
+          ],
+          "connectorType": "bnc",
+          "customColor": "",
+          "customText": "Color Black, 75% Color Bars",
+          "customTextCaption": "SD Sync",
+          "direction": "output",
+          "displaySide": "right",
+          "empty": false,
+          "faceplateSide": false,
+          "fiberCapability": null,
+          "fiberMode": "",
+          "id": "output-slot-3",
+          "includeInMatrix": true,
+          "infoFields": [],
+          "installedModuleType": "",
+          "label": "BNC",
+          "matrixPortTouched": false,
+          "moduleCapability": null,
+          "nameCustom": false,
+          "nameText": "OUT 3",
+          "nameTextCaption": "",
+          "operationalStatus": "working",
+          "physicalType": "bnc",
+          "powerMetadata": null,
+          "powerPlug": null,
+          "primaryAnchorId": "right",
+          "resolutionFrameRate": "Tri-level",
+          "resolutionFrameRateCaption": "HD Sync",
+          "rowIndex": 2,
+          "schemaVersion": 2,
+          "signalDirection": "output",
+          "signalIndex": 0,
+          "type": "bnc",
+          "x": 380,
+          "y": 325
+        },
+        {
+          "anchors": [
+            {
+              "id": "right",
+              "label": "",
+              "primary": true,
+              "side": "right",
+              "x": 380,
+              "y": 379
+            }
+          ],
+          "connectorType": "bnc",
+          "customColor": "",
+          "customText": "Color Black, 75% Color Bars",
+          "customTextCaption": "SD Sync",
+          "direction": "output",
+          "displaySide": "right",
+          "empty": false,
+          "faceplateSide": false,
+          "fiberCapability": null,
+          "fiberMode": "",
+          "id": "output-slot-4",
+          "includeInMatrix": true,
+          "infoFields": [],
+          "installedModuleType": "",
+          "label": "BNC",
+          "matrixPortTouched": false,
+          "moduleCapability": null,
+          "nameCustom": false,
+          "nameText": "OUT 4",
+          "nameTextCaption": "",
+          "operationalStatus": "working",
+          "physicalType": "bnc",
+          "powerMetadata": null,
+          "powerPlug": null,
+          "primaryAnchorId": "right",
+          "resolutionFrameRate": "Tri-level",
+          "resolutionFrameRateCaption": "HD Sync",
+          "rowIndex": 3,
+          "schemaVersion": 2,
+          "signalDirection": "output",
+          "signalIndex": 0,
+          "type": "bnc",
+          "x": 380,
+          "y": 379
+        },
+        {
+          "anchors": [
+            {
+              "id": "right",
+              "label": "",
+              "primary": true,
+              "side": "right",
+              "x": 380,
+              "y": 433
+            }
+          ],
+          "connectorType": "bnc",
+          "customColor": "",
+          "customText": "Color Black, 75% Color Bars",
+          "customTextCaption": "SD Sync",
+          "direction": "output",
+          "displaySide": "right",
+          "empty": false,
+          "faceplateSide": false,
+          "fiberCapability": null,
+          "fiberMode": "",
+          "id": "output-slot-5",
+          "includeInMatrix": true,
+          "infoFields": [],
+          "installedModuleType": "",
+          "label": "BNC",
+          "matrixPortTouched": false,
+          "moduleCapability": null,
+          "nameCustom": false,
+          "nameText": "OUT 5",
+          "nameTextCaption": "",
+          "operationalStatus": "working",
+          "physicalType": "bnc",
+          "powerMetadata": null,
+          "powerPlug": null,
+          "primaryAnchorId": "right",
+          "resolutionFrameRate": "Tri-level",
+          "resolutionFrameRateCaption": "HD Sync",
+          "rowIndex": 4,
+          "schemaVersion": 2,
+          "signalDirection": "output",
+          "signalIndex": 0,
+          "type": "bnc",
+          "x": 380,
+          "y": 433
+        },
+        {
+          "anchors": [
+            {
+              "id": "right",
+              "label": "",
+              "primary": true,
+              "side": "right",
+              "x": 380,
+              "y": 487
+            }
+          ],
+          "connectorType": "bnc",
+          "customColor": "",
+          "customText": "Color Black, 75% Color Bars",
+          "customTextCaption": "SD Sync",
+          "direction": "output",
+          "displaySide": "right",
+          "empty": false,
+          "faceplateSide": false,
+          "fiberCapability": null,
+          "fiberMode": "",
+          "id": "output-slot-6",
+          "includeInMatrix": true,
+          "infoFields": [],
+          "installedModuleType": "",
+          "label": "BNC",
+          "matrixPortTouched": false,
+          "moduleCapability": null,
+          "nameCustom": false,
+          "nameText": "OUT 6",
+          "nameTextCaption": "",
+          "operationalStatus": "working",
+          "physicalType": "bnc",
+          "powerMetadata": null,
+          "powerPlug": null,
+          "primaryAnchorId": "right",
+          "resolutionFrameRate": "Tri-level",
+          "resolutionFrameRateCaption": "HD Sync",
+          "rowIndex": 5,
+          "schemaVersion": 2,
+          "signalDirection": "output",
+          "signalIndex": 0,
+          "type": "bnc",
+          "x": 380,
+          "y": 487
+        },
+        {
+          "anchors": [
+            {
+              "id": "right",
+              "label": "",
+              "primary": true,
+              "side": "right",
+              "x": 380,
+              "y": 541
+            }
+          ],
+          "connectorType": "bnc",
+          "customColor": "",
+          "customText": "",
+          "customTextCaption": "",
+          "direction": "output",
+          "displaySide": "right",
+          "empty": false,
+          "faceplateSide": false,
+          "fiberCapability": null,
+          "fiberMode": "",
+          "id": "output-slot-7",
+          "includeInMatrix": true,
+          "infoFields": [],
+          "installedModuleType": "",
+          "label": "BNC",
+          "matrixPortTouched": false,
+          "moduleCapability": null,
+          "nameCustom": true,
+          "nameText": "AES-11",
+          "nameTextCaption": "",
+          "operationalStatus": "working",
+          "physicalType": "bnc",
+          "powerMetadata": null,
+          "powerPlug": null,
+          "primaryAnchorId": "right",
+          "resolutionFrameRate": "48 kHz, silent or 1 KHz tone",
+          "resolutionFrameRateCaption": "Signal",
+          "rowIndex": 6,
+          "schemaVersion": 2,
+          "signalDirection": "output",
+          "signalIndex": 0,
+          "type": "bnc",
+          "x": 380,
+          "y": 541
+        }
+      ],
+      "defaultConfiguration": null,
+      "description": "",
+      "deviceDefinitionVersion": 2,
+      "faceImage": "assets/factory/f2fb39964b6cda6a31adaef44bdc55775ef819dab888a038d36b2e7b093623ae.png",
+      "faceImageLayout": {
+        "connectorBounds": {
+          "height": 134.39636657904455,
+          "width": 264.8219314182537,
+          "x": 57.589034290873144,
+          "y": 46
+        },
+        "contentBounds": {
+          "height": 0.992108229988726,
+          "sourceHeight": 887,
+          "sourceWidth": 1774,
+          "width": 0.9774520856820744,
+          "x": 0,
+          "y": 0.007891770011273957
+        },
+        "height": 150.39636657904458,
+        "topAligned": true
+      },
+      "faceImageNaturalHeight": 887,
+      "faceImageNaturalWidth": 1774,
+      "faceImageOffsetX": 0,
+      "faceImageOffsetY": 0,
+      "faceImageScale": 0.7968554622701371,
+      "faceImageScaleX": 0.7968554622701371,
+      "faceImageScaleY": 0.7968554622701371,
+      "faceplateDeleted": false,
+      "hasSwappableCards": false,
+      "height": 617,
+      "id": "custom-device-mwnb65sh",
+      "isAdapterBreakout": false,
+      "isEthernetSwitch": false,
+      "isLedProcessor": false,
+      "isMatrixRouter": false,
+      "isPartOfPair": false,
+      "isPowerDistro": false,
+      "isProjector": false,
+      "ledOutputCount": 16,
+      "manualHeight": 0,
+      "model": "GEN10 HD/SD Sync Generator",
+      "name": "GEN10 HD/SD Sync Generator",
+      "objectType": "device",
+      "pairPlaceFirst": false,
+      "pairedTemplateId": "",
+      "powerDistroFaceHeight": 0,
+      "powerDistroFaceY": 38,
+      "powerUnit": "watts",
+      "powerWatts": 2,
+      "projectorLenses": [],
+      "schemaVersion": 2,
+      "switchPortCount": 8,
+      "switchPortType": "1g-rj45",
+      "techSpecs": "The GEN10 is a cost effective and flexible SD/HD/AES sync generator. The GEN10 features 7 outputs including 2 groups of independently controlled SD/HD sync outputs and 1 AES-11 output. The SD outputs can be switched between Color Black or Color Bars. HD tri-level sync can be switched between 19 different HD formats including all that are in use today. The AES-11 output can be switched between SILENCE and TONE. All outputs are in sync with each-other and are sourced from an accurate master time base.",
+      "thumbnailImage": "assets/factory/391210529d4d2da72df23587d870a0fe8108f8d6d918e73b4df3f35e1bec5f4d.png",
+      "width": 380,
+      "attribution": {
+        "version": 1,
+        "creatorId": "",
+        "displayName": "WireNexus",
+        "createdAt": null
+      }
     }
   ],
   "nodeTypes": {
@@ -234942,6 +237315,36 @@
       "sha256": "fb380b3267e8306abd09215433b56b741b144fd0ccdc3d3ed1e50c3803194e1d",
       "bytes": 2491990,
       "mime": "image/png"
+    },
+    "assets/factory/391210529d4d2da72df23587d870a0fe8108f8d6d918e73b4df3f35e1bec5f4d.png": {
+      "sha256": "391210529d4d2da72df23587d870a0fe8108f8d6d918e73b4df3f35e1bec5f4d",
+      "bytes": 40661,
+      "mime": "image/png"
+    },
+    "assets/factory/67c096fce760baf6e4ee9caea962087271489d6a17fd7b0fe1f138a5639e7b7d.png": {
+      "sha256": "67c096fce760baf6e4ee9caea962087271489d6a17fd7b0fe1f138a5639e7b7d",
+      "bytes": 51012,
+      "mime": "image/png"
+    },
+    "assets/factory/bf1bbe8c6eaa8bb3f2a1a32c9cd7a7a41ee9a172d6642c09ff976c4ee539e742.png": {
+      "sha256": "bf1bbe8c6eaa8bb3f2a1a32c9cd7a7a41ee9a172d6642c09ff976c4ee539e742",
+      "bytes": 40240,
+      "mime": "image/png"
+    },
+    "assets/factory/df7eccfcf1940af9e1c8b4c1aaa666ade7abcf2e09e85f87540d2e674b08123b.png": {
+      "sha256": "df7eccfcf1940af9e1c8b4c1aaa666ade7abcf2e09e85f87540d2e674b08123b",
+      "bytes": 2560951,
+      "mime": "image/png"
+    },
+    "assets/factory/f2fb39964b6cda6a31adaef44bdc55775ef819dab888a038d36b2e7b093623ae.png": {
+      "sha256": "f2fb39964b6cda6a31adaef44bdc55775ef819dab888a038d36b2e7b093623ae",
+      "bytes": 1770160,
+      "mime": "image/png"
+    },
+    "assets/factory/fd28582c852accfe27775a6d087b1da785d7c6c2effab6f72c74810b184e491c.png": {
+      "sha256": "fd28582c852accfe27775a6d087b1da785d7c6c2effab6f72c74810b184e491c",
+      "bytes": 1974270,
+      "mime": "image/png"
     }
   },
   "libraryThumbnails": {},
@@ -237944,6 +240347,1006 @@
           "id": "triax-14",
           "baseFingerprint": null,
           "candidateFingerprint": "dff98037d25d6534c4967b0c5c2b67d30cad8ecfa565eed0975a02180189da8b"
+        }
+      ]
+    },
+    {
+      "packageId": "43a9aa9b742c4a74c53733d4013ac90368ea6960dc16210a7e9f71f8c9747dd7",
+      "records": [
+        {
+          "kind": "device",
+          "id": "custom-device-mwnac1cg",
+          "baseFingerprint": null,
+          "candidateFingerprint": "e70376776b8898cbce2336189f45575e87cb83b2504134be2c2fd720009fddae"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mwnarvif",
+          "baseFingerprint": null,
+          "candidateFingerprint": "9c2f618b45556b765d7b4a2873180ac3b527f45a68bdefb633bcb8bbf902b6a4"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mwnb65sh",
+          "baseFingerprint": null,
+          "candidateFingerprint": "a1638cd997c6cabf907e41a76879cc798bd0b1172d0cc735e31157b95d58cfba"
+        },
+        {
+          "kind": "node",
+          "id": "bnc",
+          "baseFingerprint": "424e4bc769a8b190014a37d656efa5ab7b0e378627ec9c2893e9a8252298f1a2",
+          "candidateFingerprint": "424e4bc769a8b190014a37d656efa5ab7b0e378627ec9c2893e9a8252298f1a2"
+        },
+        {
+          "kind": "node",
+          "id": "hdmi",
+          "baseFingerprint": "5b1f7ff3701d15e96d6893e64d5b341e294bfd4ad5e462bd2d6f0178048b1b44",
+          "candidateFingerprint": "5b1f7ff3701d15e96d6893e64d5b341e294bfd4ad5e462bd2d6f0178048b1b44"
+        },
+        {
+          "kind": "node",
+          "id": "mini-usb-a",
+          "baseFingerprint": "b6b7547674e77e621fa5b1d2b1d3a07e89e3483208e42b5d91c9107646977120",
+          "candidateFingerprint": "b6b7547674e77e621fa5b1d2b1d3a07e89e3483208e42b5d91c9107646977120"
+        },
+        {
+          "kind": "node",
+          "id": "new-node",
+          "baseFingerprint": "14c286118400a5bc274427b50a0e4ab70e2892b8bda69f86b01aa7151202e759",
+          "candidateFingerprint": "14c286118400a5bc274427b50a0e4ab70e2892b8bda69f86b01aa7151202e759"
+        },
+        {
+          "kind": "node",
+          "id": "rca",
+          "baseFingerprint": "988a473cd1b237cd0df8a23cd751cdf4799f14ed658e569753ed24826822e967",
+          "candidateFingerprint": "988a473cd1b237cd0df8a23cd751cdf4799f14ed658e569753ed24826822e967"
+        },
+        {
+          "kind": "node",
+          "id": "sdi",
+          "baseFingerprint": "3933519ad05147b14f43287e43002c966845f5ef015325e8ca456d42751158f3",
+          "candidateFingerprint": "3933519ad05147b14f43287e43002c966845f5ef015325e8ca456d42751158f3"
+        }
+      ]
+    },
+    {
+      "packageId": "18d5452fc8ea3d23cbd9da1d3de614960f95b8f92e265a644a847fff58efc87a",
+      "records": [
+        {
+          "kind": "device",
+          "id": "camera-ptz-4k",
+          "baseFingerprint": "6b3f40bc95efdd1ec02377249f802fd0e7928d63230a539aec786d54956b2e20",
+          "candidateFingerprint": "00043fb664f2af695ca575eb7c870c36075a49f6bb86953e92bf37a15af99d89"
+        },
+        {
+          "kind": "device",
+          "id": "matrix-8x8",
+          "baseFingerprint": "fc1e3305ae3af370535ab2044df4a5e6ee2d4124caa51a43cc4e4835069ffecb",
+          "candidateFingerprint": "d01357cd577b9bd7bd57502a5331f9f51c1ae7d1be3b8976786355208a2f3610"
+        },
+        {
+          "kind": "device",
+          "id": "barco-e2-gen2",
+          "baseFingerprint": "e61da2acf5ac14421c38f5c921c6870213ec74fe113bcc31bf64ffe0c20317a5",
+          "candidateFingerprint": "962f5824e21dc6f01d5982a4eac19cafc206591e7cb81075518628fcca6c2fe1"
+        },
+        {
+          "kind": "device",
+          "id": "novastar-mctrl4k",
+          "baseFingerprint": "e2eab867692f0b1e99d54411853c9590cf6eab237014f010ea2330ed6495d517",
+          "candidateFingerprint": "62305a5aaa10d9fc1822294e8f4b194d9fc7a13a810c3099b321500c9c119f86"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mq7z05by",
+          "baseFingerprint": "2fe9478d6e3bf0d98f09e766ea155b341e5eb3c4c37bce50275dbc624719f9fc",
+          "candidateFingerprint": "45b4e3d05bc9bb234e4762c71fee89f542ff54682daf8787c86f6b74879b8f15"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mq803pb0",
+          "baseFingerprint": "e7c0d5d5a3fad2450b28e3e73dd005ee60700404cc79d0399931c501f413a8b8",
+          "candidateFingerprint": "8b0117e56bf7fe4226b2fe75de1be3427161972b67ae351b2dc193dcc70c8ea0"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mq80gw7y",
+          "baseFingerprint": "bf25b2da9f3264fa9b69b452cd9b79086edea314bfca991424d48b41758c54b3",
+          "candidateFingerprint": "d9911a41144534d5b1ff6d5ce760a4d9494eb288b7a34955ff0b0f413015e0e2"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mq82015i",
+          "baseFingerprint": "e0eedd62306031ab8296138e6ea26c7673308cf5adb05cd03d78bae49b8a02de",
+          "candidateFingerprint": "d8134d722c5d798fadd0a77a58294f2b49deb9e9145304ccfcebaf4b0ec5158c"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mq84dpgn",
+          "baseFingerprint": "a830668c439cda511a208b34ea2ed6b1563f7f381a5f3f3969764caf8b92db1a",
+          "candidateFingerprint": "5e8c407b2f6312bc544791f571eeff1a7a0fe3a672740e340680d11580eaaab8"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mq939de6",
+          "baseFingerprint": "186836e242205fc92a348d5c5d222f867a7cda73274b3a45b906f4e7299ea1fe",
+          "candidateFingerprint": "ab43b6621922519f12455e9e83424aab3548e3640076f9edee4120f269c34781"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mq93sah6",
+          "baseFingerprint": "54d4cafd4844c2480441cdf20e7c7d626279aef0196914592899824a32426b8e",
+          "candidateFingerprint": "c201f5b84489b70752992b14a1e5d2a18f2fdbbdc65d1dce8bb97de851502409"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mq961ujb",
+          "baseFingerprint": "dc31d55f7d54966c73b279fe241199ba18ee0f59ff6041cee3b21c01c151be29",
+          "candidateFingerprint": "57f1a6a6c83d90f66a0a3ab321257f89a3ae8dcd6eba8def3729996138c5b8f1"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mq96wvk9",
+          "baseFingerprint": "3c7174174c9940d3d40b669bcc1a356e1c3b92a04c355bd0188c2540b1c7cdf7",
+          "candidateFingerprint": "312ff10cf2a289a5579b2714c22c1f88234ee7aa349cae3161d9addd95b1d6a3"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mq9c2k14",
+          "baseFingerprint": "b5eb6581f91abc971d0ff791f6cfc3628b40fb58a96564de28623f0f16b30b45",
+          "candidateFingerprint": "b9e07a1727511da01a564bd8e22ea099197e817e5c5063de25a2214efa77099b"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mq9d8b77",
+          "baseFingerprint": "d4c557f46fbe66ce471858c9fac61e260501e478d969c4f4212672347b9728c9",
+          "candidateFingerprint": "9c2ce5968ee4fd68ca22602ab9b66b959d70ee83fce0310ef2eb6a8d0e4deed6"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mq9dqm7w",
+          "baseFingerprint": "87597ce91a105ee052d426f8c011f702030e2aef4454c3abbce05377d5a0bfe1",
+          "candidateFingerprint": "7dda0d23fb1b8cf4803aa9c818c7c24d13f28f5457e7bd9b2b24c28f9a3b85a1"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mq9f9c3u",
+          "baseFingerprint": "888a5642fe5a5d43c71166fde6ddc78ce0f82dd77c35a0934a731f1b3928ffe1",
+          "candidateFingerprint": "b398c85178498bd11121d8ec394fd97a5f91cedb518ae7338d4e1a8e7f7a2591"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mq9fgdlq",
+          "baseFingerprint": "ceea922f6daa45a68f8af96a7abb348aefb051f7b7edcff2d0c0270205ddc526",
+          "candidateFingerprint": "867a1d1556e65856e6dafdb9ff8d5d4824b965c085d55968a1c6542e9b6afcb4"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mq9k09sh",
+          "baseFingerprint": "ef7c676b02131bce2117b4fde4239b9aac79ec16c6afd9c474738f76339aa0ca",
+          "candidateFingerprint": "b56c224cd19a2701037763d34e396a69a27dd3c7985ddec551117c8c702bbd44"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mqgoe7m3",
+          "baseFingerprint": "c0114df28a4a7100b6d9b4d0b4d13f3569001e50f44eb81e19600cb09fb8f7ed",
+          "candidateFingerprint": "1d750821b49a23b0f7899149c3cc078a35fb71183e0fff0d71ba17333d28cb1f"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-e2-gen2-copy",
+          "baseFingerprint": "50305fa4bf0c3c8602877d085ac00927b6bdf96a2cc45a862059ec50eecf86bb",
+          "candidateFingerprint": "765bbac6fe472c4af0f017ebdd02ae2053fc2797cc6883a771834f6c45e0688e"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-e2-gen1-copy",
+          "baseFingerprint": "97d94feb6c26098c17dc382503ce2fc96764f5986e41ff09c479c26e4ed0a97c",
+          "candidateFingerprint": "52edfbfccc7cb9c3861a839a9d2fcb34b3dd80ca3df4940ee4cca01bf27f508c"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mqiwsva9",
+          "baseFingerprint": "4843952dccf1692f44d05dc8bb29838fad1dc8642505cb52270039e7928ce51a",
+          "candidateFingerprint": "8d02102b357145a4da54051c6c1154aacd608ff3692b133af3343a562b43d941"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mqj3nj49",
+          "baseFingerprint": "3db1dadbc47759ab9b172d5796224e920cea5f7353884e9bc9dfe1487c1028de",
+          "candidateFingerprint": "2c9ced84c3aa5ad4f59b4cfb176ee209a207fb9f4e6869f4ddebb8cf4d52add5"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mqj43gzs",
+          "baseFingerprint": "be6306bde6c92c8ed7127895ffa7d4303faade87e35ce549662f0b50b316823c",
+          "candidateFingerprint": "6b68eee0859ef9144f93b4dbc9e97072561c8363318671358a268519bdae9390"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-custom-device-copy",
+          "baseFingerprint": "ef4893a177a166928268f0972926e98e0a3038a47096dbb68db962bfed8bbdfa",
+          "candidateFingerprint": "a8b25ea1b21c751cdc0bb51f300bf89663a3053c31ba594e9659da3bcee4fbc7"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mqj4ksjd",
+          "baseFingerprint": "c6e933bc0e4203e74431f0ef893f21581f869c221624924553367a86ea01589f",
+          "candidateFingerprint": "17b4de0a80de0d8955abf8be700469ffeb9e44ca29d7206aab6a93287416d80f"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-m1-dp-hdmi-pro-tx-copy",
+          "baseFingerprint": "792062d0acbb7590fffed0867d021274a60e40e41fb9ca82f7888e5fb20f9575",
+          "candidateFingerprint": "b33b14cb9d12c7e7bcce8cdc867eb3c6be066127f906ff6dddae5c309a269db4"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mqkjqqqd",
+          "baseFingerprint": "14195639b8f9fbaea4efb6295fa280296ab1ce1809f96d59eba66c6e61abc155",
+          "candidateFingerprint": "0c0340c8d927b71302a9646b099c062b3923e51abe3c11b242c46d268487ba55"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-atem-contellation-4-m-e-4k-copy",
+          "baseFingerprint": "2591bfed923fd205a3f36a60d1b66ddc0a3b7a3ac85f629eb1ba7eedac93a51b",
+          "candidateFingerprint": "d9453f20d0bcb6c7614c7591837dddce82973b4a9bfd42c32e180dd1554a8ebe"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mqkpef03",
+          "baseFingerprint": "a778fbe18aef5207d83038fa9d8ebd72607e39ec165f78b4ba6b6d38ab762e89",
+          "candidateFingerprint": "225538d21174433ae9df0b11c9558450a628ea62d7e3e74daee692b4621d8443"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mqkqx8lg",
+          "baseFingerprint": "a198d052e47f2f4e19d83b63c5e545a48c5c4ffe48bcc5945859864c431da710",
+          "candidateFingerprint": "caa7255c4a83880fc89fce2a1827c9ed9231d40b45fc1d6b5998f812802972ac"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mqkx04yg",
+          "baseFingerprint": "72609ab1a4e2303feec9014b0cc64fd751c42711d2138a47337c688f34bd51c7",
+          "candidateFingerprint": "e8397c83a9e43a88a79febe09618c039d563f004bae7223953cf86b655150a48"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mqkx8fji",
+          "baseFingerprint": "3e03204fefd0bfbb5186aff5f9eb1a64754f0cb9ce02c41cfa37f65c2f21eb52",
+          "candidateFingerprint": "91ad8b1521fd32b9f7b2a39ea1bf90ad26d63d289661133283b643a655faba99"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-p20-copy",
+          "baseFingerprint": "884447f844ab10a0dfdd10726db13770e1018e52c1716d76c96989a4ec1aa2fd",
+          "candidateFingerprint": "12b5121b86112a55756b7ec5138060bec11a9c7b8610c0a772356f8b6fff8e72"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mqqhbped",
+          "baseFingerprint": "846dd9f1a96e016a11a2029b21b1e6ea2decb31a16a73aae0023022a7fdcae22",
+          "candidateFingerprint": "4bc5f18a892ca43182852a3fe96dc94b88529bd1fe5b089621c01557556c2c3a"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mqqhmikz",
+          "baseFingerprint": "49fb1e557f8f75594423d7e8917e8d3ef24884391ed3d4bc25f09b2091ab00ad",
+          "candidateFingerprint": "c8fafa55f6d7ef2cb052dae4fc431f2b7b1b23aeefa9a4f65450d2a735929489"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mqqhtywv",
+          "baseFingerprint": "24b079de2c021600051a673f58c88ede3d9086457d030c20efd81cf7b513101a",
+          "candidateFingerprint": "497e4aa8eaedd4d952649a58b63d18664f03beb0bfdb9f86cfcc06c83b9805a1"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mqqkh3lq",
+          "baseFingerprint": "bddd557bb1202c21257197ea0a7ab3b3241bfbc32c9d3972d846c7c6693e73a2",
+          "candidateFingerprint": "ea2d5c5c023941fdccdc601cbe82bcfa6e6cb3c18668e0135eac1563a454e802"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mqqmigja",
+          "baseFingerprint": "d5981607a521f2d400b2104b2afa8b803f42241668cacdd20468bf17e8652038",
+          "candidateFingerprint": "79ab888fe74cecf9dcf7d900f7ca5474304e0808c4042cd0c36c039468a15711"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mqqmmarc",
+          "baseFingerprint": "f734c8054428b5039af8d0c4a98b1dcf6f759d1d00968cb77663451c754802b1",
+          "candidateFingerprint": "c3904bbe1761b8f9f4fe434b670467eb08e121f154b222bfdbabdd17fdd5a1aa"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mqv5z17y",
+          "baseFingerprint": "f41dacd9ea6e186a81a606bab6fbbbdb8a809a2b3a600cf177ce767b0120b060",
+          "candidateFingerprint": "1950ad69eeb8b92343323e3f6f628ae853ee0c46ed05a3bb9716f2e2d81787c1"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mqv6d5lu",
+          "baseFingerprint": "e4e82f12c3145cebf0c55473a63c211a520c23bc203760177f7ee2fd7fac50e0",
+          "candidateFingerprint": "9d9cf0dd0ccfc3e20cf2ae960ffce03af91c2afe14396375768c7eaa7be72748"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mqv6jegr",
+          "baseFingerprint": "5e2397b2473247f106944cc4f266e7aa8cc7722714713d582b46315622295db0",
+          "candidateFingerprint": "ba7974450df32709de0aed96d05e55d37627a04b8990c7989c70203f2849a959"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mqw9yhs8",
+          "baseFingerprint": "600f71f962044bf93a627589c2c6b33b2a5b5626c9a1aecdb074d8f54ab15d3c",
+          "candidateFingerprint": "293a3a2fe0ed3b70e676f0d04b3b2ca2514d5b66417248f1d5fe8c1bbefa1677"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mqwcg4mc",
+          "baseFingerprint": "6877c79c08364da5193bc9c25e1562eba050079797cbf606c3725eb772b7b99d",
+          "candidateFingerprint": "27fd519feec7204f5019bdaa7cc5804bbedfab6ec6acdf348c9eb21590633def"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mqwdo4zp",
+          "baseFingerprint": "8a412ba808f9c29d01fa4ffb2bcc0886c330099d7c5a5c8418a9a03532a0ece2",
+          "candidateFingerprint": "3c0133fbffeda2d0d9689b977c259920676caebaa13aabc8c32ecc33b197056a"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-dm7-copy",
+          "baseFingerprint": "5dab7095e39ff7fa133b4d8c988f3e4ebfacbfed7d1f7000d8f1468cc7e9361f",
+          "candidateFingerprint": "627a9c90dd43426de9083e26ba0632b66803b9b0d7b501f1874c9d3dde2cb0e7"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-dm7-copy-2",
+          "baseFingerprint": "bdb8bbbe22fae7b64d80ee4798b16eda661389af6ecb19196cf2635190806400",
+          "candidateFingerprint": "4ce9163ad01c2ac6aba3f770a4af1810071784624319889b4ea2a05c08ef562d"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mqz417mi",
+          "baseFingerprint": "9d4acdd66478086496102abb1b3bd2e53474474e46b0066e4b06e12fde58e4ee",
+          "candidateFingerprint": "39a5b693692ab612a74159872cd0b0fa5c15a0b8b7fc6d82f0734af4f94df7d7"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mqz446pi",
+          "baseFingerprint": "6c13d9e5eddb6e37abd65d7b81ff509d29485688606b7252b4fa31ae6d6c27bb",
+          "candidateFingerprint": "8ee7e8455ef94f19f71dbddf5ce4cfa6370ecf1a2a1c8270a95dde1251157393"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-vx4s-copy",
+          "baseFingerprint": "f8829d47eddcf99475ce6a7e3a8243fbd765ac18bae3f9bd05126496d9401502",
+          "candidateFingerprint": "ec26f31efa9bea64a20d2c71e9c95a0bf8fd262896a74b3b2307ef10e53bbc7c"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mqz28eyz",
+          "baseFingerprint": "a439b1990dc3ce241be41e72fa3934a200094b1f3f139036d2e02df3ac70867e",
+          "candidateFingerprint": "efb9208a782c65a8f381fcf5c8312c26f87749160b220a3333cb098ad27621d6"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mrn1z47g",
+          "baseFingerprint": "3241c377cf3f966e61ee6661cda68fdf625c8cc7d68fe7288befc6cbf03b1a89",
+          "candidateFingerprint": "97f17441eb278ff7817aa8476f017ffb2794a41f80b603741b24e14d2d54a8c7"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-aquilon-rs2-copy-2",
+          "baseFingerprint": "4fb3c07a8b5e597e985b183b44dda1e31e36b9c9eae149115be888693d04a5fa",
+          "candidateFingerprint": "b4311f25a5ceb960057f11a8a15cbf1c1b4d21b663e0bae715803e859bfdf0a2"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-aquilon-rs4-copy-2",
+          "baseFingerprint": "b18ff555636074161a543a34b799c4d854697b73061fc8436cad3d81addc5fdf",
+          "candidateFingerprint": "717f0ba071abf2acb635d4b36fcf7993ea333b02e8591332dabeb8514d83016c"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-aquilon-rs6-copy-2",
+          "baseFingerprint": "811b80f3b5958aa60e67ddb3b95b0de908becab78c892d1a75def486e6196b9c",
+          "candidateFingerprint": "bf02ea8f7379f60b35326832077db7f8542b71fb21ce3114bc9d9b35e61e07f3"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-aquilon-rs-alpha-copy",
+          "baseFingerprint": "ede725379d734dce16096b5f6956fcdbf7089a2aaf99750918858eee911f6f26",
+          "candidateFingerprint": "7d08fcd41e7834f3e9788f1e82110d4187191e1c245f168bab0713d5c709bbb0"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-aquilon-rs1-copy",
+          "baseFingerprint": "5fdd57bb40e00cfcc607d78912f1219d6fc14f36ab77860d991726988c2b02bd",
+          "candidateFingerprint": "c672d850cee91ad928c6b6a02d30e408d0ecd56c156289331e6c27bb62377c0e"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-aquilon-rs2-copy",
+          "baseFingerprint": "6ad4ac4915121c91306df9ca4f68239b25950ed214670ba24882880288fbbe7b",
+          "candidateFingerprint": "c03c2d123d850598caf3948431bd00c61b2c2c8548456bddc81af39fab13bd3a"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-aquilon-rs3-copy",
+          "baseFingerprint": "5abd31ea65fc3e97d7f61104ba7e3beeb5f6066a02f93fc5bdb51c2047ea9070",
+          "candidateFingerprint": "c39f2aabf49414b2e74c8c0ed3ec05bdd912fb2a8aeef10ea670b88c5d6ee45c"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-aquilon-rs4-copy",
+          "baseFingerprint": "f7f5736c8bbf3f7dff4d347141052ee8687a3db8822066b29ea84c429b95dd9d",
+          "candidateFingerprint": "17c181e21bd21dee0b67ddfe5088a018d72f5d5e720830d2f994fbfd293c0d86"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-aquilon-rs5-copy",
+          "baseFingerprint": "a3e80e093619f08e891655851991b8d04a3fa7fd9020478df1fa32d2e4a32c14",
+          "candidateFingerprint": "de37b4bcf505ac92f4892f2c26403c161ecdc0b53c069e3839dfe80ff47bca1d"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-aquilon-rs6-copy",
+          "baseFingerprint": "6ed962d4e0e6ead0ca668b362c95fc91ab3b2fc3cf5de5a731ca13e937eec85d",
+          "candidateFingerprint": "0031e7c25ed08fe3e9735cec07eeed704735d55c40a27ae8046d93489708f28a"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mqz57vqs",
+          "baseFingerprint": "76c3c39e51a6a5ec129c062b72b75354da46587f15d23eb4808b1b2119d5816a",
+          "candidateFingerprint": "17c66f347df85f1c5fd6f9c4b95171684fe8d42580566b1ec3323bb09e117458"
+        },
+        {
+          "kind": "device",
+          "id": "barco-udx-4k40",
+          "baseFingerprint": "957bcc7f53044e7ccd1ad10ff3d69d4c54c12c59675fc921f7eed227ceb1b76d",
+          "candidateFingerprint": "639e8078ffe57023bb981f9b7602c41a30a4b4ba6165c69d78529ad8e5816d1a"
+        },
+        {
+          "kind": "device",
+          "id": "barco-udx-4k22",
+          "baseFingerprint": "aefcc6d8b800c16511d900da9ff1dadca0a5e70a775990f4b9909df499192d3e",
+          "candidateFingerprint": "94f7021522b259f3b4f623ee2a67b4a8761bc6679371730439d659ea7ef4d305"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mtidnv7i",
+          "baseFingerprint": "0609440c488910dc1fdae33afb31b7b2efd2cb5952f338406c95f78f0b861ab6",
+          "candidateFingerprint": "70495ef925f0338417aecffff80f5c02eb48042bde6ad3621fcaa1fd9dcfbe51"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mticfthn",
+          "baseFingerprint": "d4e4b7eb75b5480f6fdbf8bd52db3fcc3928ad9dd2e359a362ad37c8abb6a899",
+          "candidateFingerprint": "8b3758c1854c53d291bcd70868f1ea5231bbf2d1eb8055b9b29897d6ec5138fb"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mticgo23",
+          "baseFingerprint": "84abb432dcb90f9be99a3d9ed4c35ab4b13bd459b2b80b9cb6afc075ca4b9dbb",
+          "candidateFingerprint": "f0cfdbf728815a01b4d2a5d40790326960f3661cae255d33d03132595a89f592"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mtichhpp",
+          "baseFingerprint": "e0c9b74d3404ea072b284b091db49576170a056cd72f6e64fcd70db43ec7c98c",
+          "candidateFingerprint": "1f1cd271fca28827c920b35b4d4989ab5bc11ac5703e898f8a350af1818808d9"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mticj8aq",
+          "baseFingerprint": "9661c2bd67b665e93d8ee3c0dd378335c94c13c201691863896741b54bb8ea73",
+          "candidateFingerprint": "549e72f4db8a0f22f4fd28ea18273d0777423aa395297abc38680ac5cbec84e7"
+        },
+        {
+          "kind": "device",
+          "id": "panasonic-pt-rq25k",
+          "baseFingerprint": "140ae7bcf18f4880ad26b096917e04315d7d5f05232aa94c2c4c99a3fb18926c",
+          "candidateFingerprint": "d9d599bc84104b0492218efbe8f69ee1cd1becaa327327168c5535487ed880b8"
+        },
+        {
+          "kind": "device",
+          "id": "christie-griffyn-4k50-rgb",
+          "baseFingerprint": "efe9cc7abdbd3d37d8d1c6392cfc5eaa3b8d63382b78107aa21c59b00f833911",
+          "candidateFingerprint": "197894bb21109d485c1a7f654826520bc5adc9fc67c61158169e23099bc7189e"
+        },
+        {
+          "kind": "device",
+          "id": "christie-sapphire-4k40-rgbh",
+          "baseFingerprint": "af3085e2e891b93aec44fd401b357fd432af05d1c2f5808a48f2c31723ea5027",
+          "candidateFingerprint": "878cb63d44de351a3e3b272f65ac636b0cec1f8cb9bd9efe7bb07b9287fd450d"
+        },
+        {
+          "kind": "device",
+          "id": "brompton-tessera-sq200",
+          "baseFingerprint": "3dd0725cfc31f4d29adb3f65012de36e7a46ec110b0d9e26abac844a729982e0",
+          "candidateFingerprint": "128156cb948cd7c8f3d2f71ee572517190a6c4b2485a60b65092ca10b3cfc0ee"
+        },
+        {
+          "kind": "device",
+          "id": "brompton-tessera-sx40",
+          "baseFingerprint": "856e3f3f1b7e23eb157637e6f7cd81d16c289f5d64799dedbc0d94f26344400c",
+          "candidateFingerprint": "5970b58daf397b128055b322ac601512d33a22798bb1d64abe3c42de144903c7"
+        },
+        {
+          "kind": "device",
+          "id": "brompton-tessera-s8",
+          "baseFingerprint": "903426d8b16985af4f53fe1916b9aea3f91307043caf414e2cdaa1f018b2bbc2",
+          "candidateFingerprint": "1dcdd60acf2b1c92f7fc66eb822fe728bf3d0bdca02f696414769bd474273e86"
+        },
+        {
+          "kind": "device",
+          "id": "brompton-tessera-qd-s",
+          "baseFingerprint": "3741f082fe5cc8bc7dab15e231291fbefb7a51859566de5032ddaba930aaff41",
+          "candidateFingerprint": "d28f99b5120ac64f28f1d93d5b27c01424c303602e4d517362d3e7825930a65e"
+        },
+        {
+          "kind": "device",
+          "id": "brompton-tessera-xd-s",
+          "baseFingerprint": "f8d0dfe55429ba2737bec68b5b8ee9451df3dba7d1c861779cbde399eb8f4bca",
+          "candidateFingerprint": "6ae98f829dbebb6d08397db202f1f6b8791caae78c9486c1a3f3cbebd6167012"
+        },
+        {
+          "kind": "device",
+          "id": "novastar-novapro-uhd-jr",
+          "baseFingerprint": "7e17cddc871cf49d83600c755b729fead443068a0a0d8be0120ce991a0b630bd",
+          "candidateFingerprint": "4d30d8c2adb8f8a3c21a3c329e0fceafe1707dbffa213cb6c02878684c3aaffc"
+        },
+        {
+          "kind": "device",
+          "id": "125a-soca-distro",
+          "baseFingerprint": "a631a4a63850423132bf3f6dbe5e3e6b919bf53ef5e1e9733ccd621714a1f818",
+          "candidateFingerprint": "dbf7113256f6684ae2c4842c73a8d2eb55f11a500327015f636d25fbc51040b8"
+        },
+        {
+          "kind": "device",
+          "id": "13a-plugboard",
+          "baseFingerprint": "435ee9c6dfecc47bf47092707f55b4a7bdf3c8e4021e1cb42ea4507742c97e7b",
+          "candidateFingerprint": "61ca1364bcde95ef52fcdb966c3d286b6bc37bb12def2e4fab4e7ffe20cf2b60"
+        },
+        {
+          "kind": "device",
+          "id": "32a-soca-distro",
+          "baseFingerprint": "655dbd7b3f483b602fe3df574402b523c0998bc52dda28161b9dbee40a16e469",
+          "candidateFingerprint": "958741794f7f2e9d9c20f4f190ae0277ebfbdc3c25f2c89f56cf988e388b05f9"
+        },
+        {
+          "kind": "device",
+          "id": "400a-ses-db",
+          "baseFingerprint": "5d362716bc118169833aac7218486de306cb56b45deb7b0dccadadc538c415d4",
+          "candidateFingerprint": "ebc4d469bfb5861885ff5bac24b9cfd402b0e2d368e036be81e437a0fd3eb16a"
+        },
+        {
+          "kind": "device",
+          "id": "4k-hdmi-splitter",
+          "baseFingerprint": "1a27a703758a6872881587633fedf35c6278ae708b6c4a0f9c54351d5b3b66ca",
+          "candidateFingerprint": "cb068a1c233ffdba3791ff03ce81c18b642e2ee62fc434e1d714fa22c384bdab"
+        },
+        {
+          "kind": "device",
+          "id": "dgs-1024d",
+          "baseFingerprint": "46564a4d083d3bec6bc306f2790b4c32dbbfe4dd7c20d67aa5caa9c13b6d4c8b",
+          "candidateFingerprint": "36a428652489da15dbd26fc090e1b81e66d43e07c126eff3aa9e505735961f40"
+        },
+        {
+          "kind": "device",
+          "id": "fiber-extender-rx",
+          "baseFingerprint": "c1d5a51637f29a5c5e6bf8fbb0ece7387864ba897a8845c48e80f74c585ce38b",
+          "candidateFingerprint": "df9a757ddd193162c84a5d13b84e36c5b57a41586d62e1c64d9b810fdbc543fb"
+        },
+        {
+          "kind": "device",
+          "id": "fiber-extender-tx",
+          "baseFingerprint": "3e507457aa5a1ea43b55e38972dfa65946534ac53e1655a0db2a2f94cd42357f",
+          "candidateFingerprint": "1dcbd1cc75ae107f970c8938942b14621e46bf5b8c67121eadfd7408a760ca73"
+        },
+        {
+          "kind": "device",
+          "id": "hdmi-to-dvi",
+          "baseFingerprint": "13d821799560d2e5f9bfeab699b2b9833fb10aa0eb51b314556cbec38c1a6e34",
+          "candidateFingerprint": "272eb241356fe5c9bebfc831fff70656044ce815c08a3218c48efcfbdcb65d83"
+        },
+        {
+          "kind": "device",
+          "id": "mac-mini-m1",
+          "baseFingerprint": "2d816ccb433a5f64418df93a8a9b8cc4cfaf241166672866ccefaa51f56fc08d",
+          "candidateFingerprint": "b651ccc46725cb986df7b3b9bd2e1747b765a6c0deec879050ba67e869f7e056"
+        },
+        {
+          "kind": "device",
+          "id": "pixera-two-octo",
+          "baseFingerprint": "7245b64b0951231a3ed1c8c874e29c18d1918f0bcb5958d637212e57133b2e86",
+          "candidateFingerprint": "c83bfd85fa72856f20ba20966be640ee93164d0dd5d8adecec97736b3d908ed8"
+        },
+        {
+          "kind": "device",
+          "id": "prosafe-xs508m",
+          "baseFingerprint": "aa42e236f91200575885563557c784a499fbe32d3ca6a70f0c4dffe90c94032b",
+          "candidateFingerprint": "a8b7431461bd79f588e418f8fa5199d76f904f7fdc241952c1b9bb6d4b416e85"
+        },
+        {
+          "kind": "device",
+          "id": "soca-to-6x-16a",
+          "baseFingerprint": "4f2162c1c716dd9ea4a5b884d03a11104e1ffd2751fa2895a3605d11dcb9923c",
+          "candidateFingerprint": "323782123b45437df80545741a8ee93c8c65da9158d6112ea45e60aced1ea69d"
+        },
+        {
+          "kind": "device",
+          "id": "soca-to-6x-powercon",
+          "baseFingerprint": "3c693a73def9d576d697738564216336261455f7bd42afa85e6b78f48ef73f4f",
+          "candidateFingerprint": "144210ba7035e6c6fdb231f860fd9860bdb6423f1752f72e904522c48d71153a"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mvaqvarp",
+          "baseFingerprint": "ad0c630459c9e8c75cb16ddc6f7eefa8d05047f058ceab151db8648fc89457ed",
+          "candidateFingerprint": "abc69b8f8026845e3883f7e4c05adffeb93211293a8175238162fa4fe11e87e7"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mvevuyh2",
+          "baseFingerprint": "3a007dc39fd0005a796eeff3dd3e2d1cd424040f257d96639ca24f9f35334f4f",
+          "candidateFingerprint": "478980f9dfb7811e2187ec508339d264470a5dfa3423fe8419d34fca52f9781e"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-ex-2c-copy",
+          "baseFingerprint": "fb886b4352e23447a5a242d57ebd2a490c86e4ff8df4233d30b9d32090cae0ed",
+          "candidateFingerprint": "828aaf130812ddd244690ea488916b2a0e841c5078e09cb578565085dedd9623"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-ex3-copy",
+          "baseFingerprint": "90a5366e63e887b3d0db1710f9a37a9c73e44ea65c5ea322ab5dfa2733d8d353",
+          "candidateFingerprint": "a8c76c4e49aaa7a0fca1ccc06fb49c31882c9acdb16bf411d4fab88969a087aa"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-gx3-copy",
+          "baseFingerprint": "86d7640644ae720d93b21f83405408313c2437e092eb00266d047ef64601a78f",
+          "candidateFingerprint": "bddd767ed38de6f5b1b06a227363074c861e278c010f48cca3c79d278e62d17d"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-gx3-copy-2",
+          "baseFingerprint": "01fae0fdbb835fba4b58883c696e618d55d893baa22fa7915cc7dcd70e8fa531",
+          "candidateFingerprint": "03dddba121fad04d874da6c1975fe193d217c9ace524f69288bcc50406bd389f"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-gx3-copy-3",
+          "baseFingerprint": "9c65e48663fce154f81c0e0f3167f9fe832f4bfaa0001813c9ee3e78716ba519",
+          "candidateFingerprint": "e1f5cc3fc36e8ee9987ab5dfa3cbe3e35346ab65cebffd5b64a51271d96c84d6"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-hippotizer-boreal-mk2-dp-1-2-copy",
+          "baseFingerprint": "18c2cebe1574ff825984fa6a0b7c38364bec215445a36fc31f357a0cdc622172",
+          "candidateFingerprint": "f4b284a3b3e0fed86f1f974595d0b83df590fa7f2084a7bb5d0e07bba5200d13"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-hippotizer-boreal-mk2-hdmi-2-0-copy",
+          "baseFingerprint": "1f8e36a25f06548fd1a91460bf7a06d51d66ecc94d969da3b3d9a439eaf7ec18",
+          "candidateFingerprint": "67e85fd002a34ffaebc3035b495529b1198e933256c9dbd3d6e0ee6fc608efbe"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-modulo-player-pro-ruggedized-4x4k-copy",
+          "baseFingerprint": "7f2a5c03402b00d5450771ff4ef66c7cffa3f423c13d115259acdaceb76f3601",
+          "candidateFingerprint": "db8b96fe5e1019403bcb5934d2ec3592b16bebddd755c9cfb3383dfc73c3e4bf"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-modulo-pro-ruggedized-4x4k-copy",
+          "baseFingerprint": "f79d402315b519759a6b486f7288179657a39574510b0cdc9fe56297bcf7b352",
+          "candidateFingerprint": "42ba39dfb1832635115c45806467373677e98d2f5fb56b59150fd1c5470ca5e2"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mvf4q0db",
+          "baseFingerprint": "addb47ced70533b207c49aabdf463cfc5beeffbc9b3a811250d9ea62fb92e166",
+          "candidateFingerprint": "50c53ae44bcb873754618fe7b9d4836602a0f91d8a69f16b0f742be250ba3e56"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mvgekxns",
+          "baseFingerprint": "89f817dbfa6d2e4856e53cab8fdc5cd07937b583a5581a9df91bda1630bd914d",
+          "candidateFingerprint": "b6553da8d051dd0e358eb6bbc9ec7bcbf809ee0992f42445e2265d033cd7f390"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-v-160hd-copy",
+          "baseFingerprint": "ea0ced929a7687e7ffd9941056a6ff4e9004082065f823c643f1b1946a98a81a",
+          "candidateFingerprint": "d3d9d5315c7bc0293a296996eb11450f228f4cf954901f41e3502c373e65d634"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-vx-4-copy",
+          "baseFingerprint": "5a288c1ecef9485fd65a8a53147441743c7f306e49e900ad21399f702641bf33",
+          "candidateFingerprint": "0767c007a4ac04623c14e3cc86e82518b86dd9198dcf3f3efb2952613bee3179"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-vx3-copy",
+          "baseFingerprint": "d1e9f733b0d71d6100c7a3a4495bd54427c2cba32650f62d8d6c0b45c624b513",
+          "candidateFingerprint": "dde7cefc9cbb1217712163f900f73759a3f9f73d7fe14b827de6cf6421952239"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-vx3-copy-2",
+          "baseFingerprint": "b7eaabcb7c10c510a4aa2e8d9ab0253db1ea1a1b114c1d08ab3145c15fcc845e",
+          "candidateFingerprint": "fca749fcd14310913a5a1582aa900481a1be8f1ba6adc9cbb0a0867fb319b5f2"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-vx4-copy-2",
+          "baseFingerprint": "db291494acd799a288a7c884fad2b26af6a34e81cead91f35b9ec0cecdea09dd",
+          "candidateFingerprint": "2ccda44859d6ca95d4d60323b7debdf32f6063d1704dc893c363f77b10f0d679"
+        },
+        {
+          "kind": "device",
+          "id": "modulo-pi-player-pro-ruggedized-4x4k",
+          "baseFingerprint": "e76b57d3fd9f49d6257635b317f17657dc0910f2ff3cc11f7b57c40264dc45b6",
+          "candidateFingerprint": "88bb7c1713d0a54f8ca7b2dfe593abff5fbb6511fa5d29f86578e9c94436afa6"
+        },
+        {
+          "kind": "device",
+          "id": "personal-d21bdb6e-18a7-4ec1-9802-bcc383eeaadd",
+          "baseFingerprint": "b7537e2913c6763e52bc8aef6b6eccedc93c695b19769db5ab4b214ef69b43a9",
+          "candidateFingerprint": "7ec09a8807465028f0b216c2365d150d01e959a1fba119d8b3fbcff306b64cc8"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-eikos-4k-copy",
+          "baseFingerprint": "d473bec0eab1ab364e6013886970507fb4ab6efa293aa201414ca11e5a7b3ceb",
+          "candidateFingerprint": "f6cec3057df29237f49e24a96d24c8661268cadba6e903b1071647d7a07fccd4"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mvhqsv2w",
+          "baseFingerprint": "3b4f59f52236c803ee4704e92ce1dd891b29f372132daec214814dd6e829672f",
+          "candidateFingerprint": "acdfa9bd80e53b3d7d5699290eea0e4e9ac059d46fef0147612244164bde2e4b"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mvhz2z2t",
+          "baseFingerprint": "f63489fffbcecb6712e303853cbd3962965eb5b6ccc083604a0f5ccd9df9608b",
+          "candidateFingerprint": "7aa5506f5d4ed21416acf25c87fbb4c9993a96ccff3ca32256ce4de20e47a894"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mvi2qkk6",
+          "baseFingerprint": "4568ccd970087c4cc5b8413efd2d09727543fec922308e05f28d148db07f7ecb",
+          "candidateFingerprint": "9fa1ced982b8595a6dd4ae45d413ddbb1949acd03ed9e21fb87fdea42d5631af"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-pulse-4k-copy",
+          "baseFingerprint": "ed0a5ba84160cff6a989da76d635787996623a1902956f90904feefbd62497f1",
+          "candidateFingerprint": "44f65e1d7d9da6f949a6d31b347560692221864674f49f07200cc752803a056e"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-quickmatrix-4k-copy",
+          "baseFingerprint": "7b4e814065f083d20a6a607246285ba9b73a12aea628dd746e737de80e28b275",
+          "candidateFingerprint": "68dff961c9a99bfed3dbfab49a0142eb84eadd31549342fca70283e83fd98a0b"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-zenith-100-copy",
+          "baseFingerprint": "3082ff3658c51f42824b853e5a6f13a9b4ddc59188223ce1c5af8c4bab6b4af1",
+          "candidateFingerprint": "f54dc63b18439a9021270b7bb6282390e18c83e833f089dc12a01e5736684168"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-zenith-200-copy-2",
+          "baseFingerprint": "34972aa5af8e9e8f7bf0d34e408e845126640c1234a4839d65c6bd4cdecb2f68",
+          "candidateFingerprint": "558adcdf5ecb1b581bae13de484c0365eec765bf7641f22d36d339b886804e1f"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-e2-gen2-copy-2",
+          "baseFingerprint": "ccf7fddce0e74f74c52dd893b6000a43330d07a1e6ddc4647a1df175f82b7129",
+          "candidateFingerprint": "2f7bea366bb017281f84c216fe5db2502ee107e666861dda45d15c78af61bf5d"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-hippotizer-boreal-mk2-hdmi-2-0-copy-2",
+          "baseFingerprint": "2af00852c3cc5c8c3770acf2cc0c82ac6addf1ace75d17f487a9363b6d8ec9c6",
+          "candidateFingerprint": "c4b81172132eba8a2175922106911be9080839878b9466c430abf5fcaa89fcad"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mvjgk74g",
+          "baseFingerprint": "90b08eb1141fb797e109760e1918150b940be6fc53fd1b1339a7b81873f3dfa2",
+          "candidateFingerprint": "6a49239565795f2db41acd3b2727be764ae9c3bff08926a2cc975c759ecfabcf"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-q8-copy",
+          "baseFingerprint": "32defeea5c1728c210bf21ab4c404352123f578cba52c3558baa50203ce81008",
+          "candidateFingerprint": "03f38680646c63318c3f9414ffb5344f336da44e28a2f1272f1e6f165b719971"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-v-80hd-copy",
+          "baseFingerprint": "f77061d9c30df67393265b8ecfe5edcfb36554bbd7362838bc496a0d53dd4822",
+          "candidateFingerprint": "05956943b2cbb2dc1108a79c5299d07a998498af6684c819a3e759bc2fc2dab7"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mvp2ub68",
+          "baseFingerprint": "b9909423e1347f4bd44f486f5cb66705497c06ba377b7325f2ecb76900581ee0",
+          "candidateFingerprint": "fb7d0d2056834d1ed7077152d3a240aca29c0bac3d1f8a8d4210aba79a2a403f"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mvp3nb9m",
+          "baseFingerprint": "0e475797186d9efd67677198d0e5604da183368d2f631b0bf27a54d59d0c6fdb",
+          "candidateFingerprint": "2a224533670bd155679764f8f6b8b99867adceac2e31ca03079b9d3cce1a01c8"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-e2-gen2-copy-3",
+          "baseFingerprint": "b0109adc4fde48d9a5dcd152d594245a4d827b4f1584abb66eeded8f2fd239a4",
+          "candidateFingerprint": "675bb3202c071d88b0a84ea2feac88d72d1c64492d0fe2653d35eaa7ae79b322"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mvpjkcho",
+          "baseFingerprint": "5b0be6b0b2accc1edcf2e86791c9d5394ce703df023065f739b66ad635c86e8c",
+          "candidateFingerprint": "1eec742794a857f321fd50f73d8a8d304230f968b2df3956d7b562fbaca44fc4"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mvpkodby",
+          "baseFingerprint": "23dc1c0c02b0d2697daacf96282dab7c6da5c5654b64a57747c4d500b976b241",
+          "candidateFingerprint": "d9579ffa2bdc5d939598055ed10c72411f16f8e71811cddc49e656151da1a9e9"
+        },
+        {
+          "kind": "device",
+          "id": "passive-xlr-snake-4ch",
+          "baseFingerprint": "10773f5f5da91a26c8ace0040fff8f6cd9b68f18fdf852d257442bea90fdb86e",
+          "candidateFingerprint": "2badf25eab0501f6a28e37c1047405d8557ff239b92a256ece581fae4e16a90f"
+        },
+        {
+          "kind": "device",
+          "id": "generic-qsfp-breakout-lab",
+          "baseFingerprint": "ee21daf5df853da039a6ce66859f5a024f0b9ecfb5331052f1fbbcfb363e34ca",
+          "candidateFingerprint": "75653b5c642bf2d6939950d27f7fc6856bb70da147ec9f22db1c583c7faa971a"
+        },
+        {
+          "kind": "device",
+          "id": "generic-transceiver-configuration-lab",
+          "baseFingerprint": "0eb2dc3742ea96afc752f2cc2708d84711863acf8e1799fb02cc165446e80de9",
+          "candidateFingerprint": "9ff3a9c10178119ca4c2c5d432895542c7a5f213641d609734c29dddd0a328b7"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-hdmi-sdi-bi-directional-copy",
+          "baseFingerprint": "d4c52f71ec6d43e75f48b8b31bf8f88c3304050e891c0afdc516efc2f0d274bf",
+          "candidateFingerprint": "c43b0f13c8dd23f2751c0506e210fffa6f85df1eda852c2ab3e19bca040bcde9"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-laptop-copy",
+          "baseFingerprint": "b1b2fe9912ec719a5a7976384d3038c3733bdfababb4521f69328b4b7d374482",
+          "candidateFingerprint": "acd450b14905e050f64f8dbd9500892d14d47f5ced91fdad7d1413adda0584ad"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-laptop-copy-2",
+          "baseFingerprint": "51e2431011e11b1229d4fe93dd41814ac5cdfcccf3546280ea6c3c448138bf67",
+          "candidateFingerprint": "96bc96ddf97ae8547753fbadd19ad4cdb01bd3896379a20ec5bec5f5fe5d7423"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-laptop-copy-3",
+          "baseFingerprint": "09436c9bc3d668ebdd85e5a6c6bf29a57f28a575916a8da25f17cb61244abb0e",
+          "candidateFingerprint": "e262c9836b0fe1d659cdad50dfc668abb4790ebb3eb4c50225e12c2653fbd0f1"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-laptop-copy-4",
+          "baseFingerprint": "3359dd4b37c0954a6dc1614c29ac9123a3edd747f1eb56a4fb3f43043621db3f",
+          "candidateFingerprint": "0c3a0f75d1692ff719f012e2a32cb7f790540c79832f5a426daf22ca714f065a"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-md-hx-copy",
+          "baseFingerprint": "ecc880b617792ae5feb8e6b1f0b9ddef9e8d40898da3b3632829304e902275b4",
+          "candidateFingerprint": "383a4096076d9b5c6a01d75b8185731a3f61320c10e8f92ef97f5a5b00c52bc4"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-md-hx-copy-2",
+          "baseFingerprint": "e8642fe5925261e6c5c2c534b6cedf2ef8d16d7a99015c68f5e9c67c550be434",
+          "candidateFingerprint": "cd8da100c6149661ec17fd6b90a3dbd1b265b9b44e495eafb0e3f42a92e7d2c3"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-micro-converter-hdmi-sdi-12g-copy",
+          "baseFingerprint": "c91e19b57aedd3457f2f3f5d80df20d4787ccaa2feb30fd53b3dfc537f8af1c6",
+          "candidateFingerprint": "495313b9c48069a3e4d484778f9077fe5fe3d50f878a30165358f7724d1f1a9b"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-micro-converter-sdi-hdmi-12g-copy",
+          "baseFingerprint": "4445cd269a56231ec84d4a283035e41b16fa2304cea18a68d08f04ab9e3dfddc",
+          "candidateFingerprint": "2bc56fee1240a1fcb45b711122ebf9f318bbf2e0e252458f7a226350a947a86e"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-modulo-player-pro-ruggedized-4x4k-copy-2",
+          "baseFingerprint": "1fd5f857ef978e2d46b318153403b4d54e9cc2451a96fa9ab2a8d52ab6befa6d",
+          "candidateFingerprint": "03a5e8c0a746e8320fff6a02c2fc06db7b4e96e787248cfad7b8915bc895c3b0"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-modulo-player-pro-ruggedized-4x4k-copy-3",
+          "baseFingerprint": "cd53d979e542ff7530864d57f3604bfbed0935a4f74d98e80f0306de91833b1f",
+          "candidateFingerprint": "0c73af6ba0e05e4a74bd2d3d4713384bb00d3067b9e72a7641f603b86cc54ad7"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mwdl1enc",
+          "baseFingerprint": "8f0e1fc10fe36dafebdf6fa194dc5e43281734c31289168a4c3d5cdca7d52776",
+          "candidateFingerprint": "df2f43da32eb06ee99b07213257612eed90aca4898a4e8aba22ea7317e515393"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mwkqpl2j",
+          "baseFingerprint": "c3387f8de063df858ff7c4227b29766e15c2c24f194b6c88d775d6317c08d282",
+          "candidateFingerprint": "cf6b29ebcc3d02e82f5a104eacb2e32f415462ffd2efe0cb51db16a0a6603de5"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mwlwbqrr",
+          "baseFingerprint": "ca7be9d9cc9dff8dff20a2ffce24b97cee2065efa45adf2f310bf2f31aad4b93",
+          "candidateFingerprint": "64ae519d921fda03443ea0ee032c75035c8f2f2f7510afe819437b28a5c78889"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mwlxeydn",
+          "baseFingerprint": "e1ea98895aa29bd384371b462c3d6701a9230f3e6215844da9c385c60c3043be",
+          "candidateFingerprint": "2e76c903a6c0c86e81c1c0040705d55623ee6de4fbc97d9d48dc1ea2cc50c564"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-resolume-server-copy",
+          "baseFingerprint": "fb833642c7d960652b4d8b61465ee55118c5cb568dd2aa07add89e531be19d73",
+          "candidateFingerprint": "c712eaaf426a7344c1c95d3b99cc7668f77d3576f433c46441e2a9f807464334"
+        },
+        {
+          "kind": "device",
+          "id": "personal-46995662-ff6e-4168-91f0-e163aeba728d",
+          "baseFingerprint": "ef7bd79b3b470b3049cb9d287651975bdb142db97bfdd6a2a8acec1b5e301e2b",
+          "candidateFingerprint": "5b3512e86fe78af54c5cf851b04e52bf3c889fb04aec6d59b94c8a11199ff44b"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mwnac1cg",
+          "baseFingerprint": "e70376776b8898cbce2336189f45575e87cb83b2504134be2c2fd720009fddae",
+          "candidateFingerprint": "b79eaa68b232efa508619bdd4448a5c8a68088010a5dd2fa4eafbda636a89bc1"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mwnarvif",
+          "baseFingerprint": "9c2f618b45556b765d7b4a2873180ac3b527f45a68bdefb633bcb8bbf902b6a4",
+          "candidateFingerprint": "4e01512a6751998d4bf388848ce2491ee42cee157d7937b91dba7ca7856b68de"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mwnb65sh",
+          "baseFingerprint": "a1638cd997c6cabf907e41a76879cc798bd0b1172d0cc735e31157b95d58cfba",
+          "candidateFingerprint": "6875d6f1f60635be8a60d7c5aacc5226f243e35ca239c3b52bc58c727e7d9391"
         }
       ]
     }

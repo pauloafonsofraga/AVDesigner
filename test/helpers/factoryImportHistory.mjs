@@ -6,8 +6,23 @@ import { imageMime } from "../../src/imageAssets.js";
 const latest = JSON.parse(await readFile(new URL("../fixtures/factory-library-2026-10-23.json", import.meta.url)));
 const november = JSON.parse(await readFile(new URL("../fixtures/factory-library-2026-11-19.json", import.meta.url)));
 const connectorAdditions = JSON.parse(await readFile(new URL("../fixtures/mini-usb-triax-nodes.json", import.meta.url)));
+const ajaAuthorship = JSON.parse(await readFile(new URL("../fixtures/factory-aja-attribution-2026-11-19.json", import.meta.url)));
+
+export function beforeFactoryAuthorship(catalogue) {
+  if (!catalogue.promotions.some(p => p.packageId === ajaAuthorship.authorshipPackageId)) return catalogue;
+  const added = new Set(ajaAuthorship.additions.map(d => d.id));
+  const devices = catalogue.devices.map(d => {
+    assert.deepEqual(d.attribution, ajaAuthorship.attribution, d.id);
+    const copy = { ...d }; delete copy.attribution;
+    if (!added.has(d.id)) assert.equal(createHash("sha256").update(JSON.stringify(copy)).digest("hex"), ajaAuthorship.baselineHashes[d.id], d.id);
+    return copy;
+  }).filter(d => !added.has(d.id));
+  return { ...catalogue, devices, promotions: catalogue.promotions.filter(p =>
+    ![ajaAuthorship.authorshipPackageId, ajaAuthorship.importPackageId].includes(p.packageId)) };
+}
 
 export function beforeConnectorAdditions(catalogue) {
+  catalogue = beforeFactoryAuthorship(catalogue);
   const ids = new Set(connectorAdditions.map(n => n.id));
   if (!connectorAdditions.some(n => catalogue.nodeTypes[n.id])) return catalogue;
   for (const node of connectorAdditions) {
