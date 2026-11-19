@@ -41,6 +41,7 @@ import {
 } from "./connectorDisplayLayout.js";
 import { sharedBusOrthogonalSegments } from "./sharedBusRendering.js";
 import {multibandNodePolygons, multibandWirePolygons, multibandCableWidth} from "./multibandGeometry.js";
+import { isDuplexFiberWire, duplexFiberPaths } from "./duplexFiberGeometry.js";
 import {resolveConnectorLabelCollisions} from './connectorLabelLayout.js';
 import {sharedBusTypeLabels,adaptiveSharedBusLabel,resolveSharedBusLabels} from './sharedBusLabels.js';
 import { connectorFieldRowWidth } from "./connectorFieldLayout.js";
@@ -2440,7 +2441,7 @@ function pushInteractionOverlay(vertices, scene, interaction = {}, renderOptions
       3.4,
       tempWire,
       tempWire.color || "#32b6ff",
-      tempWire.opacity || 1
+      tempWire.opacity || 1, scene
     );
     pushConnectorHighlight(vertices, tempWire.from, connectorVisualRadius(tempWire.sourceHit?.device, overlayOptions.camera) + 5, "#32b6ff", "source");
     stats.connectorOverlayCount += 1;
@@ -3616,7 +3617,7 @@ function pushWireSelection(vertices, scene, wire, offsets, options = DEFAULT_REN
   pushWire(vertices, scene, wire, offsets, width + 11, "rgba(255,121,4,.18)", drawOptions, cableHopMap);
   pushWire(vertices, scene, wire, offsets, width + 6, "rgba(255,121,4,.36)", drawOptions, cableHopMap);
   pushWire(vertices, scene, wire, offsets, width + 1.5, "rgba(255,121,4,.82)", drawOptions, cableHopMap);
-  if (wire.colorSegments?.length > 1) pushWire(vertices, scene, wire, offsets, WIRE_BASE_WIDTH, wireColor(wire, options), options, cableHopMap);
+  if (wire.colorSegments?.length > 1 || isDuplexFiberWire(scene, wire)) pushWire(vertices, scene, wire, offsets, WIRE_BASE_WIDTH, wireColor(wire, options), options, cableHopMap);
 }
 
 function pushWireHover(vertices, scene, wire, offsets, options = DEFAULT_RENDER_OPTIONS, cableHopMap = options.cableHopMap) {
@@ -3624,13 +3625,13 @@ function pushWireHover(vertices, scene, wire, offsets, options = DEFAULT_RENDER_
   const width=multibandCableWidth(WIRE_BASE_WIDTH,wire.colorSegments);
   pushWire(vertices, scene, wire, offsets, width + 8, "rgba(255,255,255,.22)", drawOptions, cableHopMap);
   pushWire(vertices, scene, wire, offsets, width + 3, "rgba(50,182,255,.72)", drawOptions, cableHopMap);
-  if (wire.colorSegments?.length > 1) pushWire(vertices, scene, wire, offsets, WIRE_BASE_WIDTH, wireColor(wire, options), options, cableHopMap);
+  if (wire.colorSegments?.length > 1 || isDuplexFiberWire(scene, wire)) pushWire(vertices, scene, wire, offsets, WIRE_BASE_WIDTH, wireColor(wire, options), options, cableHopMap);
 }
 
 function pushWire(vertices, scene, wire, offsets, width, color, options = DEFAULT_RENDER_OPTIONS, cableHopMap = options.cableHopMap) {
   if (scene.isWireHiddenByLoom(wire.id)) {
     (scene.loomBreakoutByWireId.get(wire.id) || []).forEach(breakout => {
-      pushPolyline(vertices, loomBreakoutPolyline(scene, breakout, offsets), width, color);
+      pushWireColorSegments(vertices, loomBreakoutPolyline(scene, breakout, offsets), width, wire, color, 1, scene);
     });
     return;
   }
@@ -3645,7 +3646,7 @@ function pushWire(vertices, scene, wire, offsets, width, color, options = DEFAUL
     pushPolyline(vertices, points, width, color);
     return;
   }
-  pushWireColorSegments(vertices, points, width, wire, color);
+  pushWireColorSegments(vertices, points, width, wire, color, 1, scene);
 }
 
 function pushWireRoutePointHandles(vertices, scene, wire, offsets, fill = ROUTE_POINT_COLOR) {
@@ -3664,7 +3665,12 @@ function pushPolyline(vertices, points, width, color) {
   }
 }
 
-function pushWireColorSegments(vertices, points, width, wire, fallbackColor, opacity = 1) {
+function pushWireColorSegments(vertices, points, width, wire, fallbackColor, opacity = 1, scene = null) {
+  if (isDuplexFiberWire(scene, wire)) {
+    const strands = duplexFiberPaths(points, width);
+    strands.forEach(path => pushPolyline(vertices, path, width * .65, colorWithOpacity(fallbackColor, opacity)));
+    return;
+  }
   if (wire?.stageboxAssemblyId) {
     pushPolyline(vertices, points, width * 3, colorWithOpacity(wire.color, opacity));
     return;
@@ -3890,7 +3896,7 @@ export function engineOutputPrimitives(scene, contract) {
     jumpLinks: contract.jumpLinks.map(link => ({ id: link.id, vertices: mesh(vertices =>
       pushJumpLinkOverlays(vertices, { jumpLinkOverlays: [{ ...link, points: link.polyline }] }, scene)) })),
     wires: contract.wires.filter(wire => !scene.isWireHiddenByLoom(wire.id)).map(wire => ({ id: wire.id, vertices: mesh(vertices =>
-      pushWireColorSegments(vertices, wire.renderPolyline, WIRE_STATIC_WIDTH, wire, wireColor(wire))) })),
+      pushWireColorSegments(vertices, wire.renderPolyline, WIRE_STATIC_WIDTH, wire, wireColor(wire), 1, scene)) })),
     looms: scene.loomPlans.map(plan => ({ id: plan.loomId, vertices: verticesForLoomPlan(scene, plan) })),
     breakouts: (contract.qsfpBreakouts?.plans || []).map(plan => ({ id: plan.id,
       vertices: mesh(vertices => pushQsfpBreakout(vertices, plan, 1, null, false)) })),
@@ -4013,8 +4019,8 @@ function verticesForLoomPlan(scene, plan, offsets = null) {
     const wire = scene.getWire(breakout.wireId);
     const resolvedColor = loomCableDisplayColor(wire);
     const points = offsets ? loomBreakoutPolyline(scene, breakout, offsets) : breakout.points;
-    if (wire?.colorSegments?.length > 1) {
-      pushWireColorSegments(vertices, points, WIRE_BASE_WIDTH, wire, resolvedColor);
+    if (wire?.colorSegments?.length > 1 || isDuplexFiberWire(scene, wire)) {
+      pushWireColorSegments(vertices, points, WIRE_BASE_WIDTH, wire, resolvedColor, 1, scene);
     } else {
       pushPolyline(vertices, points, WIRE_BASE_WIDTH, resolvedColor);
     }

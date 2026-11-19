@@ -47,6 +47,23 @@ export function transceiverLineRateChoices(connector, { signalFamily = "ethernet
   }).map(rate => rate + (signalFamily === "sdi" ? "-SDI" : ""));
 }
 
+// The bandwidth selector describes speed, not an optical reach/fibre preset.
+// An undeclared host remains unverified; a UI default does not install a module.
+export function transceiverBandwidthChoices(connector, signalFamily = "ethernet") {
+  let rates = transceiverLineRateChoices(connector, { signalFamily, profile: "", moduleRates: [] });
+  if (connector.cageCapabilities?.supportedModuleTypes?.length) {
+    const profiles = transceiverModuleOptionsForConnector(connector).filter(p => p.value && p.capabilities.signalFamily === signalFamily);
+    if (profiles.length && profiles.every(p => p.capabilities.supportedRates?.length)) {
+      rates = rates.filter(rate => profiles.some(p => p.capabilities.supportedRates.some(value => transceiverRateKey(value) === transceiverRateKey(rate))));
+    }
+  }
+  if (signalFamily === "sdi" || [connector.supportedRates, connector.cageCapabilities?.supportedRates]
+    .some(values => Array.isArray(values) && values.length)) return rates;
+  const form = CAGE_FORM_FACTORS[cageDefinitionValue(connector)] || cageDefinitionValue(connector);
+  const minimum = form.startsWith("qsfp") ? 40e9 : 1e9;
+  return rates.filter(rate => Number(transceiverRateKey(rate).split(":")[1]) >= minimum);
+}
+
 function lineRate(value, signalFamily, connector) {
   const rate = String(value || "").trim();
   if (!rate) return [];
@@ -95,6 +112,14 @@ export function transceiverConfigurationPatch(connector, config) {
       throw new Error("Set the connector's input or output role in the Device Editor before configuring SDI.");
     }
     const installed = resolveInstalledModule(connector);
+    if (config.interface === "rj45" && config.supportedRates?.length) {
+      const supportedRates = config.supportedRates.flatMap(rate => lineRate(rate, "ethernet", connector));
+      const patch = transceiverModulePatch(connector, value);
+      patch.moduleCapabilities = { ...(installed.effectiveType === "cat6a" ? installed.capabilities : {}), ...patch.moduleCapabilities, supportedRates };
+      const check = transceiverModuleValidation(connector, patch.moduleCapabilities, profile);
+      if (!check.valid) throw new Error(check.reason);
+      return patch;
+    }
     if (installed.profile?.value === value && installed.capabilities.optical?.configuration !== CUSTOM_OPTICS
       && (value || !installed.hasModule)) return null;
     return transceiverModulePatch(connector, value);

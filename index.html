@@ -6404,10 +6404,15 @@
       cableTypes[node.id] = { ...(cableTypes[node.id] || {}), ...structuredClone(node) };
     });
 
+    if (engineRendererRequested()) cableTypes["qsfp28-cage"] = {
+      ...structuredClone(cableTypes["qsfp-cage"]), id: "qsfp28-cage", label: "QSFP28 Cage",
+      physicalType: "qsfp-cage", palette: false, editorPalette: true,
+      cageCapabilities: { supportedFormFactors: ["qsfp28"] }
+    };
     const DEFAULT_CABLE_TYPES = JSON.parse(JSON.stringify(cableTypes));
     const FIBER_CABLE_TYPES = new Set(["fiber-lc", "fiber-sc", "fiber-st", "fiber-mpo", "opticalcon", "fiberfox"]);
     const pairedNetworkTypes = new Set(["cat5e", "cat6", "cat6a", "ethercon", "sfp-cage", "sfp-plus-cage", "sfp28-cage", "qsfp-cage", "ethernet"]);
-    const cageConnectorTypes = new Set(["sfp-cage", "sfp-plus-cage", "sfp28-cage", "qsfp-cage"]);
+    const cageConnectorTypes = new Set(["sfp-cage", "sfp-plus-cage", "sfp28-cage", "qsfp-cage", "qsfp28-cage"]);
     const TRANSCEIVER_MODULE_OPTIONS = [
       { value: "", label: "Empty", activeType: "", fiberMode: "" },
       { value: "lc-singlemode", label: "LC Singlemode", activeType: "fiber-lc", fiberMode: "single-mode" },
@@ -6441,7 +6446,7 @@
       "fiberfox", "xlr-3pin", "xlr-5pin", "trs-ts", "rca", "aes",
       "speakon-nl2", "speakon-nl4", "speakon-nl8"
     ]);
-    const deviceEditorOnlyNodeTypeOrder = ["sfp-cage", "sfp-plus-cage", "sfp28-cage", "qsfp-cage"];
+    const deviceEditorOnlyNodeTypeOrder = ["sfp-cage", "sfp-plus-cage", "sfp28-cage", "qsfp-cage", "qsfp28-cage"];
     const switchPortOptions = [
       { value: "1g-rj45", label: "1G RJ45", connectorType: "cat5e" },
       { value: "10g-rj45", label: "10G RJ45", connectorType: "cat6a" },
@@ -11403,7 +11408,8 @@
       const physical = connector.physicalType || connector.type || connector.id;
       const cage = cageConnectorTypes.has(physical);
       const authored = owner !== "node";
-      const cageValue = authored ? api.cageDefinitionValue(connector) : physical;
+      const cageValue = authored ? api.cageDefinitionValue(connector)
+        : api.cageDefinitionValue(connector) === "qsfp28" ? "qsfp28-cage" : physical;
       const cageChoices = authored ? [...api.CAGE_DEFINITION_CHOICES, ...(cageValue === "qsfp-cage" ? [["qsfp-cage", "QSFP (form unspecified)"]] : [])]
         : deviceEditorOnlyNodeTypeOrder.map(id => [id, cableTypes[id]?.label || id]);
       const host = connector.cageCapabilities || {};
@@ -11468,7 +11474,9 @@
     function changeSfpPhysicalType(owner, type) {
       const selection = sfpEditorSelection(owner);
       const api = engineTransceiverApi();
-      const patch = owner === "node" ? api.connectorPhysicalTypePatch(selection.connector, type) : api.cageDefinitionPatch(selection.connector, type);
+      const exactQsfp28 = type === "qsfp28-cage" || api.cageDefinitionValue(selection.connector) === "qsfp28";
+      const patch = owner === "node" && !exactQsfp28 ? api.connectorPhysicalTypePatch(selection.connector, type)
+        : api.cageDefinitionPatch(selection.connector, type === "qsfp28-cage" ? "qsfp28" : type);
       if (owner === "node") {
         delete patch.type;
         Object.assign(selection.node, patch);
@@ -12362,6 +12370,9 @@
     }
 
     function ensureNodeLibraryDefaults() {
+      if (engineRendererRequested() && !cableTypes["qsfp28-cage"] && DEFAULT_CABLE_TYPES["qsfp28-cage"]) {
+        cableTypes["qsfp28-cage"] = structuredClone(DEFAULT_CABLE_TYPES["qsfp28-cage"]);
+      }
       applyBuiltInNodeMigrations();
       const paletteKeys = Object.keys(cableTypes).filter(key => cableTypes[key].palette !== false);
       nodeTypeOrder = nodeTypeOrder.filter(key => paletteKeys.includes(key));

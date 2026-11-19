@@ -53,8 +53,8 @@ try {
   const apply = panel.getByRole("button", { name: "Apply Transceiver" });
   await select("port-0");
   const before = await status("port-0");
-  assert.deepEqual(await field("Preset (optional)").locator("option").evaluateAll(options => options.map(o => o.value)), ["", "10gbase-sr"]);
-  await field("Preset (optional)").selectOption("10gbase-sr");
+  assert.deepEqual(await field("Bandwidth").locator("option").evaluateAll(options => options.map(o => o.value)), ["10G"]);
+  await field("Installed interface").selectOption("lc");
   assert.deepEqual(await status("port-0"), before, "a draft cannot change the canvas");
   await apply.click();
   let result = await status("port-0");
@@ -71,7 +71,7 @@ try {
   await field("Fibre category").selectOption("multimode");
   await field("Fibre grade").selectOption("om5");
   await field("Optical technology").selectOption("parallel");
-  await field("Line rate").selectOption("100G");
+  await field("Bandwidth").selectOption("100G");
   await field("MPO fibre count").selectOption("12");
   await field("MPO polarity").selectOption("B");
   await field("Lane fibre positions (comma-separated)").fill("1, 2, 13");
@@ -92,11 +92,12 @@ try {
 
   for (const [device, profile] of [["source", "optical-12g-sdi-tx"], ["sink", "optical-12g-sdi-rx"]]) {
     await select("port-3", device);
-      assert.equal(await field("Preset (optional)").locator(`option[value="${profile}"]`).count(), 1);
-    assert.equal(await field("Preset (optional)").locator(`option[value="${profile === "optical-12g-sdi-rx" ? "optical-12g-sdi-tx" : "optical-12g-sdi-rx"}"]`).count(), 0);
-    await field("Preset (optional)").selectOption(profile);
+    await field("Installed interface").selectOption("lc");
+    await field("Signal family").selectOption("sdi");
+    await field("Bandwidth").selectOption("12G-SDI");
     await apply.click();
-    assert.equal((await status("port-3", device)).module, profile);
+    assert.equal((await status("port-3", device)).module, "lc-singlemode");
+    assert.equal((await status("port-3", device)).caps.direction, profile.endsWith("tx") ? "output" : "input");
   }
 
   await select("port-3");

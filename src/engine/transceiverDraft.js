@@ -34,7 +34,8 @@ const numbers = value => typeof value === "string" && value.trim() ? value.trim(
 export function transceiverDraftConfiguration(draft) {
   if (draft.preset) return { method: "standard", profile: draft.preset };
   if (["empty", "dac", "aoc", "rj45", "bnc"].includes(draft.interface)) {
-    return { method: "custom", interface: draft.interface, profile: draft.assemblyProfile };
+    return { method: "custom", interface: draft.interface, profile: draft.assemblyProfile,
+      ...(draft.interface === "rj45" ? { supportedRates: draft.supportedRates } : {}) };
   }
   return { method: "custom", ...draft, txNm: numbers(draft.txNm), rxNm: numbers(draft.rxNm),
     fiberCount: draft.fiberCount ? Number(draft.fiberCount) : null, laneMapping: numbers(draft.laneMapping) };

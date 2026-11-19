@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {multibandWirePolygons,multibandCableWidth} from "../src/engine/multibandGeometry.js";
+import { isDuplexFiberWire, duplexFiberPaths } from "../src/engine/duplexFiberGeometry.js";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import * as colors from "../src/engine/connectorCompatibility.js";
@@ -100,7 +101,7 @@ for (const type of ["hdmi", "sdi", "fiber-lc", "led-signal", "misc"]) test(`Engi
 });
 
 function rendererHarness() {
-  const context = { wirePolylineFromPoints, DEFAULT_RENDER_OPTIONS: {},
+  const context = { wirePolylineFromPoints, isDuplexFiberWire, duplexFiberPaths, DEFAULT_RENDER_OPTIONS: {},
     pushPolyline: (vertices, points, width, color) => vertices.push({ points, color }),
     multibandWirePolygons, multibandCableWidth, pushBandPolygon:(vertices, polygon)=>vertices.push(polygon),
     colorWithOpacity: (color, opacity) => opacity >= 1 ? color : color,

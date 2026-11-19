@@ -65,19 +65,23 @@ try {
     const d = activeEngineBridge().scene.getDevice(id), c = d.connectors.find(c => c.id === "qsfp28-2");
     return [d.connectors.length, c.x, c.y];
   }, originalLab), [11, 380, 260]);
-  await field("Preset (optional)").selectOption("100gbase-lr4");
+  assert.equal(await field("Bandwidth").inputValue(),"100G");
+  await field("Installed interface").selectOption("lc");
+  await field("Optical technology").selectOption("wdm");
+  await field("TX wavelengths (nm, comma-separated)").fill("1295, 1300, 1304, 1309");
+  await field("RX wavelengths (nm, comma-separated)").fill("1295, 1300, 1304, 1309");
   assert.equal(await field("Optical technology").inputValue(), "wdm");
   assert.equal(await field("TX wavelengths (nm, comma-separated)").inputValue(), "1295, 1300, 1304, 1309");
   await apply();
-  assert.equal((await port(originalLab, "qsfp28-2")).module, "100gbase-lr4");
+  assert.equal((await port(originalLab, "qsfp28-2")).module, "lc-singlemode");
   await field("Fibre grade").selectOption("os2");
-  assert.equal(await field("Preset (optional)").inputValue(), "");
+  assert.equal(await field("Preset (optional)").count(), 0);
   assert.equal(await panel.locator("[data-transceiver-draft-status]").innerText(), "Custom LC - Not applied");
-  assert.equal((await port(originalLab, "qsfp28-2")).module, "100gbase-lr4");
+  assert.equal((await port(originalLab, "qsfp28-2")).caps.optical.fiberGrade, "");
   await apply();
   const custom = await port(originalLab, "qsfp28-2");
   assert.equal(custom.module, "lc-singlemode"); assert.equal(custom.caps.optical.fiberGrade, "os2");
-  await page.locator("#undoAction").click(); assert.equal((await port(originalLab, "qsfp28-2")).module, "100gbase-lr4");
+  await page.locator("#undoAction").click(); assert.equal((await port(originalLab, "qsfp28-2")).caps.optical.fiberGrade, "");
   await page.locator("#redoAction").click(); assert.deepEqual(await port(originalLab, "qsfp28-2"), custom);
   await select(originalLab, "qsfp28-2");
   await field("Optical technology").selectOption("single-wavelength"); await apply();
@@ -88,24 +92,22 @@ try {
   for (const [id, rates] of [["sfp-test", ["100M", "1G"]], ["sfp-plus-test", ["1G", "10G"]],
     ["sfp28-test", ["10G", "25G"]], ["qsfp-plus-test", ["40G"]], ["qsfp28-test", ["40G", "100G"]]]) {
     await select(configLab, id); await field("Installed interface").selectOption("lc");
-    assert.deepEqual(await options("Line rate"), ["", ...rates]);
+    assert.deepEqual(await options("Bandwidth"), rates);
     assert.match(await panel.locator("[data-transceiver-rate-support]").innerText(), /Declared host\/port rates/);
-    await field("Line rate").selectOption(rates.at(-1)); await apply();
-    assert.deepEqual(await options("Line rate"), ["", ...rates], "saved custom rates must remain editable");
-    await field("Line rate").selectOption(rates[0]); await apply();
+    await field("Bandwidth").selectOption(rates.at(-1)); await apply();
+    assert.deepEqual(await options("Bandwidth"), rates, "saved custom rates must remain editable");
+    await field("Bandwidth").selectOption(rates[0]); await apply();
     assert.deepEqual((await port(configLab, id)).caps.supportedRates, [rates[0]]);
   }
   await select(configLab, "qsfp28-test");
-  await field("Preset (optional)").selectOption("100gbase-lr4");
-  assert.deepEqual(await options("Line rate"), ["", "100G"]);
+  await field("Bandwidth").selectOption("100G");
+  await field("Optical technology").selectOption("wdm");
+  await field("RX wavelengths (nm, comma-separated)").fill("1295, 1300, 1304, 1309");
+  assert.deepEqual(await options("Bandwidth"), ["40G", "100G"]);
   await field("TX wavelengths (nm, comma-separated)").fill("1296, 1300, 1304, 1309");
-  assert.deepEqual(await options("Line rate"), ["", "40G", "100G"]);
+  assert.deepEqual(await options("Bandwidth"), ["40G", "100G"]);
   assert.equal(await field("TX wavelengths (nm, comma-separated)").evaluate(n => n === document.activeElement), true);
-  await field("Preset (optional)").selectOption("100gbase-lr4");
-  assert.deepEqual(await options("Line rate"), ["", "100G"]);
-  await field("Preset (optional)").selectOption("");
-  assert.deepEqual(await options("Line rate"), ["", "40G", "100G"]);
-  await field("Line rate").selectOption("40G"); await apply();
+  await field("Bandwidth").selectOption("40G"); await apply();
   assert.equal((await port(configLab, "qsfp28-test")).module, "lc-singlemode");
   await select(configLab, "sfp-plus-test");
   for (const iface of ["sc", "st"]) {
@@ -114,11 +116,11 @@ try {
     await field("Optical technology").selectOption("single-wavelength");
     await field("TX wavelengths (nm, comma-separated)").fill("1310");
     await field("RX wavelengths (nm, comma-separated)").fill("1310");
-    await field("Line rate").selectOption("1G"); await apply();
+    await field("Bandwidth").selectOption("1G"); await apply();
     assert.equal((await port(configLab, "sfp-plus-test")).caps.optical.interface, "duplex-" + iface);
     await select(configLab, "sfp-plus-test");
-    assert.deepEqual(await options("Line rate"), ["", "1G", "10G"]);
-    await field("Line rate").selectOption("10G"); await apply();
+    assert.deepEqual(await options("Bandwidth"), ["1G", "10G"]);
+    await field("Bandwidth").selectOption("10G"); await apply();
     assert.deepEqual((await port(configLab, "sfp-plus-test")).caps.supportedRates, ["10G"]);
   }
   const save = async () => {
@@ -151,8 +153,8 @@ try {
   await load(Buffer.from(JSON.stringify(fixture)), "phase-a-historical.avd", "source", "port-0");
   await select("source", "port-0"); await field("Installed interface").selectOption("lc");
   assert.match(await panel.locator("[data-transceiver-rate-support]").innerText(), /Unverified/);
-  assert.deepEqual(await options("Line rate"), ["", "100M", "1G", "2.5G", "5G", "10G"]);
-  await select("source", "port-1"); assert.equal(await field("Line rate").inputValue(), "__current__");
+  assert.deepEqual(await options("Bandwidth"), ["1G", "2.5G", "5G", "10G"]);
+  await select("source", "port-1"); assert.equal(await field("Bandwidth").inputValue(), "__current__");
   await field("Fibre grade").selectOption("om4"); await apply();
   assert.deepEqual((await port("source", "port-1")).caps.supportedRates, ["1 Gb/s", "10G"]);
   assert.equal(await page.evaluate(() => activeEngineBridge().scene.getDevice("old-lab").connectors.length), 10);

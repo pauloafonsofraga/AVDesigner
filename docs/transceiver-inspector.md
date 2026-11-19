@@ -1,5 +1,49 @@
 # Editable Transceiver Inspector (Phase A)
 
+## Bandwidth and duplex update (2026-11-19)
+
+The first Canvas Inspector choice is now **Bandwidth**, replacing the optical
+Preset selector and the second Line rate field. It contains speed values only,
+with no None/Unspecified choice. Fibre category remains a separate optical
+property. Host/port restrictions and named-module-only hosts still apply.
+Without declared host rates, the UI starts at 1G for SFP-family cages and 40G
+for QSFP-family cages. Explicit host declarations can provide lower rates or
+restrict the minimum to 100G. These UI choices do not certify host support.
+
+Opening a cage does not install a module or change the project. An edited optical
+configuration receives the selected rate on Apply; existing named profiles and
+multi-rate/historical data remain unchanged until explicitly edited. Existing
+multi-rate values have a retained Current option. Contradictory host declarations
+show a disabled No supported bandwidth state instead of inventing a valid rate.
+RJ45 module authoring also persists the selected bandwidth. DAC/AOC bandwidth
+selection chooses an existing compatible assembly profile, not an invented cable.
+
+**QSFP28 Cage** is directly available in the Engine Device Editor and Node Builder
+palettes, including after library refresh. Placement uses the existing canonical
+`qsfp-cage` physical type with `supportedFormFactors: ["qsfp28"]`. It does not
+alter the factory catalogue, existing connector IDs, anchors or placed devices,
+and does not automatically declare host rates or breakout support.
+
+Explicitly declared duplex LC/SC/ST fibre now renders as two strands, crossing
+near the final endpoint. The paths converge on the original anchors. The shared
+Engine primitives provide this rendering in the canvas, offline HTML Viewer and
+SVG/PDF. Simplex/BiDi, MPO, DAC/AOC and ordinary non-fibre graphics are unchanged.
+Unknown legacy arrangements remain unknown, not silently marked duplex. Physical
+cable records, routing geometry, electrical compatibility and lengths do not change.
+
+Validation: 2,555 automated tests; 16 static validators; Chrome bandwidth/default,
+SC/ST/SDI/MPO/DAC, occupied-cage, restricted-host, five cage families, native QSFP28
+palette drag, Node Builder, duplicate, Undo/Redo, `.avd` reopen and offline Viewer
+checks. QSFP breakout 4 -> 2 -> 1 branch replug/rejection/Undo/Redo also passes.
+The focused command is `node scripts/transceiver-bandwidth-duplex-smoke.mjs`
+against a localhost preview, with the existing Playwright/Chrome environment.
+No deployment, database or infrastructure changes are included.
+
+The sections below record the earlier Phase A behavior and acceptance results;
+their Preset/Line rate instructions are superseded by the speed-first workflow.
+
+## Original Phase A implementation
+
 The Canvas Inspector always shows the applicable configuration fields.
 An optional preset fills the existing profile's known properties. Editing any
 property clears the preset and commits a generic custom module with matching
@@ -113,5 +157,5 @@ References for conservative hardware eligibility:
 - [Siemens distinguishes SFP and SC/ST pluggable formats and host slots](https://cache.industry.siemens.com/dl/files/085/109991085/att_1334694/v1/BA_SxP_76_en-US.pdf)
 - [Cisco module and host data-rate support](https://www.cisco.com/c/en/us/products/collateral/interfaces-modules/transceiver-modules/data_sheet_c78-455693.html)
 
-Passive MPO harnesses, new breakout modes, wavelength dash patterns and duplex
-dual-line drawing are outside this phase.
+Passive MPO harnesses, new breakout modes and wavelength dash patterns remain
+outside this phase. Duplex dual-line drawing is covered by the update above.
