@@ -1,5 +1,6 @@
 import { resolveInstalledModule } from "./transceiverModules.js";
 import { offsetPolyline } from "./routingPlacement.js";
+import { standaloneFiberArrangement } from "./standaloneConnectors.js";
 
 // Drawing-only: a pair of strands is still one physical patch cable. Never
 // infer duplex from fibre colour, an MPO interface, or an integrated assembly.
@@ -8,6 +9,8 @@ export function isDuplexFiberWire(scene, wire) {
   const ports = [scene?.getConnector?.(wire.fromDeviceId, wire.fromConnectorId),
     scene?.getConnector?.(wire.toDeviceId, wire.toConnectorId), wire.sourceHit?.connector].filter(Boolean);
   const arrangements = ports.map(port => {
+    const standalone = standaloneFiberArrangement(port);
+    if (standalone) return standalone;
     const module = resolveInstalledModule(port);
     if (!/^fiber-(lc|sc|st)$/.test(module.effectiveType || port.type)) return "";
     const optical = module.capabilities.optical || {};

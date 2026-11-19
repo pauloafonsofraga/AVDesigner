@@ -13101,7 +13101,7 @@ function sanitizeConnectorInspectorFields(fields = {}) {
   ]);
   const sanitized = {};
   Object.entries(fields || {}).forEach(([key, value]) => {
-    if (key === "mpoPhysical") {
+    if (key === "mpoPhysical" || key === "fiberCapability") {
       sanitized[key] = deepClone(value);
       return;
     }
@@ -13188,7 +13188,7 @@ function captureConnectorInspectorFields(connector, requestedFields = {}) {
   const fields = {};
   keys.forEach(key => {
     if (key === "colorSegments") fields[key] = Array.isArray(connector.colorSegments) ? connector.colorSegments.slice() : [];
-    else if (key === "mpoPhysical") fields[key] = connector[key] === undefined ? null : deepClone(connector[key]);
+    else if (key === "mpoPhysical" || key === "fiberCapability") fields[key] = connector[key] === undefined ? null : deepClone(connector[key]);
     else if (["installedModule", "module", "transceiverModule", "moduleCapabilities", "cageCapabilities"].includes(key)) {
       fields[key] = connector[key] ? deepClone(connector[key]) : null;
     } else fields[key] = connector[key] ?? "";

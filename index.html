@@ -6409,6 +6409,9 @@
       physicalType: "qsfp-cage", palette: false, editorPalette: true,
       cageCapabilities: { supportedFormFactors: ["qsfp28"] }
     };
+    const STANDALONE_CONNECTOR_DEFAULTS = engineRendererRequested()
+      ? window.WireNexusTransceivers.standaloneConnectorDefinitions(cableTypes) : [];
+    STANDALONE_CONNECTOR_DEFAULTS.forEach(node => { cableTypes[node.id] = structuredClone(node); });
     const DEFAULT_CABLE_TYPES = JSON.parse(JSON.stringify(cableTypes));
     const FIBER_CABLE_TYPES = new Set(["fiber-lc", "fiber-sc", "fiber-st", "fiber-mpo", "opticalcon", "fiberfox"]);
     const pairedNetworkTypes = new Set(["cat5e", "cat6", "cat6a", "ethercon", "sfp-cage", "sfp-plus-cage", "sfp28-cage", "qsfp-cage", "ethernet"]);
@@ -6663,7 +6666,7 @@
     function completeEditorNodeDefinitions(nodes) {
       const complete = nodes.slice(), ids = new Set(complete.map(node => node.id));
       Object.entries(DEFAULT_CABLE_TYPES).forEach(([id, node]) => {
-        if (node.palette === false && !ids.has(id)) complete.push({ ...structuredClone(node), id });
+        if ((node.palette === false || (node.editorPalette === true && engineRendererRequested())) && !ids.has(id)) complete.push({ ...structuredClone(node), id });
       });
       return complete;
     }
@@ -12370,6 +12373,9 @@
     }
 
     function ensureNodeLibraryDefaults() {
+      STANDALONE_CONNECTOR_DEFAULTS.forEach(node => {
+        if (!cableTypes[node.id]) cableTypes[node.id] = structuredClone(node);
+      });
       if (engineRendererRequested() && !cableTypes["qsfp28-cage"] && DEFAULT_CABLE_TYPES["qsfp28-cage"]) {
         cableTypes["qsfp28-cage"] = structuredClone(DEFAULT_CABLE_TYPES["qsfp28-cage"]);
       }
@@ -17283,6 +17289,7 @@
         <div class="connector-inspector-section">
           <h4 class="connector-inspector-heading">Fiber</h4>
           ${fiberModeSelectHtml("selectedCardConnectorFiberMode", connector.fiberMode || activeFiberModeForCageConnector(connector) || DEFAULT_FIBER_MODE, fiberModeOptionsForCageConnector(connector)).replace("<select", `<select data-card-field="fiberMode" data-card-node-index="${connectorIndex}"`)}
+          ${standaloneFiberArrangementSelectHtml("selectedCardFiberArrangement", connector).replace("<select", `<select data-card-field="fiberArrangement" data-card-node-index="${connectorIndex}"`)}
         </div>
       ` : "";
       const colorSection = ["misc", "led-signal"].includes(effectiveConnectorType(connector) || connector.type) ? `
@@ -18111,6 +18118,7 @@
         <div class="connector-inspector-section">
           <h4 class="connector-inspector-heading">Fiber</h4>
           ${fiberModeSelectHtml("selectedConnectorFiberMode", connector.fiberMode || activeFiberModeForCageConnector(connector) || DEFAULT_FIBER_MODE, fiberModeOptionsForCageConnector(connector))}
+          ${standaloneFiberArrangementSelectHtml("selectedConnectorFiberArrangement", connector)}
         </div>
       ` : "";
       const colorSection = ["misc", "led-signal"].includes(effectiveConnectorType(connector) || connector.type) ? `
@@ -18373,6 +18381,14 @@
         renderDeviceAuthoringDebugPanel();
       });
       const fiberModeControl = selectedConnectorSettings.querySelector("#selectedConnectorFiberMode");
+      selectedConnectorSettings.querySelector("#selectedConnectorFiberArrangement")?.addEventListener("change", event => {
+        const before = structuredClone(template);
+        const patch = engineTransceiverApi().standaloneFiberArrangementPatch(connector, event.target.value);
+        setSelectedConnectorValue("fiberCapability", patch.fiberCapability);
+        recordEditorPlacementHistory(template, before);
+        renderSelectedConnectorSettings();
+        renderDeviceEditorPreview();
+      });
       fiberModeControl?.addEventListener("change", event => {
         setSelectedConnectorValue("fiberMode", event.target.value || DEFAULT_FIBER_MODE);
         if (!installedSelection) syncPairedNetworkPairFields(template, connector);
@@ -33061,6 +33077,13 @@
       });
     }
 
+    function standaloneFiberArrangementSelectHtml(controlId, connector) {
+      const api = engineTransceiverApi();
+      if (!api?.isStandaloneDuplexFiber(connector)) return "";
+      const current = api.standaloneFiberArrangement(connector);
+      return `<div class="field"><label for="${controlId}">Fibre arrangement</label><select id="${controlId}">${[["", "Unspecified"], ["simplex", "Simplex"], ["duplex", "Duplex"]].map(([value, label]) => `<option value="${value}" ${value === current ? "selected" : ""}>${label}</option>`).join("")}</select></div>`;
+    }
+
     function fiberModeSelectHtml(controlId, value, options = FIBER_MODE_OPTIONS) {
       const normalizedValue = value || DEFAULT_FIBER_MODE;
       const optionList = options.some(option => option.value === normalizedValue)
@@ -33277,6 +33300,7 @@
         ${configureModule ? '<div class="connector-inspector-section" data-transceiver-config></div>'
           : isCageConnector(connector) ? transceiverModuleSelectHtml("connectorModule", connector) : ""}
         ${!configureModule && isFiberCableType(activeType) ? fiberModeSelectHtml("connectorFiberMode", connectorFiberModeForEndpoint(deviceId, connectorId, connector), fiberModeOptionsForCageConnector(connector)) : ""}
+        ${standaloneFiberArrangementSelectHtml("connectorFiberArrangement", connector)}
         ${activeEngineBridge() && connectorHasCable(deviceId, connectorId) ? '<button class="tool-button" id="connectorSignalChain" type="button">Signal Chain</button>' : ""}
       `;
       document.getElementById("connectorSignalChain")?.addEventListener("click", () => openSignalChainForConnector(deviceId, connectorId));
@@ -33335,6 +33359,11 @@
         });
       }
       const fiberModeControl = document.getElementById("connectorFiberMode");
+      document.getElementById("connectorFiberArrangement")?.addEventListener("change", event => {
+        const patch = api.standaloneFiberArrangementPatch(connector, event.target.value);
+        bridge.commitConnectorInspectorFields(deviceId, connectorId, patch);
+        renderConnectorInspector(deviceId, connectorId);
+      });
       if (fiberModeControl) {
         fiberModeControl.addEventListener("change", event => {
           const nextMode = event.target.value || DEFAULT_FIBER_MODE;
@@ -36974,6 +37003,11 @@ document.addEventListener("click", function(event) {
         }
       } else if (input.dataset.cardField === "fiberMode") {
         connector.fiberMode = input.value || DEFAULT_FIBER_MODE;
+      } else if (input.dataset.cardField === "fiberArrangement") {
+        if (event.type === "input") return;
+        const template = currentEditorTemplate(), before = structuredClone(template);
+        Object.assign(connector, engineTransceiverApi().standaloneFiberArrangementPatch(connector, input.value));
+        recordEditorPlacementHistory(template, before);
       } else {
         connector[input.dataset.cardField] = input.value;
         if (input.dataset.cardField === "nameText") connector.nameCustom = true;

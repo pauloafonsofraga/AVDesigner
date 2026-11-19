@@ -9,6 +9,7 @@ import { breakoutProjectFields } from "../src/engine/qsfpBreakoutModel.js";
 import { isMultiCoreConnection } from "../src/engine/multiCoreConnectivity.js";
 import * as editorLifecycle from "../src/editorLifecycle.js";
 import * as transceivers from "../src/engine/transceiverModules.js";
+import * as standaloneConnectors from "../src/engine/standaloneConnectors.js";
 import { CAGE_DEFINITION_CHOICES, cageDefinitionValue, cageDefinitionPatch } from "../src/engine/transceiverConfiguration.js";
 import { mountTransceiverInspector } from "../src/engine/transceiverInspector.js";
 import { mountFixedMpoInspector } from "../src/engine/mpoPhysicalInspector.js";
@@ -42,7 +43,7 @@ function harness({ fetchCatalogue = async () => Response.json(catalogue), initia
     body: { append() { calls.scripts++; window.wireNexusShellReady = initialize ? initialize() : Promise.resolve(); } }
   };
   const context = { window, document, URL, Error, FACTORY_AUTHORING, MULTI_CORE_PROJECT_FIELDS, multiCoreProjectFields, breakoutProjectFields, isMultiCoreConnection, editorLifecycle,
-    transceivers, modularCardSafety, multibandSignals, wireRouting, nodeReplacement, ...connectorCompatibility,
+    transceivers, standaloneConnectors, modularCardSafety, multibandSignals, wireRouting, nodeReplacement, ...connectorCompatibility,
     connectorIncludedInMatrixForEngine, defaultMatrixPortForEngineConnector,
     CAGE_DEFINITION_CHOICES, cageDefinitionValue, cageDefinitionPatch, mountTransceiverInspector,
     mountFixedMpoInspector, mpoConnectorCheck, mpoPhysicalPresentation,

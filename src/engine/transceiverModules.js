@@ -372,7 +372,12 @@ export function nodeDefinitionConnectorPatch(definition = {}) {
   const type = definition.physicalType || (CAGE_FORM_FACTORS[definition.id] ? definition.id : "");
   if (!type) return {};
   const patch = { type, physicalType: type, connectorType: type };
-  if (!isTransceiverCage(patch)) return patch;
+  if (!isTransceiverCage(patch)) {
+    for (const field of ["fiberCapability", "fiberMode", "mpoPhysical"]) {
+      if (definition[field] !== undefined) patch[field] = structuredClone(definition[field]);
+    }
+    return patch;
+  }
   for (const field of [...Object.keys(transceiverModulePatch(patch, "")), "cageCapabilities"]) {
     if (definition[field] !== undefined) patch[field] = structuredClone(definition[field]);
   }

@@ -42,6 +42,39 @@ No deployment, database or infrastructure changes are included.
 The sections below record the earlier Phase A behavior and acceptance results;
 their Preset/Line rate instructions are superseded by the speed-first workflow.
 
+## Standalone Connector Follow-up (2026-11-20)
+
+The Engine palettes already contain ordinary `fiber-lc`, `fiber-sc`, `fiber-st`
+and `fiber-mpo` connectors. They remain unchanged. LC/SC/ST now also have explicit
+Duplex palette shortcuts, plus a **Fibre arrangement** control in the Canvas
+Inspector, Device Editor and Card Editor. Placement retains each canonical
+physical connector type and stores `fiberCapability.arrangement: "duplex"` (or
+`"simplex"`) in the existing optional capability object. Unspecified historical
+ports are not silently converted. Other fibre capability metadata is preserved.
+
+The existing fibre-grade colour rules still apply: OS1/OS2 yellow, OM1/OM2 orange,
+OM3 aqua, OM4 magenta and OM5 green. Changing the grade uses the existing node and
+cable colour update path; duplex does not create another electrical connector
+type or relax the existing single-mode/multimode restrictions. Explicit standalone
+duplex LC/SC/ST uses the same two-strand end crossover as cage-mounted duplex
+optics, including drag previews, offline Viewer and SVG/PDF primitives.
+
+The palettes also expose preconfigured DAC/AOC ends for SFP+ 10G, SFP28 25G,
+QSFP+ 40G and QSFP28 100G. These are shortcuts to the existing cage-and-integrated
+module model, not detachable generic sockets. Existing host checks, one physical
+assembly/length/schedule row, occupancy and permanent-end restrictions remain in
+force. DAC keeps its existing brown and AOC its existing blue; neither is a
+user-graded detachable fibre patch lead. MPO remains a multi-fibre interface with
+its existing physical-property editor, not an invented duplex pair.
+
+No factory definitions, original artwork, connector anchors or cable identities
+are changed. Capability data persists through installed-card overrides, `.avd`
+save/reopen and `.wnx` export/import. Legacy receives no new palette or controls.
+The actual mouse-workflow regression is `scripts/standalone-fiber-browser-smoke.mjs`.
+Validation passed 2,562 automated tests and 16 static validators, plus Chrome
+checks for palette placement, seven cable connections, fibre-grade colours,
+arrangement editing, Undo/Redo, save/reopen and offline Viewer rendering.
+
 ## Original Phase A implementation
 
 The Canvas Inspector always shows the applicable configuration fields.
