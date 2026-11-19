@@ -129,7 +129,7 @@ export function validateModularCardChanges(beforeValue, afterValue, { includeCon
       if (JSON.stringify(nextConnections.get(wire.id)) !== JSON.stringify(wire)) {
         fail("Card changes cannot delete, remap or rewrite an existing cable."); continue;
       }
-      if (includeConnectorChanges && rawMatches[0]?.physicalConstraints) {
+      if (includeConnectorChanges && rawMatches[0]?.physicalConstraints && rawMatches[0].physicalConstraints.version !== 1) {
         fail("Declared physical constraints cannot be independently verified for this replacement. Original connection retained."); continue;
       }
       if ((isEngineCageConnector(oldPort) || isEngineCageConnector(newPort)) && cageState(oldPort) !== cageState(newPort)) {
@@ -174,6 +174,7 @@ export function validateModularCardChanges(beforeValue, afterValue, { includeCon
       if (peerPort) {
         const check = engineCompatibilitySummary(hit, { device: peerModel, connector: peerPort });
         if (!check.valid) { fail(check.reason); continue; }
+        check.warnings?.forEach(warning => warnings.add(warning));
         const a = end === "from" ? newPort : peerPort, b = end === "from" ? peerPort : newPort;
         const assembly = integratedCableWireValidation(wire, a, b);
         if (!assembly.valid) { fail(assembly.reason); continue; }

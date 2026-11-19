@@ -28306,7 +28306,7 @@
           "label": "Misc.",
           "nameText": "RS-232",
           "direction": "input",
-          "type": "misc",
+          "type": "db9",
           "x": 0,
           "y": 124,
           "resolutionFrameRate": "",
@@ -28325,8 +28325,8 @@
           "powerPlug": null,
           "faceplateSide": false,
           "schemaVersion": 2,
-          "physicalType": "misc",
-          "connectorType": "misc",
+          "physicalType": "db9",
+          "connectorType": "db9",
           "operationalStatus": "working",
           "signalDirection": "input",
           "displaySide": "left",
@@ -28341,14 +28341,20 @@
             }
           ],
           "primaryAnchorId": "left",
-          "rowIndex": 0
+          "rowIndex": 0,
+          "physicalConstraints": {
+            "pinCount": 9,
+            "protocol": "rs-232",
+            "signalFamily": "control",
+            "version": 1
+          }
         },
         {
           "id": "input-slot-2",
           "label": "Misc.",
           "nameText": "IR CTRL",
           "direction": "input",
-          "type": "misc",
+          "type": "trs-3.5mm",
           "x": 0,
           "y": 178,
           "resolutionFrameRate": "",
@@ -28367,8 +28373,8 @@
           "powerPlug": null,
           "faceplateSide": false,
           "schemaVersion": 2,
-          "physicalType": "misc",
-          "connectorType": "misc",
+          "physicalType": "trs-3.5mm",
+          "connectorType": "trs-3.5mm",
           "operationalStatus": "working",
           "signalDirection": "input",
           "displaySide": "left",
@@ -28383,7 +28389,14 @@
             }
           ],
           "primaryAnchorId": "left",
-          "rowIndex": 1
+          "rowIndex": 1,
+          "physicalConstraints": {
+            "contactCount": 3,
+            "diameterMm": 3.5,
+            "protocol": "infrared-control",
+            "signalFamily": "control",
+            "version": 1
+          }
         },
         {
           "id": "input-slot-3",
@@ -28605,7 +28618,7 @@
           "label": "Misc.",
           "nameText": "IR In",
           "direction": "input",
-          "type": "misc",
+          "type": "trs-3.5mm",
           "x": 0,
           "y": 112,
           "resolutionFrameRate": "",
@@ -28624,8 +28637,8 @@
           "powerPlug": null,
           "faceplateSide": false,
           "schemaVersion": 2,
-          "physicalType": "misc",
-          "connectorType": "misc",
+          "physicalType": "trs-3.5mm",
+          "connectorType": "trs-3.5mm",
           "operationalStatus": "working",
           "signalDirection": "input",
           "displaySide": "left",
@@ -28643,14 +28656,21 @@
           "moduleCapability": null,
           "fiberCapability": null,
           "powerMetadata": null,
-          "rowIndex": 0
+          "rowIndex": 0,
+          "physicalConstraints": {
+            "contactCount": 3,
+            "diameterMm": 3.5,
+            "protocol": "infrared-control",
+            "signalFamily": "control",
+            "version": 1
+          }
         },
         {
           "id": "input-slot-3",
           "label": "Misc.",
           "nameText": "RS-232",
           "direction": "input",
-          "type": "misc",
+          "type": "pluggable-terminal",
           "x": 0,
           "y": 166,
           "resolutionFrameRate": "",
@@ -28663,14 +28683,14 @@
           "resolutionFrameRateCaption": "",
           "customTextCaption": "",
           "signalIndex": 0,
-          "customColor": "#37474F",
+          "customColor": "",
           "fiberMode": "",
           "installedModuleType": "",
           "powerPlug": null,
           "faceplateSide": false,
           "schemaVersion": 2,
-          "physicalType": "misc",
-          "connectorType": "misc",
+          "physicalType": "pluggable-terminal",
+          "connectorType": "pluggable-terminal",
           "operationalStatus": "working",
           "signalDirection": "input",
           "displaySide": "left",
@@ -28688,7 +28708,13 @@
           "moduleCapability": null,
           "fiberCapability": null,
           "powerMetadata": null,
-          "rowIndex": 1
+          "rowIndex": 1,
+          "physicalConstraints": {
+            "poleCount": 3,
+            "protocol": "rs-232",
+            "signalFamily": "control",
+            "version": 1
+          }
         },
         {
           "id": "output-slot-1",
@@ -28875,7 +28901,7 @@
           "label": "Misc.",
           "nameText": "AUDIO OUT L/R",
           "direction": "output",
-          "type": "misc",
+          "type": "pluggable-terminal",
           "x": 380,
           "y": 220,
           "resolutionFrameRate": "",
@@ -28894,8 +28920,8 @@
           "powerPlug": null,
           "faceplateSide": false,
           "schemaVersion": 2,
-          "physicalType": "misc",
-          "connectorType": "misc",
+          "physicalType": "pluggable-terminal",
+          "connectorType": "pluggable-terminal",
           "operationalStatus": "working",
           "signalDirection": "output",
           "displaySide": "right",
@@ -28913,7 +28939,13 @@
           "moduleCapability": null,
           "fiberCapability": null,
           "powerMetadata": null,
-          "rowIndex": 2
+          "rowIndex": 2,
+          "physicalConstraints": {
+            "poleCount": 3,
+            "protocol": "analog-stereo",
+            "signalFamily": "audio",
+            "version": 1
+          }
         },
         {
           "id": "output-slot-4",
@@ -29111,7 +29143,7 @@
           "label": "Misc.",
           "nameText": "IR In",
           "direction": "input",
-          "type": "misc",
+          "type": "trs-3.5mm",
           "x": 0,
           "y": 112,
           "resolutionFrameRate": "",
@@ -29130,8 +29162,8 @@
           "powerPlug": null,
           "faceplateSide": false,
           "schemaVersion": 2,
-          "physicalType": "misc",
-          "connectorType": "misc",
+          "physicalType": "trs-3.5mm",
+          "connectorType": "trs-3.5mm",
           "operationalStatus": "working",
           "signalDirection": "input",
           "displaySide": "left",
@@ -29149,7 +29181,14 @@
           "moduleCapability": null,
           "fiberCapability": null,
           "powerMetadata": null,
-          "rowIndex": 0
+          "rowIndex": 0,
+          "physicalConstraints": {
+            "contactCount": 3,
+            "diameterMm": 3.5,
+            "protocol": "infrared-control",
+            "signalFamily": "control",
+            "version": 1
+          }
         },
         {
           "id": "input-slot-2",
@@ -29212,7 +29251,7 @@
           "label": "Misc.",
           "nameText": "RS-232",
           "direction": "input",
-          "type": "misc",
+          "type": "pluggable-terminal",
           "x": 0,
           "y": 328,
           "resolutionFrameRate": "",
@@ -29225,14 +29264,14 @@
           "resolutionFrameRateCaption": "",
           "customTextCaption": "",
           "signalIndex": 0,
-          "customColor": "#37474F",
+          "customColor": "",
           "fiberMode": "",
           "installedModuleType": "",
           "powerPlug": null,
           "faceplateSide": false,
           "schemaVersion": 2,
-          "physicalType": "misc",
-          "connectorType": "misc",
+          "physicalType": "pluggable-terminal",
+          "connectorType": "pluggable-terminal",
           "operationalStatus": "working",
           "signalDirection": "input",
           "displaySide": "left",
@@ -29250,7 +29289,13 @@
           "moduleCapability": null,
           "fiberCapability": null,
           "powerMetadata": null,
-          "rowIndex": 4
+          "rowIndex": 4,
+          "physicalConstraints": {
+            "poleCount": 3,
+            "protocol": "rs-232",
+            "signalFamily": "control",
+            "version": 1
+          }
         },
         {
           "id": "output-slot-1",
@@ -29392,7 +29437,7 @@
           "label": "Misc.",
           "nameText": "AUDIN IN L/R",
           "direction": "input",
-          "type": "misc",
+          "type": "pluggable-terminal",
           "x": 0,
           "y": 166,
           "resolutionFrameRate": "",
@@ -29411,8 +29456,8 @@
           "powerPlug": null,
           "faceplateSide": false,
           "schemaVersion": 2,
-          "physicalType": "misc",
-          "connectorType": "misc",
+          "physicalType": "pluggable-terminal",
+          "connectorType": "pluggable-terminal",
           "operationalStatus": "working",
           "signalDirection": "input",
           "displaySide": "left",
@@ -29430,7 +29475,13 @@
           "moduleCapability": null,
           "fiberCapability": null,
           "powerMetadata": null,
-          "rowIndex": 1
+          "rowIndex": 1,
+          "physicalConstraints": {
+            "poleCount": 3,
+            "protocol": "analog-stereo",
+            "signalFamily": "audio",
+            "version": 1
+          }
         },
         {
           "id": "input-slot-6",
@@ -33594,7 +33645,7 @@
               "y": 2515
             }
           ],
-          "connectorType": "misc",
+          "connectorType": "rj12",
           "customColor": "#245770",
           "customText": "RJ-11",
           "customTextCaption": "",
@@ -33612,7 +33663,7 @@
           "nameText": "REMOTE IN",
           "nameTextCaption": "",
           "operationalStatus": "working",
-          "physicalType": "misc",
+          "physicalType": "rj12",
           "powerPlug": null,
           "primaryAnchorId": "left",
           "resolutionFrameRate": "",
@@ -33621,9 +33672,15 @@
           "schemaVersion": 2,
           "signalDirection": "input",
           "signalIndex": 0,
-          "type": "misc",
+          "type": "rj12",
           "x": 0,
-          "y": 2515
+          "y": 2515,
+          "physicalConstraints": {
+            "positionCount": 6,
+            "protocol": "rs-422",
+            "signalFamily": "control",
+            "version": 1
+          }
         },
         {
           "anchors": [
@@ -45982,8 +46039,8 @@
               "y": 2234
             }
           ],
-          "connectorType": "misc",
-          "customColor": "#37474F",
+          "connectorType": "db15",
+          "customColor": "",
           "customText": "",
           "customTextCaption": "",
           "direction": "input",
@@ -46000,7 +46057,7 @@
           "nameText": "GPIO",
           "nameTextCaption": "",
           "operationalStatus": "working",
-          "physicalType": "misc",
+          "physicalType": "db15",
           "powerPlug": null,
           "primaryAnchorId": "left",
           "resolutionFrameRate": "",
@@ -46009,9 +46066,15 @@
           "schemaVersion": 2,
           "signalDirection": "input",
           "signalIndex": 0,
-          "type": "misc",
+          "type": "db15",
           "x": 0,
-          "y": 2234
+          "y": 2234,
+          "physicalConstraints": {
+            "pinCount": 15,
+            "protocol": "gpio",
+            "signalFamily": "control",
+            "version": 1
+          }
         },
         {
           "anchors": [
@@ -54846,8 +54909,8 @@
               "y": 523
             }
           ],
-          "connectorType": "misc",
-          "customColor": "#37474F",
+          "connectorType": "bnc",
+          "customColor": "",
           "customText": "",
           "customTextCaption": "",
           "direction": "input",
@@ -54864,7 +54927,7 @@
           "nameText": "CVBS - 1",
           "nameTextCaption": "",
           "operationalStatus": "working",
-          "physicalType": "misc",
+          "physicalType": "bnc",
           "powerPlug": null,
           "primaryAnchorId": "left",
           "resolutionFrameRate": "",
@@ -54873,9 +54936,14 @@
           "schemaVersion": 2,
           "signalDirection": "input",
           "signalIndex": 0,
-          "type": "misc",
+          "type": "bnc",
           "x": 0,
-          "y": 523
+          "y": 523,
+          "physicalConstraints": {
+            "protocol": "cvbs",
+            "signalFamily": "video",
+            "version": 1
+          }
         },
         {
           "anchors": [
@@ -54888,8 +54956,8 @@
               "y": 577
             }
           ],
-          "connectorType": "misc",
-          "customColor": "#37474F",
+          "connectorType": "bnc",
+          "customColor": "",
           "customText": "",
           "customTextCaption": "",
           "direction": "input",
@@ -54906,7 +54974,7 @@
           "nameText": "CVBS - 2",
           "nameTextCaption": "",
           "operationalStatus": "working",
-          "physicalType": "misc",
+          "physicalType": "bnc",
           "powerPlug": null,
           "primaryAnchorId": "left",
           "resolutionFrameRate": "",
@@ -54915,9 +54983,14 @@
           "schemaVersion": 2,
           "signalDirection": "input",
           "signalIndex": 0,
-          "type": "misc",
+          "type": "bnc",
           "x": 0,
-          "y": 577
+          "y": 577,
+          "physicalConstraints": {
+            "protocol": "cvbs",
+            "signalFamily": "video",
+            "version": 1
+          }
         },
         {
           "anchors": [
@@ -111044,8 +111117,8 @@
               "y": 254
             }
           ],
-          "connectorType": "misc",
-          "customColor": "#37474F",
+          "connectorType": "db9",
+          "customColor": "",
           "customText": "D-Sub 9",
           "customTextCaption": "",
           "direction": "input",
@@ -111062,7 +111135,7 @@
           "nameText": "Remote 2 In",
           "nameTextCaption": "",
           "operationalStatus": "working",
-          "physicalType": "misc",
+          "physicalType": "db9",
           "powerPlug": null,
           "primaryAnchorId": "left",
           "resolutionFrameRate": "",
@@ -111071,9 +111144,15 @@
           "schemaVersion": 2,
           "signalDirection": "input",
           "signalIndex": 0,
-          "type": "misc",
+          "type": "db9",
           "x": 0,
-          "y": 254
+          "y": 254,
+          "physicalConstraints": {
+            "pinCount": 9,
+            "protocol": "parallel-control",
+            "signalFamily": "control",
+            "version": 1
+          }
         },
         {
           "anchors": [
@@ -113040,8 +113119,8 @@
               "y": 372
             }
           ],
-          "connectorType": "misc",
-          "customColor": "#37474F",
+          "connectorType": "db9",
+          "customColor": "",
           "customText": "D-Sub 9",
           "customTextCaption": "",
           "direction": "input",
@@ -113058,7 +113137,7 @@
           "nameText": "Remote 2 In",
           "nameTextCaption": "",
           "operationalStatus": "working",
-          "physicalType": "misc",
+          "physicalType": "db9",
           "powerPlug": null,
           "primaryAnchorId": "left",
           "resolutionFrameRate": "",
@@ -113067,9 +113146,15 @@
           "schemaVersion": 2,
           "signalDirection": "input",
           "signalIndex": 0,
-          "type": "misc",
+          "type": "db9",
           "x": 0,
-          "y": 372
+          "y": 372,
+          "physicalConstraints": {
+            "pinCount": 9,
+            "protocol": "parallel-control",
+            "signalFamily": "control",
+            "version": 1
+          }
         },
         {
           "anchors": [
@@ -114786,8 +114871,8 @@
               "y": 971
             }
           ],
-          "connectorType": "misc",
-          "customColor": "#37474F",
+          "connectorType": "db9",
+          "customColor": "",
           "customText": "",
           "customTextCaption": "",
           "direction": "input",
@@ -114807,7 +114892,7 @@
           "networkGroupId": "",
           "operationalStatus": "working",
           "pairedConnectorId": "",
-          "physicalType": "misc",
+          "physicalType": "db9",
           "powerPlug": null,
           "primaryAnchorId": "left",
           "resolutionFrameRate": "",
@@ -114816,9 +114901,15 @@
           "schemaVersion": 2,
           "signalDirection": "input",
           "signalIndex": 0,
-          "type": "misc",
+          "type": "db9",
           "x": 0,
-          "y": 971
+          "y": 971,
+          "physicalConstraints": {
+            "pinCount": 9,
+            "protocol": "gpio",
+            "signalFamily": "control",
+            "version": 1
+          }
         },
         {
           "anchors": [
@@ -117365,8 +117456,8 @@
               "y": 971
             }
           ],
-          "connectorType": "misc",
-          "customColor": "#37474F",
+          "connectorType": "db9",
+          "customColor": "",
           "customText": "",
           "customTextCaption": "",
           "direction": "input",
@@ -117386,7 +117477,7 @@
           "networkGroupId": "",
           "operationalStatus": "working",
           "pairedConnectorId": "",
-          "physicalType": "misc",
+          "physicalType": "db9",
           "powerPlug": null,
           "primaryAnchorId": "left",
           "resolutionFrameRate": "",
@@ -117395,9 +117486,15 @@
           "schemaVersion": 2,
           "signalDirection": "input",
           "signalIndex": 0,
-          "type": "misc",
+          "type": "db9",
           "x": 0,
-          "y": 971
+          "y": 971,
+          "physicalConstraints": {
+            "pinCount": 9,
+            "protocol": "gpio",
+            "signalFamily": "control",
+            "version": 1
+          }
         },
         {
           "anchors": [
@@ -159708,8 +159805,8 @@
               "y": 295
             }
           ],
-          "connectorType": "misc",
-          "customColor": "#37474F",
+          "connectorType": "db25",
+          "customColor": "",
           "customText": "",
           "customTextCaption": "",
           "direction": "input",
@@ -159729,7 +159826,7 @@
           "nameText": "TALLY/GPIO",
           "nameTextCaption": "",
           "operationalStatus": "working",
-          "physicalType": "misc",
+          "physicalType": "db25",
           "powerMetadata": null,
           "powerPlug": null,
           "primaryAnchorId": "left",
@@ -159739,9 +159836,15 @@
           "schemaVersion": 2,
           "signalDirection": "input",
           "signalIndex": 0,
-          "type": "misc",
+          "type": "db25",
           "x": 0,
-          "y": 295
+          "y": 295,
+          "physicalConstraints": {
+            "pinCount": 25,
+            "protocol": "tally-gpio",
+            "signalFamily": "control",
+            "version": 1
+          }
         },
         {
           "anchors": [
@@ -161635,8 +161738,8 @@
               "y": 287
             }
           ],
-          "connectorType": "misc",
-          "customColor": "#37474F",
+          "connectorType": "db25",
+          "customColor": "",
           "customText": "",
           "customTextCaption": "",
           "direction": "input",
@@ -161656,7 +161759,7 @@
           "nameText": "TALLY/GPIO",
           "nameTextCaption": "",
           "operationalStatus": "working",
-          "physicalType": "misc",
+          "physicalType": "db25",
           "powerMetadata": null,
           "powerPlug": null,
           "primaryAnchorId": "left",
@@ -161666,9 +161769,15 @@
           "schemaVersion": 2,
           "signalDirection": "input",
           "signalIndex": 0,
-          "type": "misc",
+          "type": "db25",
           "x": 0,
-          "y": 287
+          "y": 287,
+          "physicalConstraints": {
+            "pinCount": 25,
+            "protocol": "tally-gpio",
+            "signalFamily": "control",
+            "version": 1
+          }
         },
         {
           "anchors": [
@@ -180487,8 +180596,8 @@
                   "y": 260
                 }
               ],
-              "connectorType": "misc",
-              "customColor": "#37474F",
+              "connectorType": "external-pcie-link",
+              "customColor": "",
               "customText": "",
               "customTextCaption": "",
               "direction": "input",
@@ -180504,16 +180613,22 @@
               "nameText": "PCIe IN",
               "nameTextCaption": "",
               "operationalStatus": "working",
-              "physicalType": "misc",
+              "physicalType": "external-pcie-link",
               "primaryAnchorId": "left",
               "resolutionFrameRate": "",
               "resolutionFrameRateCaption": "",
               "schemaVersion": 2,
               "signalDirection": "input",
               "signalIndex": 0,
-              "type": "misc",
+              "type": "external-pcie-link",
               "x": 0,
-              "y": 260
+              "y": 260,
+              "physicalConstraints": {
+                "protocol": "spyder-x80-link",
+                "signalFamily": "interconnect",
+                "vendorInterface": "christie-spyder-x80",
+                "version": 1
+              }
             },
             {
               "anchors": [
@@ -180526,8 +180641,8 @@
                   "y": 314
                 }
               ],
-              "connectorType": "misc",
-              "customColor": "#37474F",
+              "connectorType": "external-pcie-link",
+              "customColor": "",
               "customText": "",
               "customTextCaption": "",
               "direction": "output",
@@ -180543,16 +180658,22 @@
               "nameText": "PCIe OUT",
               "nameTextCaption": "",
               "operationalStatus": "working",
-              "physicalType": "misc",
+              "physicalType": "external-pcie-link",
               "primaryAnchorId": "right",
               "resolutionFrameRate": "",
               "resolutionFrameRateCaption": "",
               "schemaVersion": 2,
               "signalDirection": "output",
               "signalIndex": 0,
-              "type": "misc",
+              "type": "external-pcie-link",
               "x": 380,
-              "y": 314
+              "y": 314,
+              "physicalConstraints": {
+                "protocol": "spyder-x80-link",
+                "signalFamily": "interconnect",
+                "vendorInterface": "christie-spyder-x80",
+                "version": 1
+              }
             }
           ],
           "id": "card-3",
@@ -180610,8 +180731,8 @@
               "y": 3723
             }
           ],
-          "connectorType": "misc",
-          "customColor": "#37474F",
+          "connectorType": "external-pcie-link",
+          "customColor": "",
           "customText": "",
           "customTextCaption": "",
           "direction": "input",
@@ -180631,7 +180752,7 @@
           "nameText": "PCIe IN",
           "nameTextCaption": "",
           "operationalStatus": "working",
-          "physicalType": "misc",
+          "physicalType": "external-pcie-link",
           "powerMetadata": null,
           "powerPlug": null,
           "primaryAnchorId": "left",
@@ -180641,9 +180762,15 @@
           "schemaVersion": 2,
           "signalDirection": "input",
           "signalIndex": 0,
-          "type": "misc",
+          "type": "external-pcie-link",
           "x": 0,
-          "y": 3723
+          "y": 3723,
+          "physicalConstraints": {
+            "protocol": "spyder-x80-link",
+            "signalFamily": "interconnect",
+            "vendorInterface": "christie-spyder-x80",
+            "version": 1
+          }
         },
         {
           "anchors": [
@@ -180748,8 +180875,8 @@
               "y": 3723
             }
           ],
-          "connectorType": "misc",
-          "customColor": "#37474F",
+          "connectorType": "external-pcie-link",
+          "customColor": "",
           "customText": "",
           "customTextCaption": "",
           "direction": "output",
@@ -180769,7 +180896,7 @@
           "nameText": "PCIe OUT",
           "nameTextCaption": "",
           "operationalStatus": "working",
-          "physicalType": "misc",
+          "physicalType": "external-pcie-link",
           "powerMetadata": null,
           "powerPlug": null,
           "primaryAnchorId": "right",
@@ -180779,9 +180906,15 @@
           "schemaVersion": 2,
           "signalDirection": "output",
           "signalIndex": 0,
-          "type": "misc",
+          "type": "external-pcie-link",
           "x": 380,
-          "y": 3723
+          "y": 3723,
+          "physicalConstraints": {
+            "protocol": "spyder-x80-link",
+            "signalFamily": "interconnect",
+            "vendorInterface": "christie-spyder-x80",
+            "version": 1
+          }
         },
         {
           "anchors": [
@@ -188113,8 +188246,8 @@
               "y": 1948
             }
           ],
-          "connectorType": "misc",
-          "customColor": "#37474F",
+          "connectorType": "pluggable-terminal",
+          "customColor": "",
           "customText": "",
           "customTextCaption": "",
           "direction": "input",
@@ -188134,7 +188267,7 @@
           "nameText": "TALLY/GPIO",
           "nameTextCaption": "",
           "operationalStatus": "working",
-          "physicalType": "misc",
+          "physicalType": "pluggable-terminal",
           "powerMetadata": null,
           "powerPlug": null,
           "primaryAnchorId": "left",
@@ -188144,9 +188277,16 @@
           "schemaVersion": 2,
           "signalDirection": "bidirectional",
           "signalIndex": 0,
-          "type": "misc",
+          "type": "pluggable-terminal",
           "x": 0,
-          "y": 1948
+          "y": 1948,
+          "physicalConstraints": {
+            "poleCount": 10,
+            "protocol": "tally-gpio",
+            "series": "MCO",
+            "signalFamily": "control",
+            "version": 1
+          }
         },
         {
           "anchors": [
@@ -188167,8 +188307,8 @@
               "y": 2002
             }
           ],
-          "connectorType": "misc",
-          "customColor": "#37474F",
+          "connectorType": "livecore-link",
+          "customColor": "",
           "customText": "",
           "customTextCaption": "",
           "direction": "input",
@@ -188188,7 +188328,7 @@
           "nameText": "LIVECORE LINK 1",
           "nameTextCaption": "",
           "operationalStatus": "working",
-          "physicalType": "misc",
+          "physicalType": "livecore-link",
           "powerMetadata": null,
           "powerPlug": null,
           "primaryAnchorId": "left",
@@ -188198,9 +188338,15 @@
           "schemaVersion": 2,
           "signalDirection": "bidirectional",
           "signalIndex": 0,
-          "type": "misc",
+          "type": "livecore-link",
           "x": 0,
-          "y": 2002
+          "y": 2002,
+          "physicalConstraints": {
+            "protocol": "livecore-link",
+            "signalFamily": "interconnect",
+            "vendorInterface": "analog-way-livecore-opt-link",
+            "version": 1
+          }
         },
         {
           "anchors": [
@@ -188221,8 +188367,8 @@
               "y": 2056
             }
           ],
-          "connectorType": "misc",
-          "customColor": "#37474F",
+          "connectorType": "livecore-link",
+          "customColor": "",
           "customText": "",
           "customTextCaption": "",
           "direction": "input",
@@ -188242,7 +188388,7 @@
           "nameText": "LIVECORE LINK 2",
           "nameTextCaption": "",
           "operationalStatus": "working",
-          "physicalType": "misc",
+          "physicalType": "livecore-link",
           "powerMetadata": null,
           "powerPlug": null,
           "primaryAnchorId": "left",
@@ -188252,9 +188398,15 @@
           "schemaVersion": 2,
           "signalDirection": "bidirectional",
           "signalIndex": 0,
-          "type": "misc",
+          "type": "livecore-link",
           "x": 0,
-          "y": 2056
+          "y": 2056,
+          "physicalConstraints": {
+            "protocol": "livecore-link",
+            "signalFamily": "interconnect",
+            "vendorInterface": "analog-way-livecore-opt-link",
+            "version": 1
+          }
         },
         {
           "anchors": [
@@ -188275,8 +188427,8 @@
               "y": 2110
             }
           ],
-          "connectorType": "misc",
-          "customColor": "#37474F",
+          "connectorType": "livecore-link",
+          "customColor": "",
           "customText": "",
           "customTextCaption": "",
           "direction": "input",
@@ -188296,7 +188448,7 @@
           "nameText": "LIVECORE LINK 3",
           "nameTextCaption": "",
           "operationalStatus": "working",
-          "physicalType": "misc",
+          "physicalType": "livecore-link",
           "powerMetadata": null,
           "powerPlug": null,
           "primaryAnchorId": "left",
@@ -188306,9 +188458,15 @@
           "schemaVersion": 2,
           "signalDirection": "bidirectional",
           "signalIndex": 0,
-          "type": "misc",
+          "type": "livecore-link",
           "x": 0,
-          "y": 2110
+          "y": 2110,
+          "physicalConstraints": {
+            "protocol": "livecore-link",
+            "signalFamily": "interconnect",
+            "vendorInterface": "analog-way-livecore-opt-link",
+            "version": 1
+          }
         },
         {
           "anchors": [
@@ -227424,8 +227582,8 @@
               "y": 747
             }
           ],
-          "connectorType": "misc",
-          "customColor": "#37474F",
+          "connectorType": "rca",
+          "customColor": "",
           "customText": "",
           "customTextCaption": "",
           "direction": "input",
@@ -227445,7 +227603,7 @@
           "nameText": "S/PDIF #1",
           "nameTextCaption": "",
           "operationalStatus": "working",
-          "physicalType": "misc",
+          "physicalType": "rca",
           "powerMetadata": null,
           "powerPlug": null,
           "primaryAnchorId": "left",
@@ -227455,9 +227613,14 @@
           "schemaVersion": 2,
           "signalDirection": "input",
           "signalIndex": 0,
-          "type": "misc",
+          "type": "rca",
           "x": 0,
-          "y": 747
+          "y": 747,
+          "physicalConstraints": {
+            "protocol": "s-pdif",
+            "signalFamily": "audio",
+            "version": 1
+          }
         },
         {
           "anchors": [
@@ -227470,8 +227633,8 @@
               "y": 801
             }
           ],
-          "connectorType": "misc",
-          "customColor": "#37474F",
+          "connectorType": "rca",
+          "customColor": "",
           "customText": "",
           "customTextCaption": "",
           "direction": "input",
@@ -227491,7 +227654,7 @@
           "nameText": "S/PDIF #2",
           "nameTextCaption": "",
           "operationalStatus": "working",
-          "physicalType": "misc",
+          "physicalType": "rca",
           "powerMetadata": null,
           "powerPlug": null,
           "primaryAnchorId": "left",
@@ -227501,9 +227664,14 @@
           "schemaVersion": 2,
           "signalDirection": "input",
           "signalIndex": 0,
-          "type": "misc",
+          "type": "rca",
           "x": 0,
-          "y": 801
+          "y": 801,
+          "physicalConstraints": {
+            "protocol": "s-pdif",
+            "signalFamily": "audio",
+            "version": 1
+          }
         },
         {
           "anchors": [
@@ -227516,8 +227684,8 @@
               "y": 153
             }
           ],
-          "connectorType": "misc",
-          "customColor": "#37474F",
+          "connectorType": "pluggable-terminal",
+          "customColor": "",
           "customText": "",
           "customTextCaption": "",
           "direction": "output",
@@ -227537,7 +227705,7 @@
           "nameText": "PHOENIX 4 POLE - #1",
           "nameTextCaption": "",
           "operationalStatus": "working",
-          "physicalType": "misc",
+          "physicalType": "pluggable-terminal",
           "powerMetadata": null,
           "powerPlug": null,
           "primaryAnchorId": "right",
@@ -227547,9 +227715,16 @@
           "schemaVersion": 2,
           "signalDirection": "output",
           "signalIndex": 0,
-          "type": "misc",
+          "type": "pluggable-terminal",
           "x": 380,
-          "y": 153
+          "y": 153,
+          "physicalConstraints": {
+            "poleCount": 5,
+            "protocol": "analog-balanced-stereo",
+            "series": "MCO",
+            "signalFamily": "audio",
+            "version": 1
+          }
         },
         {
           "anchors": [
@@ -227562,8 +227737,8 @@
               "y": 207
             }
           ],
-          "connectorType": "misc",
-          "customColor": "#37474F",
+          "connectorType": "pluggable-terminal",
+          "customColor": "",
           "customText": "",
           "customTextCaption": "",
           "direction": "output",
@@ -227583,7 +227758,7 @@
           "nameText": "PHOENIX 4 POLE - #2",
           "nameTextCaption": "",
           "operationalStatus": "working",
-          "physicalType": "misc",
+          "physicalType": "pluggable-terminal",
           "powerMetadata": null,
           "powerPlug": null,
           "primaryAnchorId": "right",
@@ -227593,9 +227768,16 @@
           "schemaVersion": 2,
           "signalDirection": "output",
           "signalIndex": 0,
-          "type": "misc",
+          "type": "pluggable-terminal",
           "x": 380,
-          "y": 207
+          "y": 207,
+          "physicalConstraints": {
+            "poleCount": 5,
+            "protocol": "analog-balanced-stereo",
+            "series": "MCO",
+            "signalFamily": "audio",
+            "version": 1
+          }
         },
         {
           "anchors": [
@@ -227608,8 +227790,8 @@
               "y": 261
             }
           ],
-          "connectorType": "misc",
-          "customColor": "#37474F",
+          "connectorType": "rca",
+          "customColor": "",
           "customText": "",
           "customTextCaption": "",
           "direction": "output",
@@ -227629,7 +227811,7 @@
           "nameText": "S/PDIF #1",
           "nameTextCaption": "",
           "operationalStatus": "working",
-          "physicalType": "misc",
+          "physicalType": "rca",
           "powerMetadata": null,
           "powerPlug": null,
           "primaryAnchorId": "right",
@@ -227639,9 +227821,14 @@
           "schemaVersion": 2,
           "signalDirection": "output",
           "signalIndex": 0,
-          "type": "misc",
+          "type": "rca",
           "x": 380,
-          "y": 261
+          "y": 261,
+          "physicalConstraints": {
+            "protocol": "s-pdif",
+            "signalFamily": "audio",
+            "version": 1
+          }
         },
         {
           "anchors": [
@@ -227654,8 +227841,8 @@
               "y": 315
             }
           ],
-          "connectorType": "misc",
-          "customColor": "#37474F",
+          "connectorType": "rca",
+          "customColor": "",
           "customText": "",
           "customTextCaption": "",
           "direction": "output",
@@ -227675,7 +227862,7 @@
           "nameText": "S/PDIF #2",
           "nameTextCaption": "",
           "operationalStatus": "working",
-          "physicalType": "misc",
+          "physicalType": "rca",
           "powerMetadata": null,
           "powerPlug": null,
           "primaryAnchorId": "right",
@@ -227685,9 +227872,14 @@
           "schemaVersion": 2,
           "signalDirection": "output",
           "signalIndex": 0,
-          "type": "misc",
+          "type": "rca",
           "x": 380,
-          "y": 315
+          "y": 315,
+          "physicalConstraints": {
+            "protocol": "s-pdif",
+            "signalFamily": "audio",
+            "version": 1
+          }
         },
         {
           "anchors": [
@@ -227930,8 +228122,8 @@
               "y": 855
             }
           ],
-          "connectorType": "misc",
-          "customColor": "#37474F",
+          "connectorType": "pluggable-terminal",
+          "customColor": "",
           "customText": "",
           "customTextCaption": "",
           "direction": "input",
@@ -227951,7 +228143,7 @@
           "nameText": "PHOENIX 4 POLE - #1",
           "nameTextCaption": "",
           "operationalStatus": "working",
-          "physicalType": "misc",
+          "physicalType": "pluggable-terminal",
           "powerMetadata": null,
           "powerPlug": null,
           "primaryAnchorId": "left",
@@ -227961,9 +228153,16 @@
           "schemaVersion": 2,
           "signalDirection": "input",
           "signalIndex": 0,
-          "type": "misc",
+          "type": "pluggable-terminal",
           "x": 0,
-          "y": 855
+          "y": 855,
+          "physicalConstraints": {
+            "poleCount": 5,
+            "protocol": "analog-balanced-stereo",
+            "series": "MCO",
+            "signalFamily": "audio",
+            "version": 1
+          }
         },
         {
           "anchors": [
@@ -227976,8 +228175,8 @@
               "y": 909
             }
           ],
-          "connectorType": "misc",
-          "customColor": "#37474F",
+          "connectorType": "pluggable-terminal",
+          "customColor": "",
           "customText": "",
           "customTextCaption": "",
           "direction": "input",
@@ -227997,7 +228196,7 @@
           "nameText": "PHOENIX 4 POLE - #2",
           "nameTextCaption": "",
           "operationalStatus": "working",
-          "physicalType": "misc",
+          "physicalType": "pluggable-terminal",
           "powerMetadata": null,
           "powerPlug": null,
           "primaryAnchorId": "left",
@@ -228007,9 +228206,16 @@
           "schemaVersion": 2,
           "signalDirection": "input",
           "signalIndex": 0,
-          "type": "misc",
+          "type": "pluggable-terminal",
           "x": 0,
-          "y": 909
+          "y": 909,
+          "physicalConstraints": {
+            "poleCount": 5,
+            "protocol": "analog-balanced-stereo",
+            "series": "MCO",
+            "signalFamily": "audio",
+            "version": 1
+          }
         },
         {
           "anchors": [
@@ -228022,8 +228228,8 @@
               "y": 963
             }
           ],
-          "connectorType": "misc",
-          "customColor": "#37474F",
+          "connectorType": "pluggable-terminal",
+          "customColor": "",
           "customText": "",
           "customTextCaption": "",
           "direction": "input",
@@ -228043,7 +228249,7 @@
           "nameText": "PHOENIX 4 POLE - #3",
           "nameTextCaption": "",
           "operationalStatus": "working",
-          "physicalType": "misc",
+          "physicalType": "pluggable-terminal",
           "powerMetadata": null,
           "powerPlug": null,
           "primaryAnchorId": "left",
@@ -228053,9 +228259,16 @@
           "schemaVersion": 2,
           "signalDirection": "input",
           "signalIndex": 0,
-          "type": "misc",
+          "type": "pluggable-terminal",
           "x": 0,
-          "y": 963
+          "y": 963,
+          "physicalConstraints": {
+            "poleCount": 5,
+            "protocol": "analog-balanced-stereo",
+            "series": "MCO",
+            "signalFamily": "audio",
+            "version": 1
+          }
         },
         {
           "anchors": [
@@ -228214,8 +228427,8 @@
               "y": 1017
             }
           ],
-          "connectorType": "misc",
-          "customColor": "#37474F",
+          "connectorType": "pluggable-terminal",
+          "customColor": "",
           "customText": "",
           "customTextCaption": "",
           "direction": "input",
@@ -228235,7 +228448,7 @@
           "nameText": "PHOENIX 4 POLE - #4",
           "nameTextCaption": "",
           "operationalStatus": "working",
-          "physicalType": "misc",
+          "physicalType": "pluggable-terminal",
           "powerMetadata": null,
           "powerPlug": null,
           "primaryAnchorId": "left",
@@ -228245,9 +228458,16 @@
           "schemaVersion": 2,
           "signalDirection": "input",
           "signalIndex": 0,
-          "type": "misc",
+          "type": "pluggable-terminal",
           "x": 0,
-          "y": 1017
+          "y": 1017,
+          "physicalConstraints": {
+            "poleCount": 5,
+            "protocol": "analog-balanced-stereo",
+            "series": "MCO",
+            "signalFamily": "audio",
+            "version": 1
+          }
         }
       ],
       "defaultConfiguration": null,
@@ -230489,8 +230709,8 @@
               "y": 3737
             }
           ],
-          "connectorType": "misc",
-          "customColor": "#37474F",
+          "connectorType": "db25",
+          "customColor": "",
           "customText": "DB25 - 24 Channel",
           "customTextCaption": "Connector",
           "direction": "input",
@@ -230508,7 +230728,7 @@
           "nameText": "Tally",
           "nameTextCaption": "",
           "operationalStatus": "working",
-          "physicalType": "misc",
+          "physicalType": "db25",
           "powerPlug": null,
           "primaryAnchorId": "left",
           "resolutionFrameRate": "",
@@ -230517,9 +230737,15 @@
           "schemaVersion": 2,
           "signalDirection": "input",
           "signalIndex": 0,
-          "type": "misc",
+          "type": "db25",
           "x": 0,
-          "y": 3737
+          "y": 3737,
+          "physicalConstraints": {
+            "pinCount": 25,
+            "protocol": "tally",
+            "signalFamily": "control",
+            "version": 1
+          }
         },
         {
           "anchors": [
@@ -230532,8 +230758,8 @@
               "y": 3791
             }
           ],
-          "connectorType": "misc",
-          "customColor": "#37474F",
+          "connectorType": "db25",
+          "customColor": "",
           "customText": "DB25 - 24 Channel",
           "customTextCaption": "Connector",
           "direction": "input",
@@ -230553,7 +230779,7 @@
           "nameText": "GPIO",
           "nameTextCaption": "",
           "operationalStatus": "working",
-          "physicalType": "misc",
+          "physicalType": "db25",
           "powerMetadata": null,
           "powerPlug": null,
           "primaryAnchorId": "left",
@@ -230563,9 +230789,15 @@
           "schemaVersion": 2,
           "signalDirection": "input",
           "signalIndex": 0,
-          "type": "misc",
+          "type": "db25",
           "x": 0,
-          "y": 3791
+          "y": 3791,
+          "physicalConstraints": {
+            "pinCount": 25,
+            "protocol": "gpio",
+            "signalFamily": "control",
+            "version": 1
+          }
         },
         {
           "anchors": [
@@ -234600,6 +234832,147 @@
       ],
       "videoCable": true,
       "custom": false
+    },
+    "db9": {
+      "id": "db9",
+      "label": "DB9 (D-sub 9)",
+      "color": "#987AA0",
+      "colors": [],
+      "physicalType": "db9",
+      "physicalConstraints": {
+        "version": 1,
+        "pinCount": 9
+      },
+      "direction": "two-way",
+      "thumbnail": "Nodes/Thumbnails/blank.png",
+      "tags": [],
+      "videoCable": false,
+      "custom": false
+    },
+    "db15": {
+      "id": "db15",
+      "label": "DB15 (D-sub 15, two-row)",
+      "color": "#987AA0",
+      "colors": [],
+      "physicalType": "db15",
+      "physicalConstraints": {
+        "version": 1,
+        "pinCount": 15
+      },
+      "direction": "two-way",
+      "thumbnail": "Nodes/Thumbnails/blank.png",
+      "tags": [],
+      "videoCable": false,
+      "custom": false
+    },
+    "db25": {
+      "id": "db25",
+      "label": "DB25 (D-sub 25)",
+      "color": "#987AA0",
+      "colors": [],
+      "physicalType": "db25",
+      "physicalConstraints": {
+        "version": 1,
+        "pinCount": 25
+      },
+      "direction": "two-way",
+      "thumbnail": "Nodes/Thumbnails/blank.png",
+      "tags": [],
+      "videoCable": false,
+      "custom": false
+    },
+    "rj12": {
+      "id": "rj12",
+      "label": "RJ12 (6-position)",
+      "color": "#B17C5B",
+      "colors": [],
+      "physicalType": "rj12",
+      "physicalConstraints": {
+        "version": 1,
+        "positionCount": 6
+      },
+      "direction": "two-way",
+      "thumbnail": "Nodes/Thumbnails/blank.png",
+      "tags": [],
+      "videoCable": false,
+      "custom": false
+    },
+    "trs-3.5mm": {
+      "id": "trs-3.5mm",
+      "label": "3.5 mm TRS",
+      "color": "#5D9B82",
+      "colors": [],
+      "physicalType": "trs-3.5mm",
+      "physicalConstraints": {
+        "version": 1,
+        "diameterMm": 3.5,
+        "contactCount": 3
+      },
+      "direction": "one-way",
+      "thumbnail": "Nodes/Thumbnails/blank.png",
+      "tags": [],
+      "videoCable": false,
+      "custom": false
+    },
+    "pluggable-terminal": {
+      "id": "pluggable-terminal",
+      "label": "Pluggable Terminal Block",
+      "color": "#A58C56",
+      "colors": [],
+      "physicalType": "pluggable-terminal",
+      "physicalConstraints": {
+        "version": 1
+      },
+      "direction": "two-way",
+      "thumbnail": "Nodes/Thumbnails/blank.png",
+      "tags": [],
+      "videoCable": false,
+      "custom": false
+    },
+    "circular-din": {
+      "id": "circular-din",
+      "label": "Circular DIN (configurable)",
+      "color": "#B87588",
+      "colors": [],
+      "physicalType": "circular-din",
+      "physicalConstraints": {
+        "version": 1
+      },
+      "direction": "one-way",
+      "thumbnail": "Nodes/Thumbnails/blank.png",
+      "tags": [],
+      "videoCable": false,
+      "custom": false
+    },
+    "external-pcie-link": {
+      "id": "external-pcie-link",
+      "label": "External PCIe Link (proprietary)",
+      "color": "#787FB0",
+      "colors": [],
+      "physicalType": "external-pcie-link",
+      "physicalConstraints": {
+        "version": 1
+      },
+      "direction": "two-way",
+      "thumbnail": "Nodes/Thumbnails/blank.png",
+      "tags": [],
+      "videoCable": false,
+      "custom": false
+    },
+    "livecore-link": {
+      "id": "livecore-link",
+      "label": "Analog Way LiveCore Link",
+      "color": "#A4775E",
+      "colors": [],
+      "physicalType": "livecore-link",
+      "physicalConstraints": {
+        "version": 1
+      },
+      "direction": "two-way",
+      "thumbnail": "Nodes/Thumbnails/blank.png",
+      "tags": [],
+      "videoCable": false,
+      "custom": false
     }
   },
   "nodes": [
@@ -235485,6 +235858,147 @@
       ],
       "videoCable": true,
       "custom": false
+    },
+    {
+      "id": "db9",
+      "label": "DB9 (D-sub 9)",
+      "color": "#987AA0",
+      "colors": [],
+      "physicalType": "db9",
+      "physicalConstraints": {
+        "version": 1,
+        "pinCount": 9
+      },
+      "direction": "two-way",
+      "thumbnail": "Nodes/Thumbnails/blank.png",
+      "tags": [],
+      "videoCable": false,
+      "custom": false
+    },
+    {
+      "id": "db15",
+      "label": "DB15 (D-sub 15, two-row)",
+      "color": "#987AA0",
+      "colors": [],
+      "physicalType": "db15",
+      "physicalConstraints": {
+        "version": 1,
+        "pinCount": 15
+      },
+      "direction": "two-way",
+      "thumbnail": "Nodes/Thumbnails/blank.png",
+      "tags": [],
+      "videoCable": false,
+      "custom": false
+    },
+    {
+      "id": "db25",
+      "label": "DB25 (D-sub 25)",
+      "color": "#987AA0",
+      "colors": [],
+      "physicalType": "db25",
+      "physicalConstraints": {
+        "version": 1,
+        "pinCount": 25
+      },
+      "direction": "two-way",
+      "thumbnail": "Nodes/Thumbnails/blank.png",
+      "tags": [],
+      "videoCable": false,
+      "custom": false
+    },
+    {
+      "id": "rj12",
+      "label": "RJ12 (6-position)",
+      "color": "#B17C5B",
+      "colors": [],
+      "physicalType": "rj12",
+      "physicalConstraints": {
+        "version": 1,
+        "positionCount": 6
+      },
+      "direction": "two-way",
+      "thumbnail": "Nodes/Thumbnails/blank.png",
+      "tags": [],
+      "videoCable": false,
+      "custom": false
+    },
+    {
+      "id": "trs-3.5mm",
+      "label": "3.5 mm TRS",
+      "color": "#5D9B82",
+      "colors": [],
+      "physicalType": "trs-3.5mm",
+      "physicalConstraints": {
+        "version": 1,
+        "diameterMm": 3.5,
+        "contactCount": 3
+      },
+      "direction": "one-way",
+      "thumbnail": "Nodes/Thumbnails/blank.png",
+      "tags": [],
+      "videoCable": false,
+      "custom": false
+    },
+    {
+      "id": "pluggable-terminal",
+      "label": "Pluggable Terminal Block",
+      "color": "#A58C56",
+      "colors": [],
+      "physicalType": "pluggable-terminal",
+      "physicalConstraints": {
+        "version": 1
+      },
+      "direction": "two-way",
+      "thumbnail": "Nodes/Thumbnails/blank.png",
+      "tags": [],
+      "videoCable": false,
+      "custom": false
+    },
+    {
+      "id": "circular-din",
+      "label": "Circular DIN (configurable)",
+      "color": "#B87588",
+      "colors": [],
+      "physicalType": "circular-din",
+      "physicalConstraints": {
+        "version": 1
+      },
+      "direction": "one-way",
+      "thumbnail": "Nodes/Thumbnails/blank.png",
+      "tags": [],
+      "videoCable": false,
+      "custom": false
+    },
+    {
+      "id": "external-pcie-link",
+      "label": "External PCIe Link (proprietary)",
+      "color": "#787FB0",
+      "colors": [],
+      "physicalType": "external-pcie-link",
+      "physicalConstraints": {
+        "version": 1
+      },
+      "direction": "two-way",
+      "thumbnail": "Nodes/Thumbnails/blank.png",
+      "tags": [],
+      "videoCable": false,
+      "custom": false
+    },
+    {
+      "id": "livecore-link",
+      "label": "Analog Way LiveCore Link",
+      "color": "#A4775E",
+      "colors": [],
+      "physicalType": "livecore-link",
+      "physicalConstraints": {
+        "version": 1
+      },
+      "direction": "two-way",
+      "thumbnail": "Nodes/Thumbnails/blank.png",
+      "tags": [],
+      "videoCable": false,
+      "custom": false
     }
   ],
   "nodeTags": {
@@ -235612,7 +236126,16 @@
     "triax-14": [
       "video",
       "triax"
-    ]
+    ],
+    "db9": [],
+    "db15": [],
+    "db25": [],
+    "rj12": [],
+    "trs-3.5mm": [],
+    "pluggable-terminal": [],
+    "circular-din": [],
+    "external-pcie-link": [],
+    "livecore-link": []
   },
   "nodeThumbnails": {
     "iec": "C13.png",
@@ -241347,6 +241870,388 @@
           "id": "custom-device-mwnb65sh",
           "baseFingerprint": "a1638cd997c6cabf907e41a76879cc798bd0b1172d0cc735e31157b95d58cfba",
           "candidateFingerprint": "6875d6f1f60635be8a60d7c5aacc5226f243e35ca239c3b52bc58c727e7d9391"
+        }
+      ]
+    },
+    {
+      "packageId": "df1cfcf5ff698c7ce7f8767c9d1040b5b281a00b5f8e871e66d80ff338381880",
+      "records": [
+        {
+          "kind": "node",
+          "id": "db9",
+          "baseFingerprint": null,
+          "candidateFingerprint": "5bb8041f6e8975b4cb0d8382e0d1350b117708c0a69e8db2c3bfd434149a3ad8"
+        },
+        {
+          "kind": "node",
+          "id": "db15",
+          "baseFingerprint": null,
+          "candidateFingerprint": "606f3880525ea3a0d0699bb9cfff6c519fffa799bef6ca163fed4d4e0db5f3ef"
+        },
+        {
+          "kind": "node",
+          "id": "db25",
+          "baseFingerprint": null,
+          "candidateFingerprint": "e8d0820cb378c230f156f0a8e0eb637ce3abdc487ef9e9652d50f5b276e46412"
+        },
+        {
+          "kind": "node",
+          "id": "rj12",
+          "baseFingerprint": null,
+          "candidateFingerprint": "50d32d75c20a907d332089d919b61df87611e388c612cf939f3812260f8191ea"
+        },
+        {
+          "kind": "node",
+          "id": "trs-3.5mm",
+          "baseFingerprint": null,
+          "candidateFingerprint": "b2c434f13596558bfd3d3619058ea8e6c4a7fd4c524b2a5294064d65c0ff34a3"
+        },
+        {
+          "kind": "node",
+          "id": "pluggable-terminal",
+          "baseFingerprint": null,
+          "candidateFingerprint": "becb2345faa0e4975141edd59801162c44a6f5bd8ecc9c815ccc6b5795506798"
+        },
+        {
+          "kind": "node",
+          "id": "circular-din",
+          "baseFingerprint": null,
+          "candidateFingerprint": "880fb42a51e1cb8bbd469220d865530562a78b6d76bb8f25ac7cd9415441434c"
+        },
+        {
+          "kind": "node",
+          "id": "external-pcie-link",
+          "baseFingerprint": null,
+          "candidateFingerprint": "47eb0bcee63019ea24a1331e8a46f245a80e72e69471a9f693c3f7ac322b53d3"
+        },
+        {
+          "kind": "node",
+          "id": "livecore-link",
+          "baseFingerprint": null,
+          "candidateFingerprint": "ca0a56a37c53054ad1c7fbeddb613dadcc43f1711305f2789dc3ef487824d622"
+        }
+      ]
+    },
+    {
+      "packageId": "8e51800e139b8645bd58120786604c06fa19bc40041279e557b7bf1123e942cb",
+      "records": [
+        {
+          "kind": "device",
+          "id": "christie-griffyn-4k50-rgb",
+          "baseFingerprint": "197894bb21109d485c1a7f654826520bc5adc9fc67c61158169e23099bc7189e",
+          "candidateFingerprint": "15b3c398ffc48301f6a3e0968f5ccaa7a20b578fcc45a97aacfd781cb993b067"
+        },
+        {
+          "kind": "device",
+          "id": "christie-sapphire-4k40-rgbh",
+          "baseFingerprint": "878cb63d44de351a3e3b272f65ac636b0cec1f8cb9bd9efe7bb07b9287fd450d",
+          "candidateFingerprint": "30432c1941d8a919287e8d1bf054150f683961c8bdf99a0684daf7a042e61831"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-custom-device-copy",
+          "baseFingerprint": "a8b25ea1b21c751cdc0bb51f300bf89663a3053c31ba594e9659da3bcee4fbc7",
+          "candidateFingerprint": "9aa89bac4e2089508158bfb23cd6d2a11d6fe4780ba1dc912d15a44d08b1a224"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mqj3nj49",
+          "baseFingerprint": "2c9ced84c3aa5ad4f59b4cfb176ee209a207fb9f4e6869f4ddebb8cf4d52add5",
+          "candidateFingerprint": "99929a99a3a255871d9b96b6c0d2ed46db5f64ac894da62f04389694e416b8b2"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mqj43gzs",
+          "baseFingerprint": "6b68eee0859ef9144f93b4dbc9e97072561c8363318671358a268519bdae9390",
+          "candidateFingerprint": "a75ac47a7fa83e68ad0a97ea989ed92de1687d1e0851f00fbc6c00caf337aa80"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mqkjqqqd",
+          "baseFingerprint": "0c0340c8d927b71302a9646b099c062b3923e51abe3c11b242c46d268487ba55",
+          "candidateFingerprint": "8d2175c5a878dc26ac5a0a39bf1c14b4276b4e155a1c2668c8d1cbbd69ebd61c"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mqw9yhs8",
+          "baseFingerprint": "293a3a2fe0ed3b70e676f0d04b3b2ca2514d5b66417248f1d5fe8c1bbefa1677",
+          "candidateFingerprint": "6b6d1cfe67bd8f254410fe8664b263f80cded6b1be0638854135630216e122ab"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mqz28eyz",
+          "baseFingerprint": "efb9208a782c65a8f381fcf5c8312c26f87749160b220a3333cb098ad27621d6",
+          "candidateFingerprint": "c246bc104c8df2d92a5ba9babddb6374f6ecceee2700ecca14e13e31a07e6be6"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mtidnv7i",
+          "baseFingerprint": "70495ef925f0338417aecffff80f5c02eb48042bde6ad3621fcaa1fd9dcfbe51",
+          "candidateFingerprint": "c4639df8939ca73f0f9c8eaf270f2689a4c166c8877c4c91703e66a575361f53"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mvgekxns",
+          "baseFingerprint": "b6553da8d051dd0e358eb6bbc9ec7bcbf809ee0992f42445e2265d033cd7f390",
+          "candidateFingerprint": "d779c137f950274ee4ddba9c642c975fab3ad0458a404d50808ab1f752710689"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mvhqsv2w",
+          "baseFingerprint": "acdfa9bd80e53b3d7d5699290eea0e4e9ac059d46fef0147612244164bde2e4b",
+          "candidateFingerprint": "f925ca20772d9bae6ba0803e7e6c9e672740ab41f7548f1df3f8210e407dbf9c"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mvi2qkk6",
+          "baseFingerprint": "9fa1ced982b8595a6dd4ae45d413ddbb1949acd03ed9e21fb87fdea42d5631af",
+          "candidateFingerprint": "fd1d86344981d5e90f50b74d397636427d751c751d6b6cc3bd8bcac4a1070ad9"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mwdl1enc",
+          "baseFingerprint": "df2f43da32eb06ee99b07213257612eed90aca4898a4e8aba22ea7317e515393",
+          "candidateFingerprint": "9c0aa54f2b21e78a3e4dee9697033aa001b73039d2c8c5109e77ac8ee86aff0e"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-mwkqpl2j",
+          "baseFingerprint": "cf6b29ebcc3d02e82f5a104eacb2e32f415462ffd2efe0cb51db16a0a6603de5",
+          "candidateFingerprint": "bdcb051d61a1d9d7c170ff622b444933c9dd72b7f55b9f9f8d7b1fc75fd7fab7"
+        },
+        {
+          "kind": "device",
+          "id": "custom-device-v-160hd-copy",
+          "baseFingerprint": "d3d9d5315c7bc0293a296996eb11450f228f4cf954901f41e3502c373e65d634",
+          "candidateFingerprint": "aad6a319152803c998ccf693688e8b59c17badc9223e7e7bff81ac4d5676c101"
+        },
+        {
+          "kind": "device",
+          "id": "panasonic-pt-rq25k",
+          "baseFingerprint": "d9d599bc84104b0492218efbe8f69ee1cd1becaa327327168c5535487ed880b8",
+          "candidateFingerprint": "820e5aaa127ffaafe5ec6ea6bf92480b4747cd71426286f7e39733bd202a6e53"
+        },
+        {
+          "kind": "node",
+          "id": "32a-1ph",
+          "baseFingerprint": "181e33a2720b3e9b2260d6b57c4c1a6f6ad28095b63c2ca19e96b79cdf5c111c",
+          "candidateFingerprint": "181e33a2720b3e9b2260d6b57c4c1a6f6ad28095b63c2ca19e96b79cdf5c111c"
+        },
+        {
+          "kind": "node",
+          "id": "aes",
+          "baseFingerprint": "b7ceba8bed4177496b2906340c655073e81596057aa2cfe5f740afbee7f1a069",
+          "candidateFingerprint": "b7ceba8bed4177496b2906340c655073e81596057aa2cfe5f740afbee7f1a069"
+        },
+        {
+          "kind": "node",
+          "id": "bnc",
+          "baseFingerprint": "424e4bc769a8b190014a37d656efa5ab7b0e378627ec9c2893e9a8252298f1a2",
+          "candidateFingerprint": "424e4bc769a8b190014a37d656efa5ab7b0e378627ec9c2893e9a8252298f1a2"
+        },
+        {
+          "kind": "node",
+          "id": "cat5e",
+          "baseFingerprint": "f8f5ce7fd68cb4e2c90934f41d1b4c3c853daecd178268e1b28beb7fcd284c3b",
+          "candidateFingerprint": "f8f5ce7fd68cb4e2c90934f41d1b4c3c853daecd178268e1b28beb7fcd284c3b"
+        },
+        {
+          "kind": "node",
+          "id": "db15",
+          "baseFingerprint": "606f3880525ea3a0d0699bb9cfff6c519fffa799bef6ca163fed4d4e0db5f3ef",
+          "candidateFingerprint": "606f3880525ea3a0d0699bb9cfff6c519fffa799bef6ca163fed4d4e0db5f3ef"
+        },
+        {
+          "kind": "node",
+          "id": "db25",
+          "baseFingerprint": "e8d0820cb378c230f156f0a8e0eb637ce3abdc487ef9e9652d50f5b276e46412",
+          "candidateFingerprint": "e8d0820cb378c230f156f0a8e0eb637ce3abdc487ef9e9652d50f5b276e46412"
+        },
+        {
+          "kind": "node",
+          "id": "db9",
+          "baseFingerprint": "5bb8041f6e8975b4cb0d8382e0d1350b117708c0a69e8db2c3bfd434149a3ad8",
+          "candidateFingerprint": "5bb8041f6e8975b4cb0d8382e0d1350b117708c0a69e8db2c3bfd434149a3ad8"
+        },
+        {
+          "kind": "node",
+          "id": "display-port",
+          "baseFingerprint": "2ffbcd03bc1c1cbecad36e89513efbee44aa73b873b50e81c30b49c49b83f041",
+          "candidateFingerprint": "2ffbcd03bc1c1cbecad36e89513efbee44aa73b873b50e81c30b49c49b83f041"
+        },
+        {
+          "kind": "node",
+          "id": "dmx-5pin",
+          "baseFingerprint": "2d810f691cada2638413c49f1dff561fdf528dcc9efa918e31df38767dc4a298",
+          "candidateFingerprint": "2d810f691cada2638413c49f1dff561fdf528dcc9efa918e31df38767dc4a298"
+        },
+        {
+          "kind": "node",
+          "id": "dvi",
+          "baseFingerprint": "5d8864b57deead9255e11bffb1d218adec9112ce4380638fee120bc6b5b47395",
+          "candidateFingerprint": "5d8864b57deead9255e11bffb1d218adec9112ce4380638fee120bc6b5b47395"
+        },
+        {
+          "kind": "node",
+          "id": "ethercon",
+          "baseFingerprint": "7e6a8779191c179034eb31961a78648eca9f7cb717996d6eef97a1caa6e3a30b",
+          "candidateFingerprint": "7e6a8779191c179034eb31961a78648eca9f7cb717996d6eef97a1caa6e3a30b"
+        },
+        {
+          "kind": "node",
+          "id": "external-pcie-link",
+          "baseFingerprint": "47eb0bcee63019ea24a1331e8a46f245a80e72e69471a9f693c3f7ac322b53d3",
+          "candidateFingerprint": "47eb0bcee63019ea24a1331e8a46f245a80e72e69471a9f693c3f7ac322b53d3"
+        },
+        {
+          "kind": "node",
+          "id": "hdmi",
+          "baseFingerprint": "5b1f7ff3701d15e96d6893e64d5b341e294bfd4ad5e462bd2d6f0178048b1b44",
+          "candidateFingerprint": "5b1f7ff3701d15e96d6893e64d5b341e294bfd4ad5e462bd2d6f0178048b1b44"
+        },
+        {
+          "kind": "node",
+          "id": "iec",
+          "baseFingerprint": "e4a20249e911507fbcac17e876ed486724012cc189145d4828e2e3ab7d96b378",
+          "candidateFingerprint": "e4a20249e911507fbcac17e876ed486724012cc189145d4828e2e3ab7d96b378"
+        },
+        {
+          "kind": "node",
+          "id": "led-signal",
+          "baseFingerprint": "acc0c4627636545fb262c28a8223e454f0ded0a53fbf6ca8831951868845f99a",
+          "candidateFingerprint": "acc0c4627636545fb262c28a8223e454f0ded0a53fbf6ca8831951868845f99a"
+        },
+        {
+          "kind": "node",
+          "id": "livecore-link",
+          "baseFingerprint": "ca0a56a37c53054ad1c7fbeddb613dadcc43f1711305f2789dc3ef487824d622",
+          "candidateFingerprint": "ca0a56a37c53054ad1c7fbeddb613dadcc43f1711305f2789dc3ef487824d622"
+        },
+        {
+          "kind": "node",
+          "id": "misc",
+          "baseFingerprint": "001ae1a850628c5a61e77c9b7a4ae2223270f9c906384776579726cd2a4d12a1",
+          "candidateFingerprint": "001ae1a850628c5a61e77c9b7a4ae2223270f9c906384776579726cd2a4d12a1"
+        },
+        {
+          "kind": "node",
+          "id": "new-node",
+          "baseFingerprint": "14c286118400a5bc274427b50a0e4ab70e2892b8bda69f86b01aa7151202e759",
+          "candidateFingerprint": "14c286118400a5bc274427b50a0e4ab70e2892b8bda69f86b01aa7151202e759"
+        },
+        {
+          "kind": "node",
+          "id": "new-node-3",
+          "baseFingerprint": "8dfc44a884455f5855d57fd2a70c7d4775a28861e8228cb14c264b34f4f497a3",
+          "candidateFingerprint": "8dfc44a884455f5855d57fd2a70c7d4775a28861e8228cb14c264b34f4f497a3"
+        },
+        {
+          "kind": "node",
+          "id": "opticalcon",
+          "baseFingerprint": "ee53151f0203d4a2c0e9ab902db5ce65a1256c2b730cd2e32425117531b0ca81",
+          "candidateFingerprint": "ee53151f0203d4a2c0e9ab902db5ce65a1256c2b730cd2e32425117531b0ca81"
+        },
+        {
+          "kind": "node",
+          "id": "pluggable-terminal",
+          "baseFingerprint": "becb2345faa0e4975141edd59801162c44a6f5bd8ecc9c815ccc6b5795506798",
+          "candidateFingerprint": "becb2345faa0e4975141edd59801162c44a6f5bd8ecc9c815ccc6b5795506798"
+        },
+        {
+          "kind": "node",
+          "id": "powercon-true1",
+          "baseFingerprint": "318ca9c094b161b9c8ec57678c14ccb3da6c00f634453a81ee9f47ffc9bf46ef",
+          "candidateFingerprint": "318ca9c094b161b9c8ec57678c14ccb3da6c00f634453a81ee9f47ffc9bf46ef"
+        },
+        {
+          "kind": "node",
+          "id": "qsfp-cage",
+          "baseFingerprint": "ed11cfb73f238065821ec556f601d69590a0e7db10640aaad8289bc72f953cc9",
+          "candidateFingerprint": "ed11cfb73f238065821ec556f601d69590a0e7db10640aaad8289bc72f953cc9"
+        },
+        {
+          "kind": "node",
+          "id": "rca",
+          "baseFingerprint": "988a473cd1b237cd0df8a23cd751cdf4799f14ed658e569753ed24826822e967",
+          "candidateFingerprint": "988a473cd1b237cd0df8a23cd751cdf4799f14ed658e569753ed24826822e967"
+        },
+        {
+          "kind": "node",
+          "id": "rj12",
+          "baseFingerprint": "50d32d75c20a907d332089d919b61df87611e388c612cf939f3812260f8191ea",
+          "candidateFingerprint": "50d32d75c20a907d332089d919b61df87611e388c612cf939f3812260f8191ea"
+        },
+        {
+          "kind": "node",
+          "id": "rs-422",
+          "baseFingerprint": "941d4bc41244749aa75ca41fc5c53b941e5d1e083cf92ce9c261a2335f3c8578",
+          "candidateFingerprint": "941d4bc41244749aa75ca41fc5c53b941e5d1e083cf92ce9c261a2335f3c8578"
+        },
+        {
+          "kind": "node",
+          "id": "sdi",
+          "baseFingerprint": "3933519ad05147b14f43287e43002c966845f5ef015325e8ca456d42751158f3",
+          "candidateFingerprint": "3933519ad05147b14f43287e43002c966845f5ef015325e8ca456d42751158f3"
+        },
+        {
+          "kind": "node",
+          "id": "sfp-cage",
+          "baseFingerprint": "a788675b8cfedf52f285512d88d996ae280fb8db7feedd57fc7576fbe34b4543",
+          "candidateFingerprint": "a788675b8cfedf52f285512d88d996ae280fb8db7feedd57fc7576fbe34b4543"
+        },
+        {
+          "kind": "node",
+          "id": "sfp-plus-cage",
+          "baseFingerprint": "dde6a6f17b8d797967645377dc478c56124d2b8c767b98d051ed04a1e5c40a1a",
+          "candidateFingerprint": "dde6a6f17b8d797967645377dc478c56124d2b8c767b98d051ed04a1e5c40a1a"
+        },
+        {
+          "kind": "node",
+          "id": "trs-3.5mm",
+          "baseFingerprint": "b2c434f13596558bfd3d3619058ea8e6c4a7fd4c524b2a5294064d65c0ff34a3",
+          "candidateFingerprint": "b2c434f13596558bfd3d3619058ea8e6c4a7fd4c524b2a5294064d65c0ff34a3"
+        },
+        {
+          "kind": "node",
+          "id": "trs-ts",
+          "baseFingerprint": "c7fe78957ed9226ef44a53a4aa5632f3220e13eae2ce90c7dc440fbc35589bee",
+          "candidateFingerprint": "c7fe78957ed9226ef44a53a4aa5632f3220e13eae2ce90c7dc440fbc35589bee"
+        },
+        {
+          "kind": "node",
+          "id": "usb-a",
+          "baseFingerprint": "bc8e4211cb8723ff81340c75fd12bd1a7631402fa39a449915032e695aea8f54",
+          "candidateFingerprint": "bc8e4211cb8723ff81340c75fd12bd1a7631402fa39a449915032e695aea8f54"
+        },
+        {
+          "kind": "node",
+          "id": "usb-b",
+          "baseFingerprint": "b5115dc0860aeb5e009a40220d31dbfcfd2ca50fe3a143606389c239e8604792",
+          "candidateFingerprint": "b5115dc0860aeb5e009a40220d31dbfcfd2ca50fe3a143606389c239e8604792"
+        },
+        {
+          "kind": "node",
+          "id": "usb-c",
+          "baseFingerprint": "164c11d313f6d427853117826fad6fec49994a61544a679994a52839d556e7f1",
+          "candidateFingerprint": "164c11d313f6d427853117826fad6fec49994a61544a679994a52839d556e7f1"
+        },
+        {
+          "kind": "node",
+          "id": "vga",
+          "baseFingerprint": "b69587f649009382e39037f1844e7bae8397946066185a0e65b8d8839fe7e9d9",
+          "candidateFingerprint": "b69587f649009382e39037f1844e7bae8397946066185a0e65b8d8839fe7e9d9"
+        },
+        {
+          "kind": "node",
+          "id": "xlr-3pin",
+          "baseFingerprint": "3bab970ce4cc86038dc4770b78ace433c7c161320099f8e6b06583cf5f6457c5",
+          "candidateFingerprint": "3bab970ce4cc86038dc4770b78ace433c7c161320099f8e6b06583cf5f6457c5"
+        },
+        {
+          "kind": "node",
+          "id": "xlr-5pin",
+          "baseFingerprint": "abef4d95ed1ac0b15f04e93935330a6c7efe1cf8d83134aeafde5a4e394a2f9d",
+          "candidateFingerprint": "abef4d95ed1ac0b15f04e93935330a6c7efe1cf8d83134aeafde5a4e394a2f9d"
         }
       ]
     }

@@ -2918,7 +2918,7 @@ function cloneJson(value) {
 
 function cloneConnectorModuleMetadata(connector) {
   return Object.fromEntries([
-    ...["installedModule", "module", "transceiverModule", "moduleCapabilities", "cageCapabilities", "supportedRates", "mpoPhysical"]
+    ...["installedModule", "module", "transceiverModule", "moduleCapabilities", "cageCapabilities", "supportedRates", "mpoPhysical", "physicalConstraints"]
       .filter(key => connector[key] !== undefined).map(key => [key, cloneJson(connector[key])]),
     ...CONNECTOR_MODULE_STRING_FIELDS.filter(key => connector[key] !== undefined)
       .map(key => [key, String(connector[key] ?? "")])

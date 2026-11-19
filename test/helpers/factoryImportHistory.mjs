@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { imageMime } from "../../src/imageAssets.js";
+import { beforeMiscConnectorReplacements, miscConnectorReview } from "./miscConnectorHistory.mjs";
 
 const latest = JSON.parse(await readFile(new URL("../fixtures/factory-library-2026-10-23.json", import.meta.url)));
 const november = JSON.parse(await readFile(new URL("../fixtures/factory-library-2026-11-19.json", import.meta.url)));
@@ -9,6 +10,7 @@ const connectorAdditions = JSON.parse(await readFile(new URL("../fixtures/mini-u
 const ajaAuthorship = JSON.parse(await readFile(new URL("../fixtures/factory-aja-attribution-2026-11-19.json", import.meta.url)));
 
 export function beforeFactoryAuthorship(catalogue) {
+  catalogue = beforeMiscConnectorReplacements(catalogue);
   if (!catalogue.promotions.some(p => p.packageId === ajaAuthorship.authorshipPackageId)) return catalogue;
   const added = new Set(ajaAuthorship.additions.map(d => d.id));
   const devices = catalogue.devices.map(d => {
@@ -95,7 +97,8 @@ export async function currentImportExpectation(catalogue, inventory, historical)
     }
   }
   if (fingerprint === historical.fingerprint) return historical;
-  const current = november.devices.find(d => d.id === historical.id && d.fingerprint === fingerprint)
+  const current = miscConnectorReview.devices.find(d => d.id === historical.id && d.fingerprint === fingerprint)
+    || november.devices.find(d => d.id === historical.id && d.fingerprint === fingerprint)
     || latest.devices.find(d => d.id === historical.id);
   assert.equal(current?.fingerprint, fingerprint, `Reviewed replacement: ${historical.id}`);
   return current;

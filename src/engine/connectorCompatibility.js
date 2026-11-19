@@ -7,6 +7,7 @@ import {
 import { isGeneratedScopedNodeId } from "./nodeCompatibilityIdentity.js";
 import {multibandSignal, multibandColors} from "./multibandSignals.js";
 import { mpoLinkValidation, mpoPhysicalForConnector, mpoFiberFamily } from "./mpoPhysical.js";
+import { PHYSICAL_CONNECTOR_TYPES, physicalConnectorLinkValidation } from "./physicalConnectorMetadata.js";
 
 function mpoCheck(a, b) {
   return mpoLinkValidation(a, b, resolveInstalledModule(a).capabilities, resolveInstalledModule(b).capabilities,
@@ -46,6 +47,7 @@ export const ENGINE_FIBER_MODE_OPTIONS = [
 const ENGINE_FIBER_MODE_BY_VALUE = new Map(ENGINE_FIBER_MODE_OPTIONS.map(option => [option.value, option]));
 const ENGINE_MULTIMODE_FIBER_MODES = new Set(["om1-om2", "om3", "om4", "om5"]);
 export const ENGINE_CONNECTOR_TYPE_COLORS = new Map([
+  ...Object.entries(PHYSICAL_CONNECTOR_TYPES).map(([id, value]) => [id, value.color]),
   ["iec", "#D7262D"],
   ["uk-13a", "#DB2C32"],
   ["schuko", "#DF3238"],
@@ -140,6 +142,7 @@ const ENGINE_RESOLUTION_FIELD_TYPES = new Set([
 
 
 const TWO_WAY_TYPES = new Set([
+  "db9", "db15", "db25", "rj12", "pluggable-terminal", "external-pcie-link", "livecore-link",
   "ca-com",
   "domm",
   "fiber-lc",
@@ -169,6 +172,7 @@ const TWO_WAY_TYPES = new Set([
 ]);
 
 const CONNECTOR_LABELS = new Map([
+  ...Object.entries(PHYSICAL_CONNECTOR_TYPES).map(([id, value]) => [id, value.label]),
   ["cat5e", "CAT5E"],
   ["cat6", "CAT6"],
   ["cat6a", "CAT6A"],
@@ -361,6 +365,8 @@ export function engineCompatibilitySummary(sourceHit, targetHit) {
       target
     );
   }
+  const physicalCheck = physicalConnectorLinkValidation(source, target, sourceType, targetType);
+  if (!physicalCheck.valid) return result(false, physicalCheck.rule, physicalCheck.reason, sourceType, targetType, source, target);
   if (isPairedNetworkConnector(source) && isPairedNetworkConnector(target)) {
     return result(true, "paired-network", "", sourceType, targetType, source, target);
   }
@@ -833,14 +839,16 @@ function result(valid, rule, reason, sourceType, targetType, source = null, targ
   const defaultFiberMode = valid ? engineDefaultFiberModeForCompatibility(source, target, sourceType, targetType) : "";
   const selectedCableType = sourceType || targetType || "";
   const mpo = sourceType === "fiber-mpo" && targetType === "fiber-mpo";
+  const physical = physicalConnectorLinkValidation(source, target, sourceType, targetType);
   const warnings = valid ? [...new Set([...transceiverConnectionValidation(source, target, sourceType, targetType).warnings,
+    ...physical.warnings,
     ...(mpo ? mpoCheck(source, target).warnings : [])])] : [];
   const transceiverLink = isEngineCageConnector(source) || isEngineCageConnector(target)
     || isIntegratedCableType(sourceType) || isIntegratedCableType(targetType);
   return {
     valid,
     warnings,
-    ...(transceiverLink || mpo ? { compatibilityStatus: !valid ? "incompatible" : warnings.length ? "unverified" : "compatible" } : {}),
+    ...(transceiverLink || mpo || physical.applies ? { compatibilityStatus: !valid ? "incompatible" : warnings.length ? "unverified" : "compatible" } : {}),
     rule,
     reason,
     rawSourceType: connectorType(source),

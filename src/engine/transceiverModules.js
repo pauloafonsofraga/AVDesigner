@@ -372,6 +372,7 @@ export function nodeDefinitionConnectorPatch(definition = {}) {
   const type = definition.physicalType || (CAGE_FORM_FACTORS[definition.id] ? definition.id : "");
   if (!type) return {};
   const patch = { type, physicalType: type, connectorType: type };
+  if (definition.physicalConstraints !== undefined) patch.physicalConstraints = structuredClone(definition.physicalConstraints);
   if (!isTransceiverCage(patch)) return patch;
   for (const field of [...Object.keys(transceiverModulePatch(patch, "")), "cageCapabilities"]) {
     if (definition[field] !== undefined) patch[field] = structuredClone(definition[field]);

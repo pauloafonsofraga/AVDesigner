@@ -40,10 +40,10 @@ try {
   assert.equal(await page.evaluate(() => state.devices.length), initialCount + 2);
   for (const [index, expected] of inventory.devices.entries()) {
     await page.locator("#deviceSearch").fill(expected.name);
-    const row = page.locator(`#deviceList [data-template-id="${expected.id}"]`);
+    const row = page.locator(`#deviceList [data-template-id="${expected.id}"], #deviceList [data-pair-template-id="${expected.id}"]`);
     await row.scrollIntoViewIfNeeded();
     if (expected.hasArtwork !== false) {
-      await page.waitForFunction(id => document.querySelector(`#deviceList [data-template-id="${id}"] img`)?.getAttribute("src"), expected.id);
+      await page.waitForFunction(id => document.querySelector(`#deviceList [data-template-id="${id}"] img, #deviceList [data-pair-template-id="${id}"] img`)?.getAttribute("src"), expected.id);
       await row.locator("img").evaluate(image => image.decode());
       assert.ok(await row.locator("img").evaluate(image => image.naturalWidth > 0 && image.naturalWidth <= 512));
     }
