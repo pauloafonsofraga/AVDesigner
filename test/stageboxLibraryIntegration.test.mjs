@@ -75,7 +75,12 @@ test("factory snake is portable as .wnx with its XLR dependency and all four cha
   assert.notEqual(imported.definition.id, definition.id);
   assert.deepEqual(imported.definition.stageboxSnake, definition.stageboxSnake);
   assert.deepEqual(decoded.devices[0].connectors, definition.connectors);
-  assert.deepEqual(imported.definition.connectors.map(c => ({ ...c, type: "xlr-3pin" })), definition.connectors);
+  const importedTypes = imported.definition.connectors.map(c => ({ ...c,
+    ...Object.fromEntries(["type", "physicalType", "connectorType"].filter(field => Object.hasOwn(c, field)).map(field => [field, "xlr-3pin"])) }));
+  assert.deepEqual(importedTypes, definition.connectors);
+  for (const c of imported.definition.connectors) for (const field of ["physicalType", "connectorType"].filter(field => Object.hasOwn(c, field))) {
+    assert.equal(c[field], c.type, "all explicit physical aliases remap consistently with the imported dependency");
+  }
   assert.ok(imported.definition.connectors.every(c => imported.nodes.some(node => node.id === c.type
     && (node.id === "xlr-3pin" || node.compatibilityType === "xlr-3pin"))));
 });

@@ -6,8 +6,8 @@ import {promotionDevice,promotionFingerprint} from '../src/factoryPromotion.js';
 import {inlineProjectArtwork,imageMime} from '../src/imageAssets.js';
 import {faceImageVisiblePlacement} from '../src/engine/faceplateGeometry.js';
 import {normalizeAvDesignerDevice} from '../src/engine/projectAdapter.js';
-import {beforeTransceiverCorrections} from './helpers/factoryImportHistory.mjs';
-const catalogue=JSON.parse(await readFile(new URL('../data/factory-catalogue.json',import.meta.url)));
+import {beforeTransceiverCorrections,beforeNovember19Import} from './helpers/factoryImportHistory.mjs';
+const catalogue=beforeNovember19Import(JSON.parse(await readFile(new URL('../data/factory-catalogue.json',import.meta.url))));
 const inventory=JSON.parse(await readFile(new URL('./fixtures/factory-library-2026-10-26-evening.json',import.meta.url)));
 const hash=value=>createHash('sha256').update(value).digest('hex');
 

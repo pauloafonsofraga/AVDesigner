@@ -4,12 +4,29 @@ import { createHash } from "node:crypto";
 import { imageMime } from "../../src/imageAssets.js";
 
 const latest = JSON.parse(await readFile(new URL("../fixtures/factory-library-2026-10-23.json", import.meta.url)));
+const november = JSON.parse(await readFile(new URL("../fixtures/factory-library-2026-11-19.json", import.meta.url)));
+
+// Historical tests retain their original fixtures. Verify the exact reviewed
+// replacements first, then reconstruct only the explicitly updated definitions.
+export function beforeNovember19Import(catalogue) {
+  const receipt = catalogue.promotions.find(p => p.packageId === november.packageId);
+  if (!receipt) return catalogue;
+  for (const expected of november.devices) {
+    const row = receipt.records.find(r => r.kind === "device" && r.id === expected.id);
+    assert.equal(row?.baseFingerprint, expected.baseFingerprint);
+    assert.equal(row?.candidateFingerprint, expected.candidateFingerprint);
+    assert.equal(createHash("sha256").update(JSON.stringify(catalogue.devices.find(d => d.id === expected.id))).digest("hex"), november.expectedDefinitionHashes[expected.id], expected.name);
+  }
+  return { ...catalogue, devices: catalogue.devices.map(d => november.originalDefinitions[d.id] || d),
+    promotions: catalogue.promotions.filter(p => p !== receipt) };
+}
 
 export const transceiverCorrectionReceipt = "1f1947f38d8e4eb0ed93e16f765e0f8ff9a29c25b8c16e19ef11f4ed88d0e203";
 
 // Preserve historical import fingerprints without overlooking other edits to
 // those definitions. Only the four reviewed cage fields are reversed.
 export function beforeTransceiverCorrections(catalogue) {
+  catalogue = beforeNovember19Import(catalogue);
   const restore = (port, type, label) => {
     for (const key of ["type", "physicalType", "connectorType"]) assert.equal(port[key], type, port.id);
     assert.equal(port.label, label, port.id);
@@ -49,7 +66,8 @@ export async function currentImportExpectation(catalogue, inventory, historical)
     }
   }
   if (fingerprint === historical.fingerprint) return historical;
-  const current = latest.devices.find(d => d.id === historical.id);
+  const current = november.devices.find(d => d.id === historical.id && d.fingerprint === fingerprint)
+    || latest.devices.find(d => d.id === historical.id);
   assert.equal(current?.fingerprint, fingerprint, `Reviewed replacement: ${historical.id}`);
   return current;
 }

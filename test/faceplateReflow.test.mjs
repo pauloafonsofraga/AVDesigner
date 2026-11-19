@@ -5,8 +5,9 @@ import {fitFaceImageToTop, faceImageVisiblePlacement, reflowFaceImageLayout, res
 import {normalizeAvDesignerProject} from '../src/engine/projectAdapter.js';
 import {createPreviewDeviceFromDraft} from '../src/engine/enginePreview.js';
 import {buildEngineOutputScene} from '../src/engine/outputSceneSnapshot.js';
+import {beforeNovember19Import} from './helpers/factoryImportHistory.mjs';
 
-const catalogue=JSON.parse(readFileSync(new URL('../data/factory-catalogue.json',import.meta.url)));
+const catalogue=beforeNovember19Import(JSON.parse(readFileSync(new URL('../data/factory-catalogue.json',import.meta.url))));
 const ex=()=>structuredClone(catalogue.devices.find(d=>d.id==='custom-device-e2-gen2-copy-3'));
 const origin=t=>Math.ceil(t.faceImageLayout.connectorBounds.y+t.faceImageLayout.connectorBounds.height+36);
 const topology=t=>({connectors:(t.connectors||[]).map(({y,anchors,...c})=>({...c,anchors:anchors?.map(({y,...a})=>a)})),

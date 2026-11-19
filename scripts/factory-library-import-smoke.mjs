@@ -42,16 +42,19 @@ try {
     await page.locator("#deviceSearch").fill(expected.name);
     const row = page.locator(`#deviceList [data-template-id="${expected.id}"]`);
     await row.scrollIntoViewIfNeeded();
-    await page.waitForFunction(id => document.querySelector(`#deviceList [data-template-id="${id}"] img`)?.getAttribute("src"), expected.id);
-    await row.locator("img").evaluate(image => image.decode());
-    assert.ok(await row.locator("img").evaluate(image => image.naturalWidth > 0 && image.naturalWidth <= 512));
+    if (expected.hasArtwork !== false) {
+      await page.waitForFunction(id => document.querySelector(`#deviceList [data-template-id="${id}"] img`)?.getAttribute("src"), expected.id);
+      await row.locator("img").evaluate(image => image.decode());
+      assert.ok(await row.locator("img").evaluate(image => image.naturalWidth > 0 && image.naturalWidth <= 512));
+    }
     await page.evaluate(id => openDeviceEditorForTemplate(id), expected.id);
     const edited = await page.evaluate(() => {
       const d = currentEditorTemplate();
       return { id: d.id, name: d.name, connectors: d.connectors.length, cards: d.cardTypes.length, slots: d.cardSlots.length, faceImage: d.faceImage };
     });
     for (const key of ["id", "name", "connectors", "cards", "slots"]) assert.equal(edited[key], expected[key], `${expected.name}: ${key}`);
-    assert.ok(await page.evaluate(async src => { const image = new Image(); image.src = src; await image.decode(); return image.naturalWidth > 0; }, edited.faceImage));
+    if (expected.hasArtwork !== false) assert.ok(await page.evaluate(async src => { const image = new Image(); image.src = src; await image.decode(); return image.naturalWidth > 0; }, edited.faceImage));
+    else assert.equal(await page.evaluate(() => currentEditorTemplate().isStageboxSnake), true, "non-bitmap entry must retain its schematic end model");
     await page.screenshot({ path: join(dir, `editor-${index}.png`) });
     await page.locator("#closeDeviceEditor").click();
     await page.locator("#deviceEditorModal").waitFor({ state: "hidden" });
@@ -69,8 +72,10 @@ try {
   const download = page.waitForEvent("download"); await page.locator("#exportHtml").click();
   const htmlPath = join(dir, "all-additions.html"); await (await download).saveAs(htmlPath);
   const payload = JSON.parse(readFileSync(htmlPath, "utf8").match(/id="engineOutputPayload">([\s\S]*?)<\/script>/)[1]);
-  assert.equal(payload.engineScene.devices.length, inventory.devices.length);
+  const projectedCount = fixture.devices.reduce((count, instance) => count + (fixture.deviceLibrary.find(d => d.id === instance.templateId)?.isStageboxSnake ? 2 : 1), 0);
+  assert.equal(payload.engineScene.devices.length, projectedCount);
   for (const d of fixture.deviceLibrary) {
+    if (!d.faceImage) continue;
     assert.ok(payload.assets[d.faceImage], `offscreen artwork: ${d.name}`);
     assert.ok(!payload.assets[d.thumbnailImage], `library thumbnail excluded: ${d.name}`);
   }
@@ -82,19 +87,20 @@ try {
     const sources = outputViewer.scene.devices.map(d => d.visual.faceImage).filter(Boolean);
     return Promise.all(sources.map(async src => { const img = new Image(); img.src = src; await img.decode(); return [img.naturalWidth, img.naturalHeight]; }));
   });
-  assert.equal(images.length, inventory.devices.length); assert.ok(images.every(([w, h]) => w > 0 && h > 0));
+  assert.equal(images.length, inventory.devices.filter(d => d.hasArtwork !== false).length); assert.ok(images.every(([w, h]) => w > 0 && h > 0));
   for (const index of [...new Set([0, Math.floor(inventory.devices.length / 2), inventory.devices.length - 1])]) {
     await viewer.evaluate(id => { const v = outputViewer, d = v.scene.getDevice(id); v.camera = { x: d.x - 80, y: d.y - 30, zoom: 0.4 }; v.renderNow(); }, `import-${index}`);
     await viewer.screenshot({ path: join(dir, `offline-${index}.png`) });
   }
-  checks.push(`all ${inventory.devices.length} factory faceplates included in HTML, including offscreen devices; standalone viewer renders with network disabled`);
+  checks.push(`all ${images.length} bitmap faceplates included in HTML, including offscreen devices; ${projectedCount} projected devices/ends render with network disabled`);
 
   const save = page.waitForEvent("download"); await page.locator("#saveProjectAs").click();
   const savedPath = join(dir, "all-additions.avd"); await (await save).saveAs(savedPath);
   const saved = JSON.parse(readFileSync(savedPath, "utf8"));
   for (const d of fixture.deviceLibrary) {
     const copy = saved.deviceLibrary.find(item => item.id === d.id);
-    assert.match(copy.faceImage, /^data:image\//); assert.match(copy.thumbnailImage, /^data:image\//);
+    if (d.faceImage) assert.match(copy.faceImage, /^data:image\//);
+    if (d.thumbnailImage) assert.match(copy.thumbnailImage, /^data:image\//);
     assert.deepEqual(copy.cardTypes, d.cardTypes); assert.deepEqual(copy.connectors, d.connectors);
   }
   assert.match(saved.nodeLibrary.find(n => n.id === "new-node-5").thumbnail, /^data:image\//);
