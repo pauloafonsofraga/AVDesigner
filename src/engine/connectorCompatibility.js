@@ -21,7 +21,8 @@ const ENGINE_CONNECTOR_COMPATIBILITY_ALIASES = new Map([
   ["displayport", "display-port"]
 ]);
 const CAT_CONNECTOR_TYPES = new Set(["cat5e", "cat6", "cat6a", "ethercon", "ethernet"]);
-const USB_CONNECTOR_TYPES = new Set(["usb-a", "usb-b", "usb-c"]);
+const USB_CONNECTOR_TYPES = new Set(["usb-a", "usb-b", "usb-c", "mini-usb-a"]);
+const TRIAX_CONNECTOR_TYPES = new Set(["triax-8", "triax-11", "triax-14"]);
 const POWER_CABLE_END_TYPES = new Set([
   "iec", "uk-13a", "powercon", "powercon-true1", "new-node", "barrel-jack", "schuko", "nema"
 ]);
@@ -69,6 +70,9 @@ export const ENGINE_CONNECTOR_TYPE_COLORS = new Map([
   ["125a-3ph", "#B3131A"],
   ["sdi", "#0B6B3A"],
   ["bnc", "#B88A1A"],
+  ["triax-8", "#5B8FA8"],
+  ["triax-11", "#5B8FA8"],
+  ["triax-14", "#5B8FA8"],
   ["component-video", "#00E676"],
   ["rgbhv", "#FF1744"],
   ["dvi", "#00E676"],
@@ -121,6 +125,7 @@ export const ENGINE_CONNECTOR_TYPE_COLORS = new Map([
   ["usb-a", "#4E342E"],
   ["usb-b", "#6D4C41"],
   ["usb-c", "#8D6E63"],
+  ["mini-usb-a", "#795548"],
   ["misc", "#37474F"],
   ["xlr", "#AB47BC"],
   ["jack", "#4CAF50"],
@@ -158,6 +163,7 @@ const TWO_WAY_TYPES = new Set([
   "usb-a",
   "usb-b",
   "usb-c",
+  "mini-usb-a",
   "misc",
   "jump"
 ]);
@@ -182,6 +188,10 @@ const CONNECTOR_LABELS = new Map([
   ["usb-a", "USB-A"],
   ["usb-b", "USB-B"],
   ["usb-c", "USB-C"],
+  ["mini-usb-a", "Mini-USB-A"],
+  ["triax-8", "Triax 8"],
+  ["triax-11", "Triax 11"],
+  ["triax-14", "Triax 14"],
   ["hdmi", "HDMI"],
   ["sdi", "SDI"],
   ["bnc", "BNC"],
@@ -289,6 +299,7 @@ export function areEngineConnectorTypesCompatible(source, target) {
   if (sourceType === targetType) return (sourceType !== "fiber-mpo" || mpoCheck(source, target).valid)
     && engineFiberModesCompatible(source, target, sourceType, targetType);
   if (CAT_CONNECTOR_TYPES.has(sourceType) && CAT_CONNECTOR_TYPES.has(targetType)) return true;
+  if (TRIAX_CONNECTOR_TYPES.has(sourceType) && TRIAX_CONNECTOR_TYPES.has(targetType)) return true;
   if (POWER_CABLE_END_TYPES.has(sourceType) && POWER_CABLE_END_TYPES.has(targetType)) return true;
   return USB_CONNECTOR_TYPES.has(sourceType) && USB_CONNECTOR_TYPES.has(targetType);
 }

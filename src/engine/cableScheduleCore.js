@@ -89,6 +89,7 @@ const typeFamilies = new Map(Object.entries({
   "xlr-3pin": "A", "xlr-5pin": "A", "trs-ts": "A", rca: "A", aes: "A",
   "dmx-3pin": "L", "dmx-5pin": "L",
   "usb-a": "U", "usb-b": "U", "usb-c": "U",
+  "mini-usb-a": "U", "triax-8": "V", "triax-11": "V", "triax-14": "V",
   "speakon-nl2": "A", "speakon-nl4": "A", "speakon-nl8": "A", speakon: "A",
   "fiber-lc": "F", "fiber-sc": "F", "fiber-st": "F", "fiber-mpo": "F", opticalcon: "F", fiberfox: "F",
   iec: "P", schuko: "P", "uk-13a": "P", edison: "P", powercon: "P", "powercon-true1": "P",

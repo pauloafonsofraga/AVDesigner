@@ -5,10 +5,24 @@ import { imageMime } from "../../src/imageAssets.js";
 
 const latest = JSON.parse(await readFile(new URL("../fixtures/factory-library-2026-10-23.json", import.meta.url)));
 const november = JSON.parse(await readFile(new URL("../fixtures/factory-library-2026-11-19.json", import.meta.url)));
+const connectorAdditions = JSON.parse(await readFile(new URL("../fixtures/mini-usb-triax-nodes.json", import.meta.url)));
+
+export function beforeConnectorAdditions(catalogue) {
+  const ids = new Set(connectorAdditions.map(n => n.id));
+  if (!connectorAdditions.some(n => catalogue.nodeTypes[n.id])) return catalogue;
+  for (const node of connectorAdditions) {
+    assert.deepEqual(catalogue.nodeTypes[node.id], node);
+    assert.deepEqual(catalogue.nodes.find(n => n.id === node.id), node);
+  }
+  const without = values => Object.fromEntries(Object.entries(values).filter(([id]) => !ids.has(id)));
+  return { ...catalogue, nodes: catalogue.nodes.filter(n => !ids.has(n.id)), nodeTypes: without(catalogue.nodeTypes),
+    nodeTags: without(catalogue.nodeTags), nodeThumbnails: without(catalogue.nodeThumbnails) };
+}
 
 // Historical tests retain their original fixtures. Verify the exact reviewed
 // replacements first, then reconstruct only the explicitly updated definitions.
 export function beforeNovember19Import(catalogue) {
+  catalogue = beforeConnectorAdditions(catalogue);
   const receipt = catalogue.promotions.find(p => p.packageId === november.packageId);
   if (!receipt) return catalogue;
   for (const expected of november.devices) {

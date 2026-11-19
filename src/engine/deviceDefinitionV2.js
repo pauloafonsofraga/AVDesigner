@@ -11,7 +11,8 @@ export const V2_SUGGESTED_BIDIRECTIONAL_TYPES = new Set([
   "cxp",
   "usb-a",
   "usb-b",
-  "usb-c"
+  "usb-c",
+  "mini-usb-a"
 ]);
 
 const RELATION_TYPES = new Set(["mirrored", "exclusive", "through"]);

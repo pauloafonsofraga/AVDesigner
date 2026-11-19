@@ -4,6 +4,7 @@ import {readFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {promotionDevice,promotionFingerprint} from '../src/factoryPromotion.js';
 import {definitionContent} from '../src/personalDefinitions.js';
+import {beforeConnectorAdditions} from './helpers/factoryImportHistory.mjs';
 import {inlineProjectArtwork,imageMime} from '../src/imageAssets.js';
 const catalogue=JSON.parse(await readFile(new URL('../data/factory-catalogue.json',import.meta.url)));
 const inventory=JSON.parse(await readFile(new URL('./fixtures/factory-library-2026-11-19.json',import.meta.url)));
@@ -40,7 +41,8 @@ test('November 19 definitions preserve source geometry, card assignments, mappin
 });
 
 test('November 19 leaves shared node definitions, original artwork and snake channel identities intact',()=>{
-  assert.equal(hash(definitionContent({nodes:catalogue.nodes,nodeTypes:catalogue.nodeTypes,nodeTags:catalogue.nodeTags,nodeThumbnails:catalogue.nodeThumbnails})),inventory.originalNodeFingerprint);
+  const original=beforeConnectorAdditions(catalogue);
+  assert.equal(hash(definitionContent({nodes:original.nodes,nodeTypes:original.nodeTypes,nodeTags:original.nodeTags,nodeThumbnails:original.nodeThumbnails})),inventory.originalNodeFingerprint);
   for(const [path,meta]of Object.entries(inventory.originalAssets))assert.deepEqual(catalogue.assets[path],meta);
   const snake=catalogue.devices.find(d=>d.id==='passive-xlr-snake-4ch');
   assert.deepEqual(snake.stageboxSnake,inventory.originalDefinitions[snake.id].stageboxSnake);

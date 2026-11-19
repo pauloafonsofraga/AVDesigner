@@ -232172,6 +232172,61 @@
       "connectorFamilies": [
         "bnc"
       ]
+    },
+    "mini-usb-a": {
+      "id": "mini-usb-a",
+      "label": "Mini-USB-A",
+      "color": "#795548",
+      "colors": [],
+      "direction": "two-way",
+      "thumbnail": "Nodes/Thumbnails/blank.png",
+      "tags": [
+        "usb"
+      ],
+      "videoCable": false,
+      "custom": false
+    },
+    "triax-8": {
+      "id": "triax-8",
+      "label": "Triax 8",
+      "color": "#5B8FA8",
+      "colors": [],
+      "direction": "one-way",
+      "thumbnail": "Nodes/Thumbnails/blank.png",
+      "tags": [
+        "video",
+        "triax"
+      ],
+      "videoCable": true,
+      "custom": false
+    },
+    "triax-11": {
+      "id": "triax-11",
+      "label": "Triax 11",
+      "color": "#5B8FA8",
+      "colors": [],
+      "direction": "one-way",
+      "thumbnail": "Nodes/Thumbnails/blank.png",
+      "tags": [
+        "video",
+        "triax"
+      ],
+      "videoCable": true,
+      "custom": false
+    },
+    "triax-14": {
+      "id": "triax-14",
+      "label": "Triax 14",
+      "color": "#5B8FA8",
+      "colors": [],
+      "direction": "one-way",
+      "thumbnail": "Nodes/Thumbnails/blank.png",
+      "tags": [
+        "video",
+        "triax"
+      ],
+      "videoCable": true,
+      "custom": false
     }
   },
   "nodes": [
@@ -233002,6 +233057,61 @@
       "connectorFamilies": [
         "bnc"
       ]
+    },
+    {
+      "id": "mini-usb-a",
+      "label": "Mini-USB-A",
+      "color": "#795548",
+      "colors": [],
+      "direction": "two-way",
+      "thumbnail": "Nodes/Thumbnails/blank.png",
+      "tags": [
+        "usb"
+      ],
+      "videoCable": false,
+      "custom": false
+    },
+    {
+      "id": "triax-8",
+      "label": "Triax 8",
+      "color": "#5B8FA8",
+      "colors": [],
+      "direction": "one-way",
+      "thumbnail": "Nodes/Thumbnails/blank.png",
+      "tags": [
+        "video",
+        "triax"
+      ],
+      "videoCable": true,
+      "custom": false
+    },
+    {
+      "id": "triax-11",
+      "label": "Triax 11",
+      "color": "#5B8FA8",
+      "colors": [],
+      "direction": "one-way",
+      "thumbnail": "Nodes/Thumbnails/blank.png",
+      "tags": [
+        "video",
+        "triax"
+      ],
+      "videoCable": true,
+      "custom": false
+    },
+    {
+      "id": "triax-14",
+      "label": "Triax 14",
+      "color": "#5B8FA8",
+      "colors": [],
+      "direction": "one-way",
+      "thumbnail": "Nodes/Thumbnails/blank.png",
+      "tags": [
+        "video",
+        "triax"
+      ],
+      "videoCable": true,
+      "custom": false
     }
   ],
   "nodeTags": {
@@ -233114,6 +233224,21 @@
       "analog",
       "coax",
       "rgbhv"
+    ],
+    "mini-usb-a": [
+      "usb"
+    ],
+    "triax-8": [
+      "video",
+      "triax"
+    ],
+    "triax-11": [
+      "video",
+      "triax"
+    ],
+    "triax-14": [
+      "video",
+      "triax"
     ]
   },
   "nodeThumbnails": {
@@ -237790,6 +237915,35 @@
           "id": "xlr-5pin",
           "baseFingerprint": "abef4d95ed1ac0b15f04e93935330a6c7efe1cf8d83134aeafde5a4e394a2f9d",
           "candidateFingerprint": "abef4d95ed1ac0b15f04e93935330a6c7efe1cf8d83134aeafde5a4e394a2f9d"
+        }
+      ]
+    },
+    {
+      "packageId": "cf10ce41d2e01a3e88011ba930e6b343488927a64339664ad8de0256e8325da0",
+      "records": [
+        {
+          "kind": "node",
+          "id": "mini-usb-a",
+          "baseFingerprint": null,
+          "candidateFingerprint": "b6b7547674e77e621fa5b1d2b1d3a07e89e3483208e42b5d91c9107646977120"
+        },
+        {
+          "kind": "node",
+          "id": "triax-8",
+          "baseFingerprint": null,
+          "candidateFingerprint": "3cc17852f17041cb09200e1c5b42f5a5c8736c430f212e48c4c5c2e76d4161af"
+        },
+        {
+          "kind": "node",
+          "id": "triax-11",
+          "baseFingerprint": null,
+          "candidateFingerprint": "6b5c4866a232a1d76e328b3ec5870772e1b4c7801ea346d361f2826ccd653b01"
+        },
+        {
+          "kind": "node",
+          "id": "triax-14",
+          "baseFingerprint": null,
+          "candidateFingerprint": "dff98037d25d6534c4967b0c5c2b67d30cad8ecfa565eed0975a02180189da8b"
         }
       ]
     }

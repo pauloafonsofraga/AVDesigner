@@ -6329,13 +6329,13 @@
       "powerlock", "sdi", "bnc", "dvi", "display-port", "hdmi", "vga",
       "mini-display-port", "xlr-3pin", "xlr-5pin", "trs-ts", "rca", "aes",
       "midi", "mini-din-6pin", "speakon-nl2", "speakon-nl4", "speakon-nl8",
-      "dmx-3pin", "dmx-5pin"
+      "dmx-3pin", "dmx-5pin", "triax-8", "triax-11", "triax-14"
     ];
 
     const twoWayCableTypes = [
       "fiber-lc", "fiber-sc", "fiber-st", "fiber-mpo", "opticalcon", "fiberfox",
       "cxp", "cat5e", "cat6", "cat6a", "ethercon", "ethernet", "rs-422", "usb-a", "usb-b",
-      "usb-c", "ca-com", "domm", "misc"
+      "usb-c", "mini-usb-a", "ca-com", "domm", "misc"
     ];
 
     const cableTypes = structuredClone(window.WireNexusFactoryCatalogue.nodeTypes);
@@ -6431,10 +6431,11 @@
       "powerlock", "nema", "16a-1ph-110v", "16a-1ph", "32a-1ph-110v",
       "32a-1ph", "16a-3ph", "32a-3ph", "63a-3ph", "125a-3ph",
       "cat5e", "cat6", "cat6a", "ethercon", "ethernet", "sfp-cage",
-      "sfp-plus-cage", "sfp28-cage", "qsfp-cage", "usb-a", "usb-b", "usb-c", "rs-422",
+      "sfp-plus-cage", "sfp28-cage", "qsfp-cage", "usb-a", "usb-b", "usb-c", "mini-usb-a", "rs-422",
       "midi", "dmx-3pin", "dmx-5pin", "led-signal"
     ]);
     const matrixEligibleCableTypes = new Set([
+      "triax-8", "triax-11", "triax-14",
       "sdi", "bnc", "dvi", "display-port", "mini-display-port", "hdmi", "vga",
       "cxp", "fiber-lc", "fiber-sc", "fiber-st", "fiber-mpo", "opticalcon",
       "fiberfox", "xlr-3pin", "xlr-5pin", "trs-ts", "rca", "aes",
@@ -11625,7 +11626,8 @@
     }
 
     const catCableTypes = new Set(["cat5e", "cat6", "cat6a", "ethercon", "ethernet"]);
-    const usbCableTypes = new Set(["usb-a", "usb-b", "usb-c"]);
+    const usbCableTypes = new Set(["usb-a", "usb-b", "usb-c", "mini-usb-a"]);
+    const triaxCableTypes = new Set(["triax-8", "triax-11", "triax-14"]);
     const powerCableEndTypes = new Set([
       "iec", "uk-13a", "powercon", "powercon-true1", "new-node", "barrel-jack", "schuko", "nema"
     ]);
@@ -11639,7 +11641,8 @@
       "cxp",
       "usb-a",
       "usb-b",
-      "usb-c"
+      "usb-c",
+      "mini-usb-a"
     ]);
 
     function editorDeviceDefinitionVersion(definition = {}) {
@@ -12183,6 +12186,7 @@
       if (!sourceType || !targetType) return false;
       if (sourceType === targetType) return true;
       if (catCableTypes.has(sourceType) && catCableTypes.has(targetType)) return true;
+      if (triaxCableTypes.has(sourceType) && triaxCableTypes.has(targetType)) return true;
       if (powerCableEndTypes.has(sourceType) && powerCableEndTypes.has(targetType)) return true;
       return usbCableTypes.has(sourceType) && usbCableTypes.has(targetType);
     }

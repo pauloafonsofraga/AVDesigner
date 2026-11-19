@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { factoryPromotionNodes, promotionDevice, promotionFingerprint } from "../src/factoryPromotion.js";
 import { inlineProjectArtwork, imageDataUrl, imageMime } from "../src/imageAssets.js";
-import { beforeTransceiverCorrections } from "./helpers/factoryImportHistory.mjs";
+import { beforeTransceiverCorrections, beforeConnectorAdditions } from "./helpers/factoryImportHistory.mjs";
 
 const json = async path => JSON.parse(await readFile(new URL(path, import.meta.url)));
 const catalogue = await json("../data/factory-catalogue.json");
@@ -45,7 +45,7 @@ test("October 23 device definitions match reviewed source, including geometry, c
 });
 
 test("October 23 import leaves all shared factory node definitions unchanged", async () => {
-  const nodes = factoryPromotionNodes(catalogue);
+  const nodes = factoryPromotionNodes(beforeConnectorAdditions(catalogue));
   const originalIds=new Set(inventory.nodes.map(n=>n.id));
   assert.deepEqual(nodes.filter(n=>!originalIds.has(n.id)).map(n=>n.id).sort(),["component-video","rgbhv"],"only reviewed multiband additions follow the historical inventory");
   assert.equal(nodes.filter(n=>originalIds.has(n.id)).length, inventory.nodes.length);

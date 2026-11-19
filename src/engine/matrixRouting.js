@@ -16,12 +16,13 @@ export const MATRIX_EXCLUDED_CABLE_TYPES = new Set([
   "powerlock", "nema", "16a-1ph-110v", "16a-1ph", "32a-1ph-110v",
   "32a-1ph", "16a-3ph", "32a-3ph", "63a-3ph", "125a-3ph",
   "cat5e", "cat6", "cat6a", "ethercon", "ethernet", "sfp-cage",
-  "sfp-plus-cage", "sfp28-cage", "qsfp-cage", "usb-a", "usb-b", "usb-c", "rs-422",
+  "sfp-plus-cage", "sfp28-cage", "qsfp-cage", "usb-a", "usb-b", "usb-c", "mini-usb-a", "rs-422",
   "midi", "dmx-3pin", "dmx-5pin", "led-signal"
 ]);
 
 export const MATRIX_ELIGIBLE_CABLE_TYPES = new Set([
   "sdi", "bnc", "dvi", "display-port", "mini-display-port", "hdmi", "vga",
+  "triax-8", "triax-11", "triax-14",
   "cxp", "fiber-lc", "fiber-sc", "fiber-st", "fiber-mpo", "opticalcon",
   "fiberfox", "xlr-3pin", "xlr-5pin", "trs-ts", "rca", "aes",
   "speakon-nl2", "speakon-nl4", "speakon-nl8"
@@ -48,6 +49,10 @@ const MATRIX_TYPE_LABELS = new Map([
   ["usb-a", "USB-A"],
   ["usb-b", "USB-B"],
   ["usb-c", "USB-C"],
+  ["mini-usb-a", "Mini-USB-A"],
+  ["triax-8", "Triax 8"],
+  ["triax-11", "Triax 11"],
+  ["triax-14", "Triax 14"],
   ["hdmi", "HDMI"],
   ["sdi", "SDI"],
   ["bnc", "BNC"],

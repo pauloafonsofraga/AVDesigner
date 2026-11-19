@@ -4,8 +4,8 @@ import {readFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {promotionDevice,promotionFingerprint} from '../src/factoryPromotion.js';
 import {inlineProjectArtwork,imageMime} from '../src/imageAssets.js';
-import {beforeTransceiverCorrections} from './helpers/factoryImportHistory.mjs';
-const catalogue=JSON.parse(await readFile(new URL('../data/factory-catalogue.json',import.meta.url)));
+import {beforeTransceiverCorrections,beforeConnectorAdditions} from './helpers/factoryImportHistory.mjs';
+const catalogue=beforeConnectorAdditions(JSON.parse(await readFile(new URL('../data/factory-catalogue.json',import.meta.url))));
 const inventory=JSON.parse(await readFile(new URL('./fixtures/factory-library-2026-10-26.json',import.meta.url)));
 const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 

@@ -1,0 +1,6 @@
+[
+  {"id":"mini-usb-a","label":"Mini-USB-A","color":"#795548","colors":[],"direction":"two-way","thumbnail":"Nodes/Thumbnails/blank.png","tags":["usb"],"videoCable":false,"custom":false},
+  {"id":"triax-8","label":"Triax 8","color":"#5B8FA8","colors":[],"direction":"one-way","thumbnail":"Nodes/Thumbnails/blank.png","tags":["video","triax"],"videoCable":true,"custom":false},
+  {"id":"triax-11","label":"Triax 11","color":"#5B8FA8","colors":[],"direction":"one-way","thumbnail":"Nodes/Thumbnails/blank.png","tags":["video","triax"],"videoCable":true,"custom":false},
+  {"id":"triax-14","label":"Triax 14","color":"#5B8FA8","colors":[],"direction":"one-way","thumbnail":"Nodes/Thumbnails/blank.png","tags":["video","triax"],"videoCable":true,"custom":false}
+]
