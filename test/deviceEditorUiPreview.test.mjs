@@ -153,11 +153,12 @@ function assertCameraContains(camera, bounds, viewportWidth, viewportHeight, pad
 
 function runnableIndexFunction(functionName, context = {}) {
   Object.entries(editorTestBindings()).forEach(([key,value])=>{if (!(key in context)) context[key]=value;});
+  if (!context.editorPreviewTab) context.editorPreviewTab = vm.runInNewContext(`(${functionSource("editorPreviewTab")})`, context);
   return vm.runInNewContext(`(${functionSource(functionName)})`, context);
 }
 
 function editorTestBindings() {
-  return {editorArtworkSide:"faceplate",editorArtworkTemplate:template=>template,
+  return {editorActiveTab:"connectors",editorCardPreviewMode:"card",editorArtworkSide:"faceplate",editorArtworkTemplate:template=>template,
     engineRendererRequested:()=>false,editorCardPalettePreview:null,previewEditorCardNodeInsertion:()=>false,
     document:{getElementById:()=>({value:""})},
     editorCardReplacementApprovals:new Set(),editorCardReplacementChanges:()=>[],editorApprovedCardReplacementWireIds:()=>[]};
@@ -837,6 +838,7 @@ function structuralEditorHarness(inputTemplate = {}) {
     confirm: message => { counters.confirmations.push(String(message)); return true; }
   };
   const helpers = [
+    "editorPreviewTab",
     "normalizeEditorPlacementSideMask",
     "editorConnectorPlacementSideMask",
     "editorCardPlacementSideMask",
@@ -1360,6 +1362,7 @@ function cardDragInteractionHarness(inputTemplate = {}, options = {}) {
   };
 
   const helpers = [
+    "editorPreviewTab",
     "editorStableDragLayout",
     "editorStableDragItemId",
     "editorStableLayoutItemKind",
@@ -1877,7 +1880,7 @@ test("Device Editor workspace sidebars are scoped to their tabs", () => {
   assert.match(renderTabs, /editorDeviceTechSpecsPanel\.classList\.toggle\("hidden", !showTechSpecs\);/);
 
   const nodePaletteGate = functionSource("editorNodePaletteActive");
-  assert.match(nodePaletteGate, /editorActiveTab === "connectors" \|\| editorActiveTab === "cards"/);
+  assert.match(nodePaletteGate, /editorActiveTab === "connectors" \|\| editorPreviewTab\(\) === "cards"/);
   assert.match(functionSource("editorDeviceFeaturePaneActive"), /editorActiveTab === "device"/);
   assert.match(functionSource("renderNodePalette"), /const active = editorNodePaletteActive\(\);/);
   assert.match(functionSource("renderNodePalette"), /deviceFeaturePane\.classList\.toggle\("hidden", !featurePaneActive\);/);
@@ -7562,6 +7565,7 @@ test("Device Editor card reorder freezes body height and Fit bounds through owne
     renderDeviceEditorPreview: options => finalRenders.push(structuredClone(options))
   };
   const api = vm.runInNewContext(`${[
+    "editorPreviewTab",
     "setEditorEngineDynamicCardArtworkActive",
     "editorPlacementPreviewLockFor",
     "captureEditorPlacementPreviewLock",
@@ -7734,6 +7738,7 @@ test("Engine Device Editor card motion has one visible owner per installed card"
     deviceTemplateWidth: draft => Number(draft.width) || 420
   };
   const compositor = vm.runInNewContext(`${[
+    "editorPreviewTab",
     "cardCaptionTextColor",
     "cardCaptionBackgroundColor",
     "drawCardCaption",
@@ -9060,7 +9065,7 @@ test("Faceplate tab keeps image controls together in one compact row", () => {
 test("Cards tab uses the authoring schematic before the Engine full-device branch", () => {
   const renderPreview = functionSource("renderDeviceEditorPreview");
   assertOrder(renderPreview, [
-    'if (editorActiveTab === "cards")',
+    'if (editorPreviewTab() === "cards")',
     "setDeviceEditorCardAuthoringMode(true);",
     "renderCardEditorPreview();",
     "return;",
@@ -9112,7 +9117,7 @@ test("Editor preview wheel zoom matches the main canvas modifier rule", () => {
   assert.match(mainCanvasGate, /IS_APPLE_POINTER_PLATFORM \? event\?\.metaKey : event\?\.ctrlKey/);
 
   const activePreviewGate = functionSource("deviceEditorActivePreviewUsesEngine");
-  assert.match(activePreviewGate, /deviceEditorUsesEnginePreview\(\) && editorActiveTab !== "cards"/);
+  assert.match(activePreviewGate, /deviceEditorUsesEnginePreview\(\) && editorPreviewTab\(\) !== "cards"/);
   assert.match(functionSource("editorPreviewWheelZoomFactor"), /event\?\.deltaY < 0 \? 1\.12 : 1 \/ 1\.12/);
   assert.doesNotMatch(INDEX_HTML, /function\s+editorPreviewWheelAltModifierActive/);
   const editorGate = functionSource("editorPreviewWheelZoomModifierActive");
@@ -9213,4 +9218,104 @@ test("Matrix and LED Processor flags do not draw automatic faceplate tags", () =
   assert.doesNotMatch(DEVICE_VISUAL_BUILDER_SOURCE, /LED PROCESSOR/);
   assert.doesNotMatch(DEVICE_VISUAL_BUILDER_SOURCE, /drawDeviceTag\(ctx,\s*"MATRIX"/);
   assert.doesNotMatch(DEVICE_VISUAL_BUILDER_SOURCE, /function\s+drawDeviceTag/);
+});
+
+test("Cards preview switches between card authoring and the existing chassis projection", () => {
+  const context = { editorActiveTab: "cards", editorCardPreviewMode: "card", engineRendererRequested: () => true };
+  const previewTab = runnableIndexFunction("editorPreviewTab", context);
+  assert.equal(previewTab(), "cards");
+  context.editorCardPreviewMode = "device";
+  assert.equal(previewTab(), "connectors");
+  for (const tab of ["device", "faceplate", "connectors", "defaults"]) {
+    context.editorActiveTab = tab;
+    assert.equal(previewTab(), tab);
+  }
+  context.editorActiveTab = "cards";
+  context.engineRendererRequested = () => false;
+  assert.equal(previewTab(), "cards", "Legacy keeps its existing card preview");
+});
+
+test("Cards Device preview hides node placement without disabling card authoring", () => {
+  const context = { editorActiveTab: "cards", editorCardPreviewMode: "device", engineRendererRequested: () => true };
+  const paletteActive = runnableIndexFunction("editorNodePaletteActive", context);
+  assert.equal(paletteActive(), false);
+  context.editorCardPreviewMode = "card";
+  assert.equal(paletteActive(), true);
+  context.editorActiveTab = "connectors";
+  assert.equal(paletteActive(), true);
+});
+
+test("Card preview switching changes only local view state and clears temporary gestures", () => {
+  const calls = [];
+  const project = { cardSlots: [{ id: "keep", installedCardTypeId: "card" }], connections: [{ id: "wire" }] };
+  const before = structuredClone(project);
+  const context = {
+    project, editorActiveTab: "cards", editorCardPreviewMode: "card", engineRendererRequested: () => true,
+    cancelEditorResizeSession: () => calls.push("resize"),
+    cancelEditorStableDrags: () => calls.push("drag"),
+    clearEditorPlacementMotion: () => calls.push("motion"),
+    renderEditorTabs: () => calls.push("tabs"),
+    renderNodePalette: () => calls.push("palette"),
+    renderDeviceEditorPreview: () => calls.push("preview"),
+    scheduleDeviceEditorPreviewFit: tab => calls.push(`fit:${tab}`)
+  };
+  const setMode = runnableIndexFunction("setEditorCardPreviewMode", context);
+  setMode("device");
+  assert.equal(context.editorCardPreviewMode, "device");
+  assert.deepEqual(calls, ["resize", "drag", "motion", "tabs", "palette", "preview", "fit:cards"]);
+  assert.deepEqual(project, before);
+  calls.length = 0;
+  setMode("device"); setMode("invalid");
+  context.editorActiveTab = "connectors"; setMode("card");
+  context.editorActiveTab = "cards"; context.engineRendererRequested = () => false; setMode("card");
+  assert.deepEqual(calls, [], "unchanged, invalid, inactive and Legacy switches are ignored");
+});
+
+test("Cards Device drops reuse chassis eligibility and reject connector targets", () => {
+  const context = {
+    editorActiveTab: "cards", editorCardPreviewMode: "device", engineRendererRequested: () => true,
+    currentEditorTemplate: () => ({ hasSwappableCards: true, height: 700 }),
+    editorDataTransferHasType: (event, type) => type === "application/x-av-card-type",
+    getEditorPreviewPoint: () => ({ x: 30, y: 300 }),
+    deviceTemplateWidth: () => 380, connectorStartYForTemplate: () => 180, SLOT_HEIGHT: 54
+  };
+  const eligible = runnableIndexFunction("editorPreviewCanCreateCardSlotFromDrop", context);
+  const event = { target: { closest: () => null } };
+  assert.equal(eligible(event), true);
+  context.editorActiveTab = "connectors";
+  assert.equal(eligible(event), true);
+  context.editorActiveTab = "cards"; context.editorCardPreviewMode = "card";
+  assert.equal(eligible(event), false);
+  context.editorCardPreviewMode = "device";
+  assert.equal(eligible({ target: { closest: () => ({}) } }), false);
+  context.getEditorPreviewPoint = () => ({ x: 500, y: 300 });
+  assert.equal(eligible(event), false);
+});
+
+test("Cards toolbar shares one card tray and retains the original authoring controls", () => {
+  const cards = editorPanel("cards"), connectors = editorPanel("connectors");
+  assert.equal((INDEX_HTML.match(/id="cardPalette"/g) || []).length, 1);
+  assert.match(cards, /id="editorCardPreviewModes"/);
+  assert.match(cards, /data-card-preview-mode="card"/);
+  assert.match(cards, /data-card-preview-mode="device"/);
+  assert.match(cards, /id="cardsCardToolsHome"/);
+  assert.match(connectors, /id="connectorCardToolsHome"/);
+  assert.doesNotMatch(cards, /id="addInputSlot"|id="addOutputSlot"/);
+  assert.match(functionSource("renderEditorTabs"), /toolsHome\.append\(slotsPanelBody\)/);
+  const dragStart = sourceSlice(INDEX_HTML, 'cardPalette.addEventListener("dragstart"', 'cardPalette.addEventListener("dragover"');
+  assert.match(dragStart, /setDragImage/);
+  assert.match(dragStart, /application\/x-av-card-type/);
+  assert.match(dragStart, /setEditorCardPreviewMode\("device"\)/);
+  assert.doesNotMatch(dragStart, /renderCardSlotEditor\(/, "native drag source must remain mounted");
+});
+
+test("Cards Device pointer handling permits card moves without exposing chassis node editing", () => {
+  const source = functionSource("startEditorNodeDrag");
+  assertOrder(source, [
+    'editorActiveTab === "cards" && editorPreviewTab() === "connectors"',
+    'startEditorCardSlotDrag(event);',
+    'return;',
+    'if (editorActiveTab === "cards")'
+  ], "Cards Device mode delegates only card placement before authoring-node handlers");
+  assert.match(functionSource("renderCardEditorPreview"), /editorPreviewTab\(\) === "connectors"[\s\S]*renderDeviceEditorPreview\(\);[\s\S]*return;/);
 });

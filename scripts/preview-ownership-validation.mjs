@@ -54,7 +54,7 @@ for (const id of ["node-thumbnail-crop", "main-canvas-transient-previews", "outp
 }
 
 assertFunctionOrder("renderDeviceEditorPreview", [
-  'if (editorActiveTab === "cards")',
+  'if (editorPreviewTab() === "cards")',
   "setDeviceEditorCardAuthoringMode(true);",
   "renderCardEditorPreview();",
   "return;",
@@ -68,8 +68,8 @@ const cardAuthoringMode = functionSource("setDeviceEditorCardAuthoringMode");
 assert.ok(cardAuthoringMode.includes("restoreDeviceEditorPreviewSvgHome()"), "Cards tab should restore the SVG authoring schematic to its normal host");
 assert.ok(indexHtml.includes(".editor-preview.card-authoring-mode .engine-preview-surface"), "Cards tab should hide the Engine preview surface while the authoring schematic is active");
 assert.ok(
-  functionSource("deviceEditorActivePreviewUsesEngine").includes('editorActiveTab !== "cards"'),
-  "Cards tab should not route active preview navigation through the hidden Engine surface"
+  functionSource("deviceEditorActivePreviewUsesEngine").includes('editorPreviewTab() !== "cards"'),
+  "Card authoring should not route preview navigation through the hidden Engine surface"
 );
 
 const editorWheelFactor = functionSource("editorPreviewWheelZoomFactor");

@@ -5825,7 +5825,7 @@
 
             <section class="editor-panel" data-editor-panel="connectors">
               <div class="connector-authoring-toolbar">
-                <div class="slot-actions connector-slot-actions">
+                <div class="slot-actions connector-slot-actions" id="connectorCardToolsHome">
                   <button class="primary-button" id="addInputNode" type="button">Add Input Slot</button>
                   <button class="primary-button" id="addOutputNode" type="button">Add Output Slot</button>
                   <div id="slotsPanelBody" class="connector-card-tools">
@@ -5856,7 +5856,12 @@
                   <span class="connector-toolbar-separator" aria-hidden="true">|</span>
                   <button class="primary-button" id="addCardInputNode" type="button">Add Card Input</button>
                   <button class="primary-button" id="addCardOutputNode" type="button">Add Card Output</button>
+                  <div id="editorCardPreviewModes" class="editor-tabs hidden" role="group" aria-label="Cards preview">
+                    <button class="editor-tab active" data-card-preview-mode="card" type="button" aria-pressed="true">Card</button>
+                    <button class="editor-tab" data-card-preview-mode="device" type="button" aria-pressed="false">Device</button>
+                  </div>
                 </div>
+                <div id="cardsCardToolsHome" class="slot-actions connector-slot-actions"></div>
               </div>
             </section>
 
@@ -7202,6 +7207,7 @@
     let editorSelectedCardNodeIds = new Set();
     let editorSuppressPreviewClickUntil = 0;
     let editorActiveTab = "device";
+    let editorCardPreviewMode = "card";
     let editorPaletteDragSession = null;
     const editorDeviceDropDebugEnabled = new URLSearchParams(window.location.search).has("debugDeviceDrop");
     const editorDeviceDropEvents = [];
@@ -8844,7 +8850,7 @@
       const previous = drag.lastValidResolvedLayout;
       const previousReason = drag.invalidReason;
       try {
-        if (currentEditorTemplate() !== drag.template || editorActiveTab !== "connectors") throw new Error("The editor changed. Start the card move again.");
+        if (currentEditorTemplate() !== drag.template || editorPreviewTab() !== "connectors") throw new Error("The editor changed. Start the card move again.");
         if (point.x < 0 || point.x > deviceTemplateWidth(drag.template) || point.y < drag.startY
           || point.y > drag.baselineTemplateHeight) throw new Error("Drop the card inside the chassis.");
         let target = module.persistentTargetLaneWithHysteresis(event.clientY, {
@@ -12467,7 +12473,25 @@
     }
 
     function editorNodePaletteActive() {
-      return editorActiveTab === "connectors" || editorActiveTab === "cards";
+      return editorActiveTab === "connectors" || editorPreviewTab() === "cards";
+    }
+
+    function editorPreviewTab() {
+      return editorActiveTab === "cards" && editorCardPreviewMode === "device" && engineRendererRequested()
+        ? "connectors" : editorActiveTab;
+    }
+
+    function setEditorCardPreviewMode(mode) {
+      if (!engineRendererRequested() || editorActiveTab !== "cards" || !["card", "device"].includes(mode)) return;
+      if (editorCardPreviewMode === mode) return;
+      cancelEditorResizeSession(null, { render: false });
+      cancelEditorStableDrags();
+      clearEditorPlacementMotion();
+      editorCardPreviewMode = mode;
+      renderEditorTabs();
+      renderNodePalette();
+      renderDeviceEditorPreview();
+      scheduleDeviceEditorPreviewFit("cards");
     }
 
     function editorDeviceFeaturePaneActive() {
@@ -17062,6 +17086,15 @@
       document.querySelectorAll("[data-editor-panel]").forEach(panel => {
         panel.classList.toggle("active", panel.dataset.editorPanel === editorActiveTab);
       });
+      const cardsTabTools = engineRendererRequested() && editorActiveTab === "cards";
+      const toolsHome = document.getElementById(cardsTabTools ? "cardsCardToolsHome" : "connectorCardToolsHome");
+      if (toolsHome && slotsPanelBody.parentElement !== toolsHome) toolsHome.append(slotsPanelBody);
+      document.getElementById("editorCardPreviewModes")?.classList.toggle("hidden", !cardsTabTools);
+      document.querySelectorAll("[data-card-preview-mode]").forEach(button => {
+        const active = button.dataset.cardPreviewMode === editorCardPreviewMode;
+        button.classList.toggle("active", active);
+        button.setAttribute("aria-pressed", String(active));
+      });
       const showConnectorInspector = editorActiveTab === "connectors" || editorActiveTab === "cards";
       const showCardInspector = editorActiveTab === "cards";
       const showTechSpecs = editorActiveTab === "device";
@@ -19278,7 +19311,7 @@
 
     function editorPreviewCanCreateCardSlotFromDrop(event) {
       const template = currentEditorTemplate();
-      if (!template?.hasSwappableCards || editorActiveTab !== "connectors") return false;
+      if (!template?.hasSwappableCards || editorPreviewTab() !== "connectors") return false;
       if (!editorDataTransferHasType(event, "application/x-av-card-type")) return false;
       if (event.target.closest("[data-editor-card-slot], [data-editor-card-slot-id], [data-editor-node], [data-editor-field], [data-editor-misc-color], [data-editor-remove-node], [data-editor-remove-card-slot], [data-card-preview-node]")) return false;
       const point = getEditorPreviewPoint(event);
@@ -20891,7 +20924,7 @@
 	    }
 
 	    function deviceEditorActivePreviewUsesEngine() {
-	      return deviceEditorUsesEnginePreview() && editorActiveTab !== "cards";
+	      return deviceEditorUsesEnginePreview() && editorPreviewTab() !== "cards";
 	    }
 
     function loadSharedEnginePreviewModule(statusLabel = "Engine preview") {
@@ -21843,7 +21876,7 @@
     }
 
     function drawEditorEngineConnectorOverlay(parent, template) {
-      if (editorActiveTab !== "connectors") return;
+      if (editorPreviewTab() !== "connectors") return;
       const width = deviceTemplateWidth(template);
       const entriesById = deviceEditorEngineConnectorEntriesById(template);
       const previewPositions = editorPreviewPositions(template);
@@ -22014,7 +22047,7 @@
     function drawEditorEngineDynamicCardArtwork(parent, template, options = {}) {
       if (!editorEngineDynamicCardArtworkActive || !editorPlacementMotionHasCardEntries()) return;
       if (options.engineTextureSuppressed !== true) return;
-      if (editorActiveTab !== "connectors" || !template?.hasSwappableCards) return;
+      if (editorPreviewTab() !== "connectors" || !template?.hasSwappableCards) return;
       // Cover the last baked card frame before drawing the live card owners.
       // This avoids a stale caption/bar if WebGL presents its cached texture
       // for another frame while the suppressed texture is taking ownership.
@@ -22034,7 +22067,7 @@
     }
 
     function drawEditorEngineCardSlotOverlay(parent, template) {
-      if (editorActiveTab !== "connectors" || !template?.hasSwappableCards) return;
+      if (editorPreviewTab() !== "connectors" || !template?.hasSwappableCards) return;
       if (editorEngineDynamicCardArtworkActive && editorPlacementMotionHasCardEntries()) return;
       (template.cardSlots || []).forEach((slot, index) => {
         const band = cardBandGeometry(template, slot);
@@ -22106,7 +22139,7 @@
 
     function renderDeviceEditorEnginePreview(template, options = {}) {
       const retainedCards = deviceEditorPreview.querySelector("[data-card-reorder-artwork]");
-      if (options.motionFrame === true && editorActiveTab === "connectors"
+      if (options.motionFrame === true && editorPreviewTab() === "connectors"
         && editorEngineDynamicCardArtworkActive && editorPlacementMotionHasCardEntries() && retainedCards) {
         // Fixed chassis connectors and baked artwork do not move in this gesture.
         // Keep card nodes/captions mounted and only interpolate their owner groups.
@@ -22234,7 +22267,7 @@
     }
 
     function editorActivePreviewBounds(template = currentEditorTemplate()) {
-      if (editorActiveTab === "cards") return editorCardPreviewBounds(currentEditorCard());
+      if (editorPreviewTab() === "cards") return editorCardPreviewBounds(currentEditorCard());
       if (editorActiveTab === "faceplate") return editorFaceplatePreviewBounds(template);
       return editorFullDevicePreviewBounds(template);
     }
@@ -22916,7 +22949,7 @@
 
     function editorArtworkTemplate(template) {
       if (!engineRendererRequested() || !template?.backplate?.faceImage) return template;
-      if (editorActiveTab !== "connectors" && !(editorActiveTab === "faceplate" && editorArtworkSide === "backplate")) return template;
+      if (editorPreviewTab() !== "connectors" && !(editorActiveTab === "faceplate" && editorArtworkSide === "backplate")) return template;
       return requireDeviceEditorPlacementModule().backplateArtworkView(template, deviceTemplateWidth(template));
     }
 
@@ -23670,7 +23703,7 @@
         renderRackBuilderPreview();
         return;
       }
-      if (editorActiveTab === "cards") {
+      if (editorPreviewTab() === "cards") {
         setDeviceEditorCardAuthoringMode(true);
 
         renderCardEditorPreview();
@@ -23741,6 +23774,10 @@
     }
 
     function renderCardEditorPreview() {
+      if (editorActiveTab === "cards" && editorPreviewTab() === "connectors") {
+        renderDeviceEditorPreview();
+        return;
+      }
       const template = currentEditorTemplate();
       const card = currentEditorCard();
       if (!template || !card) return;
@@ -25153,7 +25190,7 @@
     }
 
     function startEditorCardSlotDrag(event) {
-      if (event.button !== 0 || editorActiveTab !== "connectors") return false;
+      if (event.button !== 0 || editorPreviewTab() !== "connectors") return false;
       const slotEl = event.target.closest("[data-editor-card-slot]");
       if (!slotEl) return false;
       const template = currentEditorTemplate();
@@ -25311,6 +25348,10 @@
     function startEditorNodeDrag(event) {
       if (event.button !== 0) return;
       if (startRackPreviewDeviceDrag(event)) return;
+      if (editorActiveTab === "cards" && editorPreviewTab() === "connectors") {
+        if (!event.target.closest("[data-editor-remove-card-slot]")) startEditorCardSlotDrag(event);
+        return;
+      }
       if (editorActiveTab === "cards") {
         const handle = engineRendererRequested() && event.target.closest("[data-card-area-resize]");
         if (handle) {
@@ -36176,6 +36217,10 @@ document.addEventListener("click", function(event) {
       if (previousTab !== editorActiveTab) scheduleDeviceEditorPreviewFit(editorActiveTab);
       renderDeviceAuthoringDebugPanel();
     });
+    document.getElementById("editorCardPreviewModes").addEventListener("click", event => {
+      const button = event.target.closest("[data-card-preview-mode]");
+      if (button) setEditorCardPreviewMode(button.dataset.cardPreviewMode);
+    });
     connectorRelationshipsPanel?.addEventListener("click", event => {
       const template = currentEditorTemplate();
       if (!template || template.stageboxEndDraftId) return;
@@ -36905,12 +36950,27 @@ document.addEventListener("click", function(event) {
     editorCardKind.addEventListener("change", event => {
       changeEditorCardKind(event.target.value);
     });
-    document.getElementById("newCardType").addEventListener("click", createNewEditorCardType);
-    document.getElementById("duplicateCardType").addEventListener("click", duplicateCurrentCardType);
+    document.getElementById("newCardType").addEventListener("click", () => {
+      setEditorCardPreviewMode("card");
+      createNewEditorCardType();
+    });
+    document.getElementById("duplicateCardType").addEventListener("click", () => {
+      setEditorCardPreviewMode("card");
+      duplicateCurrentCardType();
+    });
     document.getElementById("deleteCardType").addEventListener("click", deleteCurrentCardType);
-    document.getElementById("addCardInputNode").addEventListener("click", () => addCardConnector("input"));
-    document.getElementById("addCardOutputNode").addEventListener("click", () => addCardConnector("output"));
-    document.getElementById("addCardSlot").addEventListener("click", () => addEditorCardSlot());
+    document.getElementById("addCardInputNode").addEventListener("click", () => {
+      setEditorCardPreviewMode("card");
+      addCardConnector("input");
+    });
+    document.getElementById("addCardOutputNode").addEventListener("click", () => {
+      setEditorCardPreviewMode("card");
+      addCardConnector("output");
+    });
+    document.getElementById("addCardSlot").addEventListener("click", () => {
+      if (editorActiveTab === "cards") setEditorCardPreviewMode("device");
+      addEditorCardSlot();
+    });
     savePersonalDefaultButton.addEventListener("click", saveEditorPersonalDefault);
     deviceEditorModal.addEventListener("input", () => queueMicrotask(renderEditorDefaultControls));
     deviceEditorModal.addEventListener("change", () => queueMicrotask(renderEditorDefaultControls));
@@ -37039,9 +37099,10 @@ document.addEventListener("click", function(event) {
       chip.style.opacity = "0.35";
       event.dataTransfer.setData("application/x-av-card-type", chip.dataset.cardTypeId);
       event.dataTransfer.effectAllowed = "copyMove";
+      if (editorActiveTab === "cards") setEditorCardPreviewMode("device");
     });
     cardPalette.addEventListener("dragover", event => {
-      if (!editorCardListDrag || editorActiveTab !== "connectors") return;
+      if (!editorCardListDrag || !["connectors", "cards"].includes(editorActiveTab)) return;
       event.preventDefault();
       event.dataTransfer.dropEffect = "move";
       const moving = [...cardPalette.children].find(chip => chip.dataset.cardTypeId === editorCardListDrag.id);
@@ -37060,7 +37121,7 @@ document.addEventListener("click", function(event) {
     });
     cardPalette.addEventListener("drop", event => {
       const drag = editorCardListDrag, template = currentEditorTemplate();
-      if (!drag || template !== drag.template || editorActiveTab !== "connectors") return;
+      if (!drag || template !== drag.template || !["connectors", "cards"].includes(editorActiveTab)) return;
       event.preventDefault(); event.stopPropagation();
       if (JSON.stringify(template.cardTypes) !== drag.baseline) { editorCardListDrag = null; renderCardSlotEditor(); return; }
       const ids = [...cardPalette.children].map(chip => chip.dataset.cardTypeId);
@@ -37152,7 +37213,7 @@ document.addEventListener("click", function(event) {
         return;
       }
       const cardSlot = event.target.closest("[data-editor-card-slot]");
-      if (!editorPaletteDragSession?.active && editorActiveTab === "connectors" && editorDataTransferHasType(event, "application/x-av-card-type") && (cardSlot || editorPreviewCanCreateCardSlotFromDrop(event))) {
+      if (!editorPaletteDragSession?.active && editorPreviewTab() === "connectors" && editorDataTransferHasType(event, "application/x-av-card-type") && (cardSlot || editorPreviewCanCreateCardSlotFromDrop(event))) {
         setEditorPaletteDropCandidate();
         event.preventDefault();
         event.dataTransfer.dropEffect = "copy";
@@ -37236,12 +37297,12 @@ document.addEventListener("click", function(event) {
       }
       const cardSlot = event.target.closest("[data-editor-card-slot]");
       const cardTypeId = editorPaletteDragSession?.active ? "" : editorCardDropTypeId(event);
-      if (cardSlot && editorActiveTab === "connectors" && cardTypeId) {
+      if (cardSlot && editorPreviewTab() === "connectors" && cardTypeId) {
         event.preventDefault();
         installCardInSlot(Number(cardSlot.dataset.editorCardSlot), cardTypeId);
         return;
       }
-      if (editorActiveTab === "connectors" && cardTypeId && createCardSlotFromPreviewDrop(event, cardTypeId)) {
+      if (editorPreviewTab() === "connectors" && cardTypeId && createCardSlotFromPreviewDrop(event, cardTypeId)) {
         event.preventDefault();
         return;
       }
@@ -37314,7 +37375,7 @@ document.addEventListener("click", function(event) {
         return;
       }
       const slotRemove = event.target.closest("[data-editor-remove-card-slot]");
-      if (slotRemove && editorActiveTab === "connectors") {
+      if (slotRemove && editorPreviewTab() === "connectors") {
         event.preventDefault();
         event.stopPropagation();
         const index = Number(slotRemove.dataset.editorRemoveCardSlot);
@@ -37323,6 +37384,7 @@ document.addEventListener("click", function(event) {
         return;
       }
       const cardRemove = event.target.closest("[data-card-remove-node]");
+      if (editorActiveTab === "cards" && editorPreviewTab() === "connectors") return;
       if (cardRemove && editorActiveTab === "cards") {
         event.preventDefault();
         event.stopPropagation();
@@ -38592,6 +38654,9 @@ document.addEventListener("click", function(event) {
       if (!deviceEditorModal.classList.contains("hidden") && editorStageboxPeerSurface) {
         editorEnginePreviewFitPending = true;
         renderDeviceEditorPreview();
+      } else if (!deviceEditorModal.classList.contains("hidden") && editorActiveTab === "cards" && editorPreviewTab() === "connectors" && editorEnginePreviewSurface) {
+        editorEnginePreviewSurface.resize({ fit: false });
+        syncDeviceEditorEngineOverlayViewBox();
       }
       if (rackBuilderUsesEnginePreview() && rackBuilderEnginePreviewSurface && rackBuilderModalOpen()) {
         rackBuilderEnginePreviewSurface.resize({ fit: false });
