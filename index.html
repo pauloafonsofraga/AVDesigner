@@ -8430,7 +8430,13 @@
     }
 
     function resolveEditorModularLayout(template, options = {}) {
-      return resolveEditorPlacementItems(editorLayoutItems(template, options), connectorStartYForTemplate(template));
+      const layout = resolveEditorPlacementItems(editorLayoutItems(template, options), connectorStartYForTemplate(template));
+      return spaceEditorSharedBusLayout(template, layout);
+    }
+
+    function spaceEditorSharedBusLayout(template, layout) {
+      return engineRendererRequested() && !isAdapterTemplate(template)
+        ? requireDeviceEditorPlacementModule().spaceSharedBusLayout(template, layout) : layout;
     }
 
     function editorCardSlotDisplayOverrides(template, options = {}) {
@@ -8936,7 +8942,7 @@
         editorStableDragLaneMap(canonicalOriginalLayout),
         drag.baselineLaneMap
       );
-      const resolvedLayout = nextBoundaryIndex === drag.originalBoundaryIndex
+      let resolvedLayout = nextBoundaryIndex === drag.originalBoundaryIndex
         ? structuredClone(options.force && originalBoundaryCompactsBaseline
           ? canonicalOriginalLayout
           : drag.baselineResolvedLayout)
@@ -8946,6 +8952,7 @@
             startY: drag.startY,
             slotHeight: drag.slotHeight || SLOT_HEIGHT
           });
+      resolvedLayout = spaceEditorSharedBusLayout(currentEditorTemplate(), resolvedLayout);
       const currentItem = editorPlacementItemByStableId(resolvedLayout, drag.itemId);
       if (!currentItem) return drag;
       drag.previousBoundaryIndex = drag.currentBoundaryIndex;
@@ -8993,6 +9000,7 @@
 
     function applyEditorStableResolvedLayout(template, layout, options = {}) {
       if (!template || !layout?.items) return false;
+      layout = spaceEditorSharedBusLayout(template, layout);
       const includeConnectors = options.includeConnectors !== false;
       const includeCards = options.includeCards !== false;
       const edgeX = deviceTemplateWidth(template);
@@ -9272,6 +9280,7 @@
           throw new Error("Device Editor structural edit produced an invalid layout.");
         }
       }
+      if (shouldResolveLayout) solvedLayout = spaceEditorSharedBusLayout(draft, solvedLayout);
       try {
         replaceEditorTemplateContents(template, draft);
         if (shouldResolveLayout) {
@@ -20156,7 +20165,7 @@
         }),
         ...bandBottoms
       );
-      if (hasRigidBus) return Math.max(deviceHeightForSlotCount(1, startY, minHeight), startY + layout.endLane * SLOT_HEIGHT + DEVICE_BOTTOM_PAD);
+      if (hasRigidBus) return Math.max(deviceHeightForSlotCount(1, startY, minHeight), layout.bottomY + DEVICE_BOTTOM_PAD);
       return Math.max(deviceHeightForSlotCount(1, startY, minHeight), Math.ceil(maxY + SLOT_HEIGHT + DEVICE_BOTTOM_PAD));
     }
 

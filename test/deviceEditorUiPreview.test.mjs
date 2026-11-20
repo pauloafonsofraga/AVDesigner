@@ -154,6 +154,7 @@ function assertCameraContains(camera, bounds, viewportWidth, viewportHeight, pad
 function runnableIndexFunction(functionName, context = {}) {
   Object.entries(editorTestBindings()).forEach(([key,value])=>{if (!(key in context)) context[key]=value;});
   if (!context.editorPreviewTab) context.editorPreviewTab = vm.runInNewContext(`(${functionSource("editorPreviewTab")})`, context);
+  if (!context.spaceEditorSharedBusLayout) context.spaceEditorSharedBusLayout = vm.runInNewContext(`(${functionSource("spaceEditorSharedBusLayout")})`, context);
   return vm.runInNewContext(`(${functionSource(functionName)})`, context);
 }
 
@@ -211,6 +212,7 @@ function sideParityConnector(id, side, direction, y = 152) {
 function stableDragHarness(template) {
   const context = {
     ...editorTestBindings(),
+    currentEditorTemplate: () => template,
     isAdapterTemplate: device => device?.objectType === "adapter",
     laneIndexForY: (y, startY) => Math.max(0, Math.round((y - startY) / 54)),
     recordEditorPlacementHistory: () => {},
@@ -333,6 +335,7 @@ function stableDragHarness(template) {
     });
   };
   const helpers = [
+    "spaceEditorSharedBusLayout",
     "editorStableDragLayout",
     "editorActiveStableDragLayout",
     "editorStableDragItemId",
@@ -839,6 +842,7 @@ function structuralEditorHarness(inputTemplate = {}) {
   };
   const helpers = [
     "editorPreviewTab",
+    "spaceEditorSharedBusLayout",
     "normalizeEditorPlacementSideMask",
     "editorConnectorPlacementSideMask",
     "editorCardPlacementSideMask",
@@ -1363,6 +1367,7 @@ function cardDragInteractionHarness(inputTemplate = {}, options = {}) {
 
   const helpers = [
     "editorPreviewTab",
+    "spaceEditorSharedBusLayout",
     "editorStableDragLayout",
     "editorStableDragItemId",
     "editorStableLayoutItemKind",
@@ -2444,7 +2449,7 @@ test("rigid shared bus reserves one object instead of compressing across an ordi
   assert.deepEqual(itemLaneMap(layout), { "shared-bus:bus": 0, "connector:ordinary": 1 });
   assert.equal(JSON.stringify(h.template), before);
   h.api.applyEditorStableResolvedLayout(h.template, layout);
-  assert.deepEqual(h.template.connectors.map(c => [c.id, c.y, c.anchors[0].y]), [["bus-a", 100, 100], ["ordinary", 154, 154], ["bus-b", 118, 118]]);
+  assert.deepEqual(h.template.connectors.map(c => [c.id, c.y, c.anchors[0].y]), [["bus-a", 100, 100], ["ordinary", 172, 172], ["bus-b", 118, 118]]);
 });
 
 test("shared layout normalization preserves unrelated adapter placement flags", () => {
@@ -2464,12 +2469,12 @@ for (const count of [2, 3, 4]) for (const side of ["left", "right"]) {
     const layout = h.api.resolveEditorModularLayout(h.template), span = count === 4 ? 2 : 1;
     assert.deepEqual(itemLaneMap(layout), { "connector:before": 0, "shared-bus:bus": 1, "connector:after": 1 + span, "connector:opposite": 1 });
     assert.equal(layout.endLane, 2 + span);
-    assert.equal(deviceHeightCalculationHarness().api.deviceHeightForSlotCounts(h.template, { layout }), 100 + (2 + span) * 54 + 48);
+    assert.equal(deviceHeightCalculationHarness().api.deviceHeightForSlotCounts(h.template, { layout }), 100 + 3 * 54 + (count - 1) * 18 + 48);
     h.api.applyEditorStableResolvedLayout(h.template, layout);
     const ys = members.map(c => h.template.connectors.find(item => item.id === c.id).y);
     assert.deepEqual(ys.map(y => y - 154), Array.from({ length: count }, (_, i) => i * 18));
     assert.ok(ys[0] - 100 >= 16);
-    assert.ok(h.template.connectors.find(c => c.id === "after").y - ys.at(-1) >= 16);
+    assert.equal(h.template.connectors.find(c => c.id === "after").y - ys.at(-1), 54);
   });
 }
 

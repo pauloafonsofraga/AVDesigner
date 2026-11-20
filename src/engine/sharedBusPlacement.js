@@ -1,3 +1,5 @@
+import { primaryAnchorForConnector } from "./deviceDefinitionV2.js";
+
 // Shared eligibility and geometry for the Engine and classic editor bridge.
 export function createSharedBusPlacementAPI() {
   const exclusive = relationship => ["exclusive", "shared-bus", "exclusive-shared-bus", "exclusive-shared"].includes(String(relationship?.type || relationship?.relationshipType || "").trim().toLowerCase());
@@ -62,3 +64,32 @@ export function createSharedBusPlacementAPI() {
 }
 
 export const { rigidSharedBusGroup, rigidSharedBusGroups, groupSharedBusPlacementItems, sharedBusMemberPositions } = createSharedBusPlacementAPI();
+
+export function spaceSharedBusLayout(device, layout, options = {}) {
+  const groups = rigidSharedBusGroups(device);
+  if (!groups.length || !layout?.orderedItems?.length || layout.items.some(item => item.itemType === "card-slot")) return layout;
+  const gap = Number(options.gap) || Number(layout.slotHeight) || 54;
+  const nextY = { left: layout.startY, right: layout.startY };
+  const byId = new Map();
+  // Logical lanes still decide order and collisions. Only their physical Y
+  // projection changes, so a bus consumes its actual height plus one gap.
+  for (const item of layout.orderedItems) {
+    const group = groups.find(group => group.id === item.id);
+    const members = (group?.memberIds || [String(item.id).replace(/^connector:/, "")])
+      .map(id => device.connectors.find(c => c.id === id)).filter(Boolean);
+    const extents = members.length ? members.flatMap((member, i) => {
+      const offset = group?.offsets[i] || 0;
+      const primaryY = Number(primaryAnchorForConnector(member, device.width)?.y ?? member.y) || 0;
+      return [offset, ...(member.anchors || []).map(a => offset + (Number(a.y) || 0) - primaryY)];
+    }) : [0];
+    const top = Math.min(...extents), bottom = Math.max(...extents);
+    const sides = item.sideMask === "both" ? ["left", "right"] : [item.sideMask];
+    const y = Math.max(...sides.map(side => nextY[side])) - top;
+    const bottomY = y + bottom + gap;
+    sides.forEach(side => { nextY[side] = bottomY; });
+    byId.set(item.id, { ...item, y, bottomY });
+  }
+  return { ...layout, items: layout.items.map(item => byId.get(item.id)),
+    orderedItems: layout.orderedItems.map(item => byId.get(item.id)), byId,
+    bottomY: Math.max(layout.startY, ...[...byId.values()].map(item => item.bottomY)) };
+}
