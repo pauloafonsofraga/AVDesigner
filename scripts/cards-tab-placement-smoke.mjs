@@ -27,8 +27,22 @@ try {
   assert.equal(await page.locator("#cardsCardToolsHome #cardPalette").count(),1);
   assert.equal(await page.locator("#cardPalette").count(),1,"one shared tray, not duplicated listeners/IDs");
   assert.equal(await page.locator("[data-card-editing-boundary]").count(),1);
+  const history=await page.evaluate(()=>({editor:editorMetadataHistory.undo.length,project:activeEngineBridge().commandIndex}));
+  for(const id of ["replacement","compatible","original"]) {
+    await page.locator(`#cardPalette [data-card-type-id="${id}"] img`).click();
+    assert.equal(await page.locator("[data-card-editing-boundary]").getAttribute("data-card-editing-boundary"),id,"single click opens that card preview");
+    assert.equal(await page.locator("#editorCardSelect").inputValue(),String(original.cardTypes.findIndex(card=>card.id===id)));
+    assert.equal(await page.locator("#editorCardName").inputValue(),original.cardTypes.find(card=>card.id===id).name);
+    assert.equal(await page.evaluate(()=>editorCardPreviewMode),"card");
+  }
+  assert.deepEqual(await draft(),original,"card selection is not a project edit");
+  assert.deepEqual(await page.evaluate(()=>({editor:editorMetadataHistory.undo.length,project:activeEngineBridge().commandIndex})),history);
+  assert.equal(await page.evaluate(()=>JSON.stringify(state.connections)),cables);
   await modes.getByRole("button",{name:"Device",exact:true}).click();
   await page.locator('[data-editor-card-slot-id="slot-b"]').waitFor({state:"visible"});
+  await page.locator('#cardPalette [data-card-type-id="replacement"]').click();
+  assert.equal(await page.evaluate(()=>currentEditorCard().id),"original","Device mode clicks do not change card selection or preview");
+  assert.equal(await page.locator("[data-card-editing-boundary]").count(),0);
   assert.equal(await page.locator("#nodePalette").isVisible(),false,"device mode exposes card placement only");
   assert.deepEqual(await draft(),original,"preview switches do not edit the project");
   await modes.getByRole("button",{name:"Card",exact:true}).click();
@@ -103,5 +117,5 @@ try {
   assert.deepEqual(reopened.cardTypes.map(card=>card.id),reordered.cardTypes.map(card=>card.id));
   assert.equal(await page.evaluate(()=>JSON.stringify(state.connections)),cables);
   assert.deepEqual(errors,[]);
-  console.log("Chrome passed: shared Cards/Connectors tray, Card/Device views, automatic drag reveal, occupied/empty/new-slot drops, canceled replacement/drag, Undo/Redo, responsive toolbar, save/reopen and preserved cables.");
+  console.log("Chrome passed: single-click card preview/selection without project edits, unchanged Device mode clicks, shared Cards/Connectors tray, Card/Device views, automatic drag reveal, occupied/empty/new-slot drops, canceled replacement/drag, Undo/Redo, responsive toolbar, save/reopen and preserved cables.");
 } finally {await browser.close();}

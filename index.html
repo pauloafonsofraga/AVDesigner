@@ -37085,6 +37085,17 @@ document.addEventListener("click", function(event) {
     deviceEditorModal.addEventListener("click", event => {
       if (event.target.closest("[data-delete-selected-nodes]")) deleteSelectedEditorNodes();
     });
+    cardPalette.addEventListener("click", event => {
+      if (!engineRendererRequested() || editorActiveTab !== "cards" || editorCardPreviewMode !== "card" || editorCardListDrag) return;
+      const chip = event.target.closest("[data-card-type-id]");
+      if (!chip) return;
+      const index = currentEditorTemplate()?.cardTypes?.findIndex(card => card.id === chip.dataset.cardTypeId) ?? -1;
+      if (index < 0) return;
+      editorCardIndex = index;
+      clearEditorCardNodeSelection();
+      renderDeviceEditor();
+      scheduleDeviceEditorPreviewFit("cards");
+    });
     cardPalette.addEventListener("dragstart", event => {
       const chip = event.target.closest("[data-card-type-id]");
       if (!chip) return;

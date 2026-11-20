@@ -9319,3 +9319,49 @@ test("Cards Device pointer handling permits card moves without exposing chassis 
   ], "Cards Device mode delegates only card placement before authoring-node handlers");
   assert.match(functionSource("renderCardEditorPreview"), /editorPreviewTab\(\) === "connectors"[\s\S]*renderDeviceEditorPreview\(\);[\s\S]*return;/);
 });
+
+function cardTrayClickHarness(overrides = {}) {
+  const calls = [];
+  const template = { cardTypes: [{ id: "second" }, { id: "first" }], cardSlots: [{ id: "slot", installedCardTypeId: "second" }] };
+  let click;
+  const context = {
+    editorActiveTab: "cards", editorCardPreviewMode: "card", editorCardListDrag: null, editorCardIndex: 0,
+    engineRendererRequested: () => true,
+    currentEditorTemplate: () => template,
+    clearEditorCardNodeSelection: () => calls.push("clear"),
+    renderDeviceEditor: () => calls.push("render"),
+    scheduleDeviceEditorPreviewFit: tab => calls.push(`fit:${tab}`),
+    cardPalette: { addEventListener: (type, listener) => { assert.equal(type, "click"); click = listener; } },
+    ...overrides
+  };
+  vm.runInNewContext(sourceSlice(INDEX_HTML, 'cardPalette.addEventListener("click"', 'cardPalette.addEventListener("dragstart"'), context);
+  return { context, calls, template, click: id => click({ target: { closest: () => id ? { dataset: { cardTypeId: id } } : null } }) };
+}
+
+test("Card tray single-click selects by stable identity and fits the selected card preview", () => {
+  const h = cardTrayClickHarness(), before = structuredClone(h.template);
+  h.click("first");
+  assert.equal(h.context.editorCardIndex, 1, "resolve current order by ID rather than a stale tray index");
+  assert.equal(h.context.editorCardPreviewMode, "card");
+  assert.deepEqual(h.calls, ["clear", "render", "fit:cards"]);
+  assert.deepEqual(h.template, before, "selecting a card leaves definitions and installed assignments intact");
+});
+
+test("Card tray clicks leave Device preview, Connectors, Legacy and active drags unchanged", () => {
+  for (const overrides of [
+    { editorCardPreviewMode: "device" }, { editorActiveTab: "connectors" },
+    { engineRendererRequested: () => false }, { editorCardListDrag: { id: "first" } }
+  ]) {
+    const h = cardTrayClickHarness(overrides);
+    h.click("first");
+    assert.equal(h.context.editorCardIndex, 0);
+    assert.deepEqual(h.calls, []);
+  }
+});
+
+test("Card tray ignores background clicks and stale card IDs", () => {
+  const h = cardTrayClickHarness();
+  h.click(null); h.click("removed");
+  assert.equal(h.context.editorCardIndex, 0);
+  assert.deepEqual(h.calls, []);
+});
