@@ -52,8 +52,13 @@ try {
   await page.locator('[data-editor-tab="connectors"]').click();
   const palette=page.locator("#nodePalette");
   for(const type of ["fiber-lc","fiber-sc","fiber-st","fiber-mpo","fiber-lc-duplex","fiber-sc-duplex","fiber-st-duplex",
-    "dac-sfp-plus","dac-sfp28","dac-qsfp-plus","dac-qsfp28","aoc-sfp-plus","aoc-sfp28","aoc-qsfp-plus","aoc-qsfp28"])
+    "sfp-cage","sfp-plus-cage","sfp28-cage","qsfp-cage","qsfp28-cage"])
     assert.equal(await palette.locator(`[data-node-type="${type}"]`).count(),1,type);
+  for(const type of ["dac-sfp-plus","dac-sfp28","dac-qsfp-plus","dac-qsfp28","aoc-sfp-plus","aoc-sfp28","aoc-qsfp-plus","aoc-qsfp28","new-node-2"])
+    assert.equal(await palette.locator(`[data-node-type="${type}"]`).count(),0,"assembly shortcuts are hidden: "+type);
+  await page.locator("#nodePaletteSearch").fill("sfp");
+  assert.equal(await palette.locator("[data-node-type]").count(),5,"SFP search offers only the five physical cages");
+  await page.locator("#nodePaletteSearch").fill("");
   await page.locator("#addOutputNode").click();await page.locator("#editorZoomReset").click();
   const added=await page.evaluate(()=>currentEditorTemplate().connectors.find(c=>c.empty).id);
   await palette.locator('[data-node-type="fiber-sc-duplex"]').dragTo(page.locator(`#deviceEditorPreviewHost [data-editor-node-id="${added}"] .editor-slot-shape`));
@@ -62,8 +67,23 @@ try {
   assert.equal(await page.locator("#selectedConnectorFiberArrangement").inputValue(),"duplex");
   await page.locator("#selectedConnectorFiberArrangement").selectOption("simplex");
   await page.locator("#selectedConnectorFiberArrangement").selectOption("duplex");
+  await page.locator("#addOutputNode").click();await page.locator("#editorZoomReset").click();
+  const addedCage=await page.evaluate(()=>currentEditorTemplate().connectors.find(c=>c.empty).id);
+  await palette.locator('[data-node-type="sfp-plus-cage"]').dragTo(page.locator(`#deviceEditorPreviewHost [data-editor-node-id="${addedCage}"] .editor-slot-shape`));
   await page.locator("#applyDeviceEditor").click();await page.locator("#deviceEditorModal.hidden").waitFor({state:"attached"});
   assert.equal((await snapshot(added)).fiberCapability.arrangement,"duplex");
+  const assembliesBefore=await page.evaluate(()=>structuredClone(state.connections.filter(w=>w.cableAssembly)));
+  await page.locator("#zoomFit").click();await select("source",addedCage);
+  const panel=page.locator("[data-transceiver-config]"),field=name=>panel.getByLabel(name,{exact:true});
+  for(const kind of ["dac","aoc"]) {
+    await field("Installed interface").selectOption(kind);
+    assert.equal(await field("Cable assembly").inputValue(),kind+"-sfp-plus");
+    await panel.getByRole("button",{name:"Apply Transceiver"}).click();
+    assert.equal((await snapshot(addedCage)).installedModuleType,kind+"-sfp-plus");
+  }
+  await page.locator("#undoAction").click();assert.equal((await snapshot(addedCage)).installedModuleType,"dac-sfp-plus");
+  await page.locator("#redoAction").click();assert.equal((await snapshot(addedCage)).installedModuleType,"aoc-sfp-plus");
+  assert.deepEqual(await page.evaluate(()=>state.connections.filter(w=>w.cableAssembly)),assembliesBefore,"existing assemblies are unchanged by palette cleanup and Inspector configuration");
   const geometry=await page.evaluate(async()=>{
     const {isDuplexFiberWire}=await import("./src/engine/duplexFiberGeometry.js");
     const b=activeEngineBridge();return b.scene.wires.map(w=>({type:w.cableType,duplex:isDuplexFiberWire(b.scene,w)}));
@@ -75,6 +95,7 @@ try {
   await load(Buffer.concat(chunks),"standalone-reopened.avd");
   assert.equal((await snapshot("port-0")).fiberMode,"om5");
   assert.deepEqual((await snapshot(added)).fiberCapability,{arrangement:"duplex"});
+  assert.equal((await snapshot(addedCage)).installedModuleType,"aoc-sfp-plus");
   assert.equal(await page.evaluate(()=>state.connections.length),7);
   const html=await page.evaluate(async()=>(await prepareEngineViewerOutput()).html);
   const offline=await browser.newPage({viewport:{width:1600,height:1000}}),offlineErrors=[];
@@ -84,5 +105,5 @@ try {
   await page.mouse.click(1100,800);await page.mouse.move(1100,820);
   await page.screenshot({path:process.env.AVDESIGNER_SCREENSHOT || "/tmp/wirenexus-standalone-fibre.png"});
   assert.deepEqual(errors,[]);assert.deepEqual(offlineErrors,[]);
-  console.log("Chrome passed: all standalone palette entries, native duplex drop, fibre-grade node/wire colours, arrangement controls, Undo/Redo, seven real cable drags, DAC/AOC assemblies, .avd reopen and offline Viewer.");
+  console.log("Chrome passed: five physical cages without DAC/AOC shortcuts, native cage/duplex drops, DAC/AOC Inspector configuration, fibre-grade node/wire colours, arrangement controls, Undo/Redo, seven real cable drags, existing DAC/AOC assemblies, .avd reopen and offline Viewer.");
 } finally {await browser.close();}

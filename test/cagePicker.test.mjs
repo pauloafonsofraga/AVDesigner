@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import * as transceivers from "../src/engine/transceiverModules.js";
 import * as compatibility from "../src/engine/connectorCompatibility.js";
+import { standaloneConnectorDefinitions } from "../src/engine/standaloneConnectors.js";
 
 const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const catalogue = JSON.parse(readFileSync(new URL("../data/factory-catalogue.json", import.meta.url)));
@@ -74,6 +75,43 @@ test("Legacy picker retains its original palette flags, order and ungrouped opti
   const { context } = picker({ engine: false, stale: true });
   assert.equal(vm.runInContext("orderedDeviceEditorNodeEntries().filter(([id]) => cageConnectorTypes.has(id)).length", context), 0);
   assert.doesNotMatch(vm.runInContext('connectorTypeSelectOptions("hdmi")', context), /optgroup/);
+});
+
+test("Engine placement offers cages rather than integrated cable-end shortcuts, without changing definitions", () => {
+  const { context, nodes } = picker();
+  const shortcuts = standaloneConnectorDefinitions(catalogue.nodeTypes).filter(node => transceivers.isIntegratedCableType(node.id));
+  const legacyDac = structuredClone(catalogue.nodes.find(node => node.id === "new-node-2" && node.label === "DAC"));
+  assert.ok(legacyDac);
+  nodes.push(...shortcuts, legacyDac);
+  const before = structuredClone(nodes);
+  const entries = plain(vm.runInContext("orderedDeviceEditorNodeEntries()", context));
+  for (const id of [...shortcuts.map(node => node.id), legacyDac.id]) {
+    assert.equal(entries.some(([key]) => key === id), false, `${id} is retained for loading, not offered for new placement`);
+    context.selected = id;
+    assert.equal(vm.runInContext("editorNodeType(selected).id", context), id, "historical definitions remain resolvable");
+    assert.ok(vm.runInContext("connectorTypeSelectOptions(selected)", context).includes(`value="${id}" selected`), "existing selections stay editable");
+  }
+  for (const id of [...cages, "fiber-lc", "fiber-sc", "fiber-st", "fiber-mpo"]) {
+    assert.equal(entries.filter(([key]) => key === id).length, 1, `${id} remains available`);
+  }
+  assert.deepEqual(nodes, before, "visibility must not rewrite saved palette flags, capabilities or module identities");
+});
+
+test("palette cleanup preserves user-authored preconfigured cages and renamed historical nodes", () => {
+  const { context, nodes } = picker();
+  nodes.push({ id: "custom-port", label: "My DAC port", palette: true, physicalType: "sfp-plus-cage",
+    ...transceivers.transceiverModulePatch({ type: "sfp-plus-cage" }, "dac-sfp-plus") });
+  nodes.push({ id: "new-node-2", label: "Warehouse control socket", palette: true });
+  const entries = plain(vm.runInContext("orderedDeviceEditorNodeEntries()", context));
+  for (const id of ["custom-port", "new-node-2"]) assert.equal(entries.some(([key]) => key === id), true);
+});
+
+test("Legacy placement keeps historical DAC and integrated cable-end palette entries unchanged", () => {
+  const { context, nodes } = picker({ engine: false });
+  const shortcuts = standaloneConnectorDefinitions(catalogue.nodeTypes).filter(node => transceivers.isIntegratedCableType(node.id));
+  nodes.push(...shortcuts, structuredClone(catalogue.nodes.find(node => node.id === "new-node-2")));
+  const entries = plain(vm.runInContext("orderedDeviceEditorNodeEntries()", context));
+  for (const id of [...shortcuts.map(node => node.id), "new-node-2"]) assert.equal(entries.some(([key]) => key === id), true);
 });
 
 test("physical cage labels remain identifiable even with historical custom labels", () => {

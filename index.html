@@ -12422,8 +12422,11 @@
           entries.push([key, type]);
         }
       });
+      // Keep cable-end definitions loadable; new ports are placed as cages.
+      const assemblyShortcut = ([id, node]) => engineTransceiverApi()?.isIntegratedCableType?.(id)
+        || (id === "new-node-2" && node.label === "DAC");
       return engine
-        ? [...entries.filter(([key]) => cageConnectorTypes.has(key)), ...entries.filter(([key]) => !cageConnectorTypes.has(key))]
+        ? [...entries.filter(([key]) => cageConnectorTypes.has(key)), ...entries.filter(([key]) => !cageConnectorTypes.has(key)).filter(entry => !assemblyShortcut(entry))]
         : entries;
     }
 
