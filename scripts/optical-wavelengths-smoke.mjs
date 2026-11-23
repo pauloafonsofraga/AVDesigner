@@ -18,11 +18,11 @@ try {
   await page.route("**/*", route => new URL(route.request().url()).origin === base ? route.continue() : route.abort());
   await page.route("**/account-config.json", route => route.fulfill({json: {configured: false}}));
   await page.goto(base); await page.evaluate(() => wireNexusReady);
-  const fixture = qsfp => {
+  const fixture = (qsfp, mixedRates = false) => {
     const deviceLibrary = [0, 1].map(i => ({id: "host-" + i, name: i ? "RX host" : "TX host", width: 230, height: 250,
-      connectors: [{id: "optic", label: "Optical", type: qsfp ? "qsfp-cage" : "sfp-plus-cage",
+      connectors: [{id: "optic", label: "Optical", type: qsfp ? "qsfp-cage" : i && mixedRates ? "sfp28-cage" : "sfp-plus-cage",
         direction: i ? "input" : "output", displaySide: i ? "left" : "right", x: i ? 0 : 230, y: 170,
-        cageCapabilities: qsfp ? {supportedFormFactors: ["qsfp28"], supportedRates: ["100G"]} : {supportedRates: ["10G"]}}]}));
+        cageCapabilities: qsfp ? {supportedFormFactors: ["qsfp28"], supportedRates: ["100G"]} : {supportedRates: [i && mixedRates ? "25G" : "10G"]}}]}));
     return {deviceLibrary, devices: deviceLibrary.map((def, i) => ({instanceId: def.id, templateId: def.id, name: def.name, x: i * 900, y: 0})),
       connections: [], cableHops: false};
   };
@@ -54,9 +54,27 @@ try {
     assert.equal(await field("Wavelength configuration").inputValue(),profile.endsWith("lr4") ? "wdm" : "single-wavelength");
     await apply(); await waitModule(id, profile);
   };
-  const connect = async () => {
+  const connect = async ({wdm=false}={}) => {
     const a = await point("host-0"), b = await point("host-1");
-    await page.mouse.move(a.x,a.y); await page.mouse.down(); await page.mouse.move(b.x,b.y,{steps:20}); await page.mouse.up();
+    await page.mouse.move(a.x,a.y); await page.mouse.down();
+    if (wdm) {
+      await page.mouse.move((a.x+b.x)/2,(a.y+b.y)/2-90,{steps:12});
+      await page.waitForFunction(async () => {
+        const {isWdmCable} = await import("./src/engine/wdmCableStyle.js");
+        const b=activeEngineBridge(), temp=b.interactionRenderState().tempWire;
+        return state.connections.length===0 && temp && !temp.targetHit && isWdmCable(b.scene,temp);
+      });
+      await page.screenshot({path:join(directory,"wdm-while-drawing.png")});
+    }
+    await page.mouse.move(b.x,b.y,{steps:20});
+    if (wdm) {
+      assert.equal(await page.evaluate(async () => {
+        const {isWdmCable}=await import("./src/engine/wdmCableStyle.js");
+        const b=activeEngineBridge(), temp=b.interactionRenderState().tempWire;
+        return Boolean(temp?.validTarget && isWdmCable(b.scene,temp));
+      }),true,"valid snapped preview stays dashed");
+    }
+    await page.mouse.up();
     await page.waitForFunction(() => state.connections.length === 1);
     return page.evaluate(() => state.connections[0].id);
   };
@@ -83,7 +101,7 @@ try {
   await page.locator("#redoAction").click(); assert.equal(await moduleType("host-0"),"lc-singlemode");
   await page.locator("#undoAction").click();
   await configure("host-1","100gbase-lr4");
-  const id = await connect();
+  const id = await connect({wdm:true});
   const rendered = await readRender(id);
   assert.equal(rendered.wdm,true); assert.equal(rendered.count,1); assert.ok(rendered.vertices.length > 36);
   const xs = rendered.vertices.filter((_,i) => i%6===0);
@@ -143,6 +161,15 @@ try {
   const single = await readRender(await connect());
   assert.equal(single.wdm,false); assert.equal(single.count,1);
   assert.equal(single.vertices.length,(single.route.length-1)*36,"single-wavelength duplex uses one solid stroke");
+  await load(Buffer.from(JSON.stringify(fixture(false,true))),"different-rate-sr-ports.avd");
+  await configure("host-0","10gbase-sr"); await configure("host-1","25gbase-sr");
+  const mixedId = await connect();
+  const mixed = await page.evaluate(id => activeEngineBridge().savedTransceiverStatuses().get(id),mixedId);
+  assert.equal(mixed.status,"unverified");
+  assert.match(mixed.messages.join(" "),/no declared line rate in common/);
+  const mixedFile = await save("#saveProjectAs","mixed-rate.avd");
+  await load(await readFile(mixedFile),"mixed-rate-reopened.avd");
+  assert.deepEqual(await page.evaluate(id=>activeEngineBridge().savedTransceiverStatuses().get(id),mixedId),mixed);
   assert.deepEqual(errors,[]);
-  console.log(JSON.stringify({passed:true,directory,checks:["LR4 and custom profile edits","one WDM wire and preserved route/zoom","Inspector BiDi + WDM","undo/redo and AVD reopen","Play Cable and Signal Chain","offline HTML viewer","native WDM PDF stroke","solid single wavelength"]},null,2));
+  console.log(JSON.stringify({passed:true,directory,checks:["LR4 and custom profile edits","WDM before and after snapping and commit","preserved route/zoom","Inspector BiDi + WDM","undo/redo and AVD reopen","Play Cable and Signal Chain","offline HTML viewer","native WDM PDF stroke","solid single wavelength","10G/25G SR connect with a rate warning on reopen"]},null,2));
 } finally { await browser.close(); }

@@ -388,8 +388,9 @@ test("ordinary SDI supportedRates retain raw compatibility decisions through eve
   const check = (a, b) => engineCompatibilitySummary(
     { device: { id: "a" }, connector: a }, { device: { id: "b" }, connector: b });
   const before = structuredClone(source), raw = check(tx, rx);
-  assert.equal(raw.valid, false);
-  assert.equal(raw.rule, "module-rate");
+  assert.equal(raw.valid, true);
+  assert.equal(raw.compatibilityStatus, "unverified");
+  assert.match(raw.warnings.join(" "), /no declared line rate in common/);
   const normalized = normalizeAvDesignerProject(source), scene = sceneFor(normalized);
   const exported = JSON.parse(new ProjectMutationAdapter({ devices: scene.devices, wires: [] }).exportJson());
   for (const data of [normalized, scene, normalizeAvDesignerProject(exported), buildEngineOutputScene(exported)]) {
@@ -398,6 +399,7 @@ test("ordinary SDI supportedRates retain raw compatibility decisions through eve
     const result = check(a, b);
     assert.equal(result.valid, raw.valid);
     assert.equal(result.rule, raw.rule);
+    assert.deepEqual(result.warnings, raw.warnings);
   }
   assert.deepEqual(source, before);
 });

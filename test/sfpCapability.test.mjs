@@ -38,12 +38,15 @@ test("disabling requires a selected ordinary type and clears all known historica
   assert.equal(ordinary.id, cage.id); assert.equal(ordinary.y, cage.y);
   assert.equal(compatibility.effectiveConnectorTypeForEngine(ordinary), "sdi");
 });
-test("converted cage uses existing SDI direction/rate and rejects HDMI", () => {
+test("converted cage checks SDI direction, warns on rate mismatch and rejects HDMI", () => {
   const cage = convert(original(), "sfp-plus-cage");
   const rx = install(cage, "sfp-sdi-12g-rx"), tx = install(cage, "sfp-sdi-12g-tx");
   assert.equal(compare(tx, rx).valid, true);
   assert.equal(compare(rx, rx).valid, false);
-  assert.equal(compare(install(cage, "sfp-sdi-3g-tx"), rx).valid, false);
+  const mixedRate = compare(install(cage, "sfp-sdi-3g-tx"), rx);
+  assert.equal(mixedRate.valid, true);
+  assert.equal(mixedRate.compatibilityStatus, "unverified");
+  assert.match(mixedRate.warnings.join(" "), /no declared line rate in common/);
   assert.equal(compare({ ...original(), direction: "output", signalDirection: "output" }, rx).valid, false);
   assert.deepEqual(compatibility.engineConnectorCanvasLabelLines(rx), ["Installed Module", "SFP SDI 12G RX"]);
 });

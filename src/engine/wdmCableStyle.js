@@ -15,17 +15,18 @@ export function wdmDashPattern(points) {
 
 export function isWdmCable(scene, wire) {
   if (!/^fiber-(lc|sc|st|mpo)$/.test(wire?.cableType || "") || wire.cableAssembly
-    || wire.multiCoreIdentity || wire.stageboxAssemblyId || !scene?.getConnector) return false;
-  const ends = ["from", "to"].map(end => {
+    || wire.multiCoreIdentity || wire.stageboxAssemblyId) return false;
+  const previewStart = wire.previewFixedHit || wire.sourceHit;
+  const ends = previewStart ? [previewStart, wire.targetHit].filter(Boolean) : ["from", "to"].map(end => {
     const id = wire[`${end}DeviceId`];
-    return { device: scene.getDevice?.(id), connector: scene.getConnector(id, wire[`${end}ConnectorId`]) };
+    return { device: scene?.getDevice?.(id), connector: scene?.getConnector?.(id, wire[`${end}ConnectorId`]) };
   });
   if (!ends.every(end => end.connector && end.device && end.device.kind !== "jump")) return false;
   if (!ends.some(({ connector }) => isTransceiverCage(connector)
     && opticalWavelengthMode(resolveInstalledModule(connector).capabilities.optical) === "wdm")) return false;
-  if (scene.savedWireStatuses?.get(wire.sourceId || wire.id)?.status === "incompatible"
+  if (scene?.savedWireStatuses?.get(wire.sourceId || wire.id)?.status === "incompatible"
     || !ends.every(({connector}) => engineConnectorCompatibilityType(connector) === wire.cableType)
-    || !engineCompatibilitySummary(...ends).valid) return false;
+    || ends.length === 2 && !engineCompatibilitySummary(...ends).valid) return false;
   return !wire.fiberMode || ends.every(({connector}) => engineFiberModesCompatible(connector,
     {type: wire.cableType, fiberMode: wire.fiberMode}, wire.cableType, wire.cableType));
 }

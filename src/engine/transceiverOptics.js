@@ -54,6 +54,7 @@ export const opticalTransceiverProfiles = [
 ];
 
 const normalized = value => typeof value === "string" ? value.toLowerCase().replace(/[^a-z0-9]+/g, "") : "";
+const technologyWithoutRate = value => normalized(typeof value === "string" ? value.replace(/^\s*\d+g?base[- ]*/i, "base-") : value);
 const validNm = value => typeof value === "number" && Number.isFinite(value) && value > 0;
 const wavelengths = values => Array.isArray(values) ? values.filter(validNm) : [];
 const receiveRanges = ranges => Array.isArray(ranges) ? ranges.filter(range =>
@@ -76,7 +77,7 @@ export function opticalLinkCheck(a, b) {
     ["interface", "module-optical-interface", "Optical interfaces do not match."]
   ]) {
     const [left, right] = optics.map(optical => {
-      if (field === "technology") return optical.configuration === CUSTOM_OPTICS ? "" : normalized(optical.technology);
+      if (field === "technology") return optical.configuration === CUSTOM_OPTICS ? "" : technologyWithoutRate(optical.technology);
       if (custom && field === "interface" && /^mpo(?:-|$)/i.test(optical.interface)) return "mpo";
       return normalized(optical[field]);
     });

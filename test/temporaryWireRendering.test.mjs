@@ -110,6 +110,28 @@ function rendererHarness() {
   return vm.runInNewContext(`${names.map(name => fn(renderer, name)).join("\n")}\n({pushInteractionOverlay, pushWireColorSegments, polylineLength})`, context);
 }
 
+test("WDM preview paints one dashed route before a target is resolved and while snapped", () => {
+  const r = rendererHarness();
+  const cfg = { signalFamily: "ethernet", optical: { wavelengthMode: "wdm", fiberFamily: "single-mode" } };
+  const source = { device: {id:"source"}, connector: {id:"port", type:"qsfp-cage", direction:"io",
+    installedModuleType:"lc-singlemode", moduleCapabilities:cfg} };
+  const target = { ...source, device: {id:"target"} };
+  const route = { from:{x:0,y:0}, to:{x:85,y:0}, cableType:"fiber-lc", routeStyle:"orthogonal", color:"#ff0" };
+  for (const hits of [{sourceHit:source}, {sourceHit:source,targetHit:target},
+    {previewFixedHit:source,sourceHit:null}, {sourceHit:{...source, connector:{...source.connector, moduleCapabilities:{}}},targetHit:target}]) {
+    const vertices = [];
+    r.pushInteractionOverlay(vertices, {}, { tempWire: {...route,...hits} });
+    assert.deepEqual(plain(vertices.map(({points})=>[points[0].x,points.at(-1).x])),
+      [[0,18],[24,29],[35,53],[59,64],[70,85]]);
+    assert.ok(vertices.every(({color})=>color===route.color));
+  }
+  const incompatible = {...target,connector:{...target.connector,moduleCapabilities:{...cfg,
+    optical:{...cfg.optical,wavelengthMode:"single-wavelength"}}}};
+  const vertices = [];
+  r.pushInteractionOverlay(vertices, {}, {tempWire:{...route,sourceHit:source,targetHit:incompatible}});
+  assert.equal(vertices.length,1,"conflicting optics are not presented as a WDM pair");
+});
+
 test("rotated adapter drawing, rewiring and Loom preview directions reach the renderer", () => {
   const b = engineHarness(), r = rendererHarness();
   b.scene.connectorExitDirection = (device, connector) => attachedConnectorExitDirection(device, connector?.side);

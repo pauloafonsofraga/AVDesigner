@@ -5776,6 +5776,7 @@ class ProductionEngineBridge {
         toDirection: !rewire?.loomTail && rewire?.detachedSide === "from" ? fixedDirection : targetDirection,
         color: this.wireCreate.color,
         cableType: this.wireCreate.cableType,
+        ...(rewire ? { fiberMode: rewire.originalWire.fiberMode, previewFixedHit: this.wireCreate.from } : {}),
         colorSegments: Object.freeze([...(this.wireCreate.colorSegments || [])]),
         routeStyle: tempRoute.routeStyle,
         routePoints: tempRoute.routePoints,
@@ -5801,7 +5802,7 @@ class ProductionEngineBridge {
         manualRoute: Boolean(this.wireCreate.manual),
         opacity: 1,
         sourceHit: this.wireCreate.from,
-        targetHit: null,
+        targetHit: this.wireCreate.target,
         targetPoint: null,
         validTarget: true,
         targetError: ""

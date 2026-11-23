@@ -129,10 +129,11 @@ const TRANSCEIVER_MODULE_ACTIVE_TYPES = new Map([
 ]);
 const list = value => Array.isArray(value) ? value.map(item => String(item ?? "").trim()).filter(Boolean) : [];
 const intersection = (a, b) => a.some(value => b.some(other => key(value) === key(other)));
+const rateMatch = value => String(value).trim().toLowerCase().replace(/(?<=\d),(?=\d{3}\b)/g, "")
+  .match(/^(\d+(?:\.\d+)?)\s*([kmgt])\s*(?:(?:bits?\s*\/\s*s|b\s*\/\s*s|bps|b)\s*)?(?:[-/ ]*(?:\(\s*(sdi|ethernet)\s*\)|(sdi|ethernet)))?$/);
 function rateKey(value) {
-  const text = String(value).toLowerCase().replace(/(?<=\d),(?=\d{3}\b)/g, "");
-  const rate = text.match(/^(\d+(?:\.\d+)?)\s*([kmgt])\s*(?:(?:bits?\s*\/\s*s|b\s*\/\s*s|bps|b)\s*)?(?:[-/ ]*(?:\(\s*(sdi|ethernet)\s*\)|(sdi|ethernet)))?$/);
-  if (!rate) return `label:${key(text)}`;
+  const rate = rateMatch(value);
+  if (!rate) return `label:${key(value)}`;
   const [, amount, unit, wrappedFamily, family] = rate;
   return `bps:${Math.round(Number(amount) * { k: 1e3, m: 1e6, g: 1e9, t: 1e12 }[unit])}${(wrappedFamily || family) === "sdi" ? "-sdi" : ""}`;
 }
@@ -459,7 +460,8 @@ export function transceiverConnectionValidation(source, target, sourceType, targ
     warnings.push(...check.warnings, ...identity.warnings);
   }
   const a = first.capabilities, b = second.capabilities;
-  if (isIntegratedCableType(sourceType) || isIntegratedCableType(targetType)) {
+  const integrated = isIntegratedCableType(sourceType) || isIntegratedCableType(targetType);
+  if (integrated) {
     if (sourceType !== targetType || !isTransceiverCage(source) || !isTransceiverCage(target)
       || source?.jumpModuleCompatibilityProxy || target?.jumpModuleCompatibilityProxy
       || !a.cableAssembly || !b.cableAssembly || a.formFactor !== b.formFactor) {
@@ -471,13 +473,24 @@ export function transceiverConnectionValidation(source, target, sourceType, targ
     return { valid: false, rule: "module-signal", reason: "Installed module signal families do not match.", warnings: [] };
   }
   const transceiverLink = isTransceiverCage(source) || isTransceiverCage(target);
-  // Keep ordinary connector precedence and matching; the new negotiation is for cage links.
+  // Keep fixed-port and integrated assembly rate rules. Detachable cage links
+  // can document a physical connection without promising line-rate operation.
   const sourceRates = connectorRateSets(source, a, transceiverLink), targetRates = connectorRateSets(target, b, transceiverLink);
   const rates = commonRates([...sourceRates, ...targetRates], transceiverLink ? hasRate : (values, rate) => intersection(values, [rate]));
   if (rates.constrained && !rates.rates.length) {
-    return { valid: false, rule: "module-rate", reason: "Endpoints have no supported data rate in common.", warnings: [] };
+    if (!transceiverLink || integrated) {
+      return { valid: false, rule: "module-rate", reason: "Endpoints have no supported data rate in common.", warnings: [] };
+    }
+    warnings.push("Endpoints have no declared line rate in common. Signal operation is unverified.");
   }
   if (transceiverLink) {
+    const conflictsWithFamily = (sets, family) => family && sets.some(values => {
+      const tags = list(values).map(value => { const m = rateMatch(value); return m?.[3] || m?.[4]; });
+      return tags.length > 0 && tags.every(tag => tag && tag !== family);
+    });
+    if (conflictsWithFamily(sourceRates, b.signalFamily) || conflictsWithFamily(targetRates, a.signalFamily)) {
+      return { valid: false, rule: "module-signal", reason: "Declared signal families do not match.", warnings: [] };
+    }
     if (!sourceRates.some(values => list(values).length)
       || !targetRates.some(values => list(values).length)) warnings.push("An endpoint data rate is unverified.");
     if (!a.signalFamily || !b.signalFamily) warnings.push("Endpoint signal family is unverified.");

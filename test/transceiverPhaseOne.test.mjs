@@ -74,7 +74,11 @@ test("RX-first SDI remains a valid committed topology and card replacement, not 
     changed.deviceLibrary[0].cardSlots[0].installedCardTypeId = "replacement";
     assert.equal(validateModularCardChanges(project, changed).valid, true);
     changed.deviceLibrary[0].cardTypes[1].connectors[0] = install(tx, "sfp-sdi-12g-tx");
-    assert.equal(validateModularCardChanges(project, changed).valid, false);
+    const replacement = validateModularCardChanges(project, changed);
+    assert.equal(replacement.valid, false, "changing an already connected module still requires disconnecting");
+    assert.match(replacement.errors.join(" "), /Disconnect connected cables/);
+    const newWiring = validateProjectTopologyTransition({ ...changed, connections: [] }, changed);
+    assert.equal(newWiring.valid, true, "a new cable is allowed when only the endpoint rates differ");
     assert.deepEqual(changed.connections, project.connections);
   }
 });
@@ -82,7 +86,8 @@ test("RX-first SDI remains a valid committed topology and card replacement, not 
 test("generic module rates do not mask connector or host declarations, and equivalent units match", () => {
   const lc = install(cage("sfp-plus-cage", { supportedRates: ["10 Gbps"] }), "lc-singlemode");
   const peer = { id: "lc", type: "fiber-lc", direction: "io", supportedRates: ["25G"] };
-  assert.equal(compare(lc, peer).rule, "module-rate");
+  assert.equal(compare(lc, peer).valid, true);
+  assert.match(compare(lc, peer).warnings.join(" "), /no declared line rate in common/);
   assert.equal(compare(lc, { ...peer, supportedRates: ["10,000 Mb/s"] }).valid, true);
   assert.equal(compare({ ...lc, cageCapabilities: { supportedRates: ["1G"] } }, peer).rule, "module-capability");
   const unchecked = compare(lc, { ...peer, supportedRates: undefined });
@@ -90,7 +95,7 @@ test("generic module rates do not mask connector or host declarations, and equiv
   assert.match(unchecked.warnings.join(" "), /unverified/);
   const tx = install(cage(), "sfp-sdi-3g-tx");
   assert.equal(compare(tx, { type: "sdi", direction: "input", supportedRates: ["3000 Mbit/s SDI"] }).valid, true);
-  assert.equal(compare(tx, { type: "sdi", direction: "input", supportedRates: ["3G Ethernet"] }).rule, "module-rate");
+  assert.equal(compare(tx, { type: "sdi", direction: "input", supportedRates: ["3G Ethernet"] }).rule, "module-signal");
 });
 
 function ordinaryWireProject(from, to, cableType) {
@@ -132,7 +137,7 @@ test("historical cage fields and punctuated SDI rates keep valid links without a
   tx.moduleCapabilities.supportedRates = ["3G (SDI)"];
   assert.equal(compare(tx, input).valid, true);
   assert.deepEqual(projectTopologyDiagnostics(ordinaryWireProject(tx, input, "sdi")), []);
-  assert.equal(compare(tx, { ...input, supportedRates: ["3G Ethernet"] }).rule, "module-rate");
+  assert.equal(compare(tx, { ...input, supportedRates: ["3G Ethernet"] }).rule, "module-signal");
   assert.equal(compare({ ...cage(" sfp-plus-cage "), physicalType: undefined },
     { ...cage(" sfp-plus-cage "), physicalType: undefined }).rule, "dead-cage");
 

@@ -27,11 +27,17 @@ Host eligibility, fibre type, explicit direction and receive ranges still apply.
 
 This phase displays one cable route even for duplex. A resolved WDM declaration
 uses a long/short 18/6/5/6 pattern in world pixels along the same geometry,
-including bends and hops. At most the ink changes: labels, lengths, quantities,
+including during drawing and replugging, bends and hops. At most the ink changes: labels, lengths, quantities,
 occupancy, and signal paths are unchanged. Known conflicting links are not
 presented as WDM or played as operating paths. Uncertain facts such as optical
 power, reach and actual per-lane MPO pairing are not verified. Jumps without
 resolved optical endpoints retain their default style.
+
+A rate-only mismatch across a detachable transceiver link is allowed and shown
+as Unverified. Different speed prefixes do not by themselves change an optical
+family such as SR. Known signal, wavelength, interface and fibre conflicts still
+reject; the installed module must still match its own cage. Integrated DAC/AOC,
+breakout lane rates, and fixed-port validation keep their existing requirements.
 
 The Designer and Technician Viewer (including offline HTML) share the Engine
 renderer, and ordinary WDM paths are emitted to SVG/PDF as a single dashed

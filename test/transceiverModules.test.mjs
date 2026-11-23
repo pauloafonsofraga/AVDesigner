@@ -61,7 +61,7 @@ test("install, replace and remove changes capability without changing identity, 
   assert.equal(compare(port, install(cage(), "lc-singlemode")).rule, "dead-cage");
 });
 
-test("SDI receiver/transmitter modules enforce direction, rates, signal family and operational status", () => {
+test("SDI receiver/transmitter modules enforce direction and signal family, but warn on detachable rate differences", () => {
   const tx = install(cage(), "sfp-sdi-3g-tx");
   const rx = install(cage(), "sfp-sdi-3g-rx");
   assert.equal(compare(tx, rx).valid, true);
@@ -70,7 +70,10 @@ test("SDI receiver/transmitter modules enforce direction, rates, signal family a
   assert.equal(compare(rx, rx).valid, false);
   assert.equal(compare(tx, tx).valid, false);
   assert.equal(compare(tx, { ...sdiInput, operationalStatus: "not-working" }).rule, "connector-not-working");
-  assert.equal(compare(tx, install(cage(), "sfp-sdi-12g-rx")).rule, "module-rate");
+  const differentRate = compare(tx, install(cage(), "sfp-sdi-12g-rx"));
+  assert.equal(differentRate.valid, true);
+  assert.equal(differentRate.compatibilityStatus, "unverified");
+  assert.match(differentRate.warnings.join(" "), /no declared line rate in common/);
   assert.equal(compare(tx, { type: "fiber-lc", direction: "input" }).valid, false);
   assert.equal(areEngineConnectorTypesCompatible(tx, rx), true);
   assert.equal(engineConnectorFiberMode(tx), "");
@@ -181,8 +184,8 @@ test("empty rate overrides cannot erase a named SDI or DAC profile's known rate"
         assert.equal(areEngineConnectorTypesCompatible(edited, target), true);
         assert.deepEqual(dacAssemblyForConnectors(edited, target, value).supportedRates, ["10G"]);
       } else {
-        assert.equal(compare(edited, target).rule, "module-rate");
-        assert.equal(areEngineConnectorTypesCompatible(edited, target), false);
+        assert.match(compare(edited, target).warnings.join(" "), /no declared line rate in common/);
+        assert.equal(areEngineConnectorTypesCompatible(edited, target), true);
       }
     }
   }

@@ -83,9 +83,12 @@ test("picker keeps generic modules and honours physical families and explicit ho
   assert.deepEqual(options(restricted), ["", "10gbase-lr"]);
 });
 
-test("known conflicts reject rate, fibre, signal family, optical technology and wavelength; missing evidence stays unverified", () => {
+test("rate differences warn; known conflicts reject fibre, signal family, optical technology and wavelength", () => {
   const sr = install("10gbase-sr"), lr = install("10gbase-lr");
-  assert.equal(compare(sr, install("25gbase-sr", "sfp28-cage")).rule, "module-rate");
+  const differentRate = compare(sr, install("25gbase-sr", "sfp28-cage"));
+  assert.equal(differentRate.valid, true);
+  assert.equal(differentRate.compatibilityStatus, "unverified");
+  assert.match(differentRate.warnings.join(" "), /no declared line rate in common/);
   assert.equal(compare(sr, lr).rule, "fiber-mode-mismatch");
   assert.equal(compare(lr, install("optical-12g-sdi-tx")).rule, "module-signal");
   const cwdm = { type: "fiber-lc", direction: "io", fiberMode: "single-mode",
