@@ -157,6 +157,42 @@ test("pair dependencies and custom identities resolve by stable ID, never displa
   assert.equal(personal.factoryIdFor({ ...first, factoryTemplateId: factory().id }, [factory()]), factory().id);
 });
 
+test("paired library saves atomically persist both unpaired definitions and preserve artwork", async () => {
+  const {owner,store}=await setup();
+  const a={...factory(),id:"pair-a",isPartOfPair:true,pairedTemplateId:"pair-b",faceImage:png};
+  const b={...factory(),id:"pair-b",isPartOfPair:true,pairedTemplateId:"pair-a",faceImage:png};
+  await owner.save(a,{library:[a,b]});
+  const revisionA=owner.entry(a.id).revision,revisionB=owner.entry(b.id).revision,generation=(await store.read()).registry.generation;
+  const unpair=d=>({...d,isPartOfPair:false,pairedTemplateId:"",pairPlaceFirst:false});
+  await owner.save(unpair(a),{library:[unpair(a),unpair(b)],expectedRevision:revisionA,
+    pairedDefinition:{definition:unpair(b),expectedRevision:revisionB}});
+  assert.equal((await store.read()).registry.generation,generation+1,"one transaction, not two sequential saves");
+  const reloaded=(await setup({store})).owner;
+  for(const source of [a,b]){
+    const saved=reloaded.entry(source.id).definition;
+    assert.equal(saved.isPartOfPair,false);assert.equal(saved.pairedTemplateId,"");
+    assert.deepEqual(saved.connectors,source.connectors);assert.equal(saved.faceImage,png);
+  }
+});
+
+test("paired save rejects stale partner revisions and storage failures without a half-unpaired library", async () => {
+  const {owner,store}=await setup();
+  const a={...factory(),id:"pair-a",isPartOfPair:true,pairedTemplateId:"pair-b"};
+  const b={...factory(),id:"pair-b",isPartOfPair:true,pairedTemplateId:"pair-a"};
+  await owner.save(a,{library:[a,b]});
+  const firstA=owner.entry(a.id),firstB=owner.entry(b.id);
+  const other=(await setup({store})).owner;
+  await other.save({...b,name:"Newer peer"},{library:[a,b],expectedRevision:firstB.revision});
+  const before=await store.read();
+  const options={library:[a,b],expectedRevision:firstA.revision,pairedDefinition:{definition:{...b,isPartOfPair:false,pairedTemplateId:""},expectedRevision:firstB.revision}};
+  await assert.rejects(owner.save({...a,isPartOfPair:false,pairedTemplateId:""},options),/paired definition changed/);
+  assert.deepEqual(await store.read(),before);
+  await owner.refresh();options.pairedDefinition.expectedRevision=owner.entry(b.id).revision;store.fail=true;
+  await assert.rejects(owner.save({...a,isPartOfPair:false,pairedTemplateId:""},options),/Quota/);
+  assert.deepEqual(await store.read(),before);
+  assert.equal(owner.entry(a.id).definition.pairedTemplateId,b.id);
+});
+
 test("interface or cross-tab notification exceptions do not report a committed write as failed", async () => {
   const diagnostics = [];
   const { owner, store } = await setup({ onChange() { throw new Error("UI failed"); }, notify() { throw new Error("channel failed"); }, diagnostic: text => diagnostics.push(text) });
@@ -194,6 +230,7 @@ async function editorHarness(mode = "library", knownFactory = true) {
     return elements.get(id);
   };
   const c = vm.createContext({ structuredClone, Map, crypto, localUserSettingsModule: personal, localUserSettingsOwner: owner,
+    editorPairNavigation: { draft: null, ids: [] }, engineRendererRequested: () => true,
     editorCardReplacementApprovals:new Set(),editorArtworkSide:"faceplate",
     accountLibraryUi: null, catalogueRevisions: {}, renderLibraryUpdateNotice() {},
     editorCloseGuard: { save: operation => operation() },
@@ -215,13 +252,45 @@ async function editorHarness(mode = "library", knownFactory = true) {
     invalidateEditorFaceplateUploadTarget() {}, clearEditorPlacementMotion() {},
     renderDeviceEditor() { c.renderEditorDefaultControls(); } });
   const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
-  for (const name of ["editorDependencyContext", "completeEditorNodeDefinitions", "editorNodeDefinitions", "editorNodeType", "factoryBuiltInTemplate", "currentEditorFactoryTemplate", "editorPersonalTargetId", "captureEditorSessionBaseline",
+  for (const name of ["editorPairMembers", "editorDependencyContext", "completeEditorNodeDefinitions", "editorNodeDefinitions", "editorNodeType", "factoryBuiltInTemplate", "currentEditorFactoryTemplate", "editorPersonalTargetId", "captureEditorSessionBaseline",
     "editorDefinitionChanged", "editorDependenciesChanged", "editorHasUnsavedChanges", "renderEditorDefaultControls", "saveEditorPersonalDefault", "persistEditorPersonalDefault", "reloadEditorPersonalDefault", "discardEditorUnsavedChanges"]) {
     vm.runInContext(html.match(new RegExp(`^    (?:async )?function ${name}\\([^\\n]*\\) \\{[\\s\\S]*?^    \\}`, "m"))[0], c);
   }
   c.captureEditorSessionBaseline();
   return { c, owner, store, element };
 }
+
+test("editor paired save advances both baselines atomically and discard restores both drafts", async () => {
+  const {c,owner}=await editorHarness();
+  const a={...factory(),id:"pair-a",isPartOfPair:true,pairedTemplateId:"pair-b"};
+  const b={...factory(),id:"pair-b",isPartOfPair:true,pairedTemplateId:"pair-a"};
+  await owner.save(a,{library:[a,b]});
+  c.editorDraft=structuredClone([a,b]);c.captureEditorSessionBaseline();
+  c.editorPairMembers();
+  for(const d of c.editorDraft)Object.assign(d,{isPartOfPair:false,pairedTemplateId:"",name:`Edited ${d.id}`});
+  const validate=c.validateEditorTemplateForApply;
+  c.validateEditorTemplateForApply=(definition,nodes)=>{validate(definition,nodes);definition.connectors[0].label="Normalized caption";};
+  assert.equal(await c.persistEditorPersonalDefault(),true);assert.deepEqual(c.alerts,[]);
+  for(let i=0;i<2;i++){
+    const d=c.editorDraft[i];assert.equal(owner.entry(d.id).definition.name,d.name);
+    assert.equal(owner.entry(d.id).definition.pairedTemplateId,"");
+    assert.equal(c.editorDefinitionChanged(d,c.editorLibraryBaseline[i]),false);
+    assert.equal(c.editorDefaultRevisions.get(d.id),owner.entry(d.id).revision);
+    d.name="Uncommitted";
+  }
+  c.confirmed=false;c.discardEditorUnsavedChanges();assert.equal(c.editorDraft[1].name,"Uncommitted");
+  c.confirmed=true;c.discardEditorUnsavedChanges();
+  assert.deepEqual(Array.from(c.editorDraft,d=>d.name),["Edited pair-a","Edited pair-b"]);
+  assert.equal(c.deviceLibrary[0].name,factory().name,"placed project definition is untouched");
+});
+
+test("ordinary instance-name-only discard still requests confirmation", async () => {
+  const {c}=await editorHarness("instance");
+  c.editorInstanceName="Unsaved instance name";c.confirmed=false;
+  c.discardEditorUnsavedChanges();
+  assert.equal(c.confirmations.length,1);assert.equal(c.editorInstanceName,"Unsaved instance name");
+  c.confirmed=true;c.discardEditorUnsavedChanges();assert.equal(c.editorInstanceName,c.editorBaselineInstanceName);
+});
 
 async function duplicateEditorHarness(mode = "library") {
   const harness = await editorHarness(mode), { c } = harness;

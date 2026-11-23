@@ -374,21 +374,35 @@ export function createPersonalDefinitions({ factory, nodes, factoryNodeTypes = {
       return { devices, nodes: resolvedNodes };
     },
     resolveNodeContext: (definition, sourceNodes, destinationNodes) => resolvePersonalNodeContext(definition, sourceNodes, destinationNodes, artworkIdentity, factoryNodeTypes),
-    async save(definition, { library = owner.library(), nodes: requiredNodes = nodes, expectedRevision = null } = {}) {
+    async save(definition, { library = owner.library(), nodes: requiredNodes = nodes, expectedRevision = null, pairedDefinition = null } = {}) {
       if (!initialized) throw new Error("Personal library is not ready. Reload before saving.");
       const id = definition.id, prepared = await prepare(definition, library, requiredNodes);
+      const paired = pairedDefinition?.definition;
+      if (paired && paired.id === id) throw new Error("The paired save must contain two different device identities.");
+      const pairedLibrary = pairedDefinition?.library || library;
+      const pairedNodes = pairedDefinition?.nodes || requiredNodes;
+      const pairedPrepared = paired ? await prepare(paired, pairedLibrary, pairedNodes) : null;
+      if (pairedPrepared) Object.assign(prepared.assets, pairedPrepared.assets);
       const dependencies = [];
-      for (const dependency of collectDefinitionDependencies(definition, library, requiredNodes).devices) {
-        if (owner.has(dependency.id)) continue;
-        const captured = await prepare(dependency, [...library, definition], requiredNodes);
-        dependencies.push([dependency.id, captured.encoded]);
-        Object.assign(prepared.assets, captured.assets);
+      for (const source of [{ definition, library, nodes: requiredNodes }, ...(paired ? [{ definition: paired, library: pairedLibrary, nodes: pairedNodes }] : [])]) {
+        for (const dependency of collectDefinitionDependencies(source.definition, source.library, source.nodes).devices) {
+          if (owner.has(dependency.id) || dependency.id === id || dependency.id === paired?.id || dependencies.some(([id]) => id === dependency.id)) continue;
+          const captured = await prepare(dependency, [...source.library, source.definition], source.nodes);
+          dependencies.push([dependency.id, captured.encoded]);
+          Object.assign(prepared.assets, captured.assets);
+        }
       }
       const data = await store.update(current => {
         if ((current.entries[id]?.revision || null) !== expectedRevision) throw new Error("This personal definition changed in another tab. Reload Saved Default before saving again.");
+        if (paired && (current.entries[paired.id]?.revision || null) !== (pairedDefinition.expectedRevision || null)) {
+          throw new Error("The paired definition changed in another tab. Reload before saving this pair.");
+        }
         const existing = current.entries[id]?.definition || factory.find(item => item.id === id);
         if (existing && (existing.kind === "multi-core") !== (definition.kind === "multi-core")) throw new Error("A definition ID cannot change product kind.");
+        const existingPair = paired && (current.entries[paired.id]?.definition || factory.find(item => item.id === paired.id));
+        if (existingPair && (existingPair.kind === "multi-core") !== (paired.kind === "multi-core")) throw new Error("A definition ID cannot change product kind.");
         for (const [dependencyId, entry] of dependencies) if (!current.entries[dependencyId]) current.entries[dependencyId] = entry;
+        if (pairedPrepared) current.entries[paired.id] = pairedPrepared.encoded;
         current.entries[id] = prepared.encoded; current.generation++;
         return current;
       }, prepared.assets);

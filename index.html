@@ -2801,6 +2801,9 @@
     }
 
     .editor-default-actions { display: grid; gap: 10px; padding: 10px 0; }
+    #editorPairedDevicePanel { flex-wrap: wrap; max-width: 100%; box-sizing: border-box; }
+    #editorPairedDeviceSelect { flex: 1 1 180px; min-width: 0; width: 280px; max-width: 100%; height: 28px; padding: 0 8px; border: 1px solid var(--panel-border); border-radius: 7px; background: var(--panel); color: var(--ink); font: inherit; font-size: 12px; }
+    #editorPairedDeviceSelect:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     .editor-default-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
     .editor-default-actions small { color: var(--muted); }
     #deviceEditorModal .modal { grid-template-columns: minmax(0, 1fr); grid-template-rows: 52px minmax(0, 1fr) auto; }
@@ -5766,6 +5769,12 @@
             <button class="editor-tab" data-editor-tab="defaults" type="button">Defaults</button>
           </div>
 
+          <div class="slot-actions hidden" id="editorPairedDevicePanel">
+            <label for="editorPairedDeviceSelect">Editing</label>
+            <select id="editorPairedDeviceSelect" aria-label="Paired device being edited"></select>
+            <button class="tool-button" id="unpairEditorDevices" type="button">Unpair Devices</button>
+          </div>
+
           <div class="editor-panels">
             <section class="editor-panel active" data-editor-panel="device">
               <div class="editor-device-command-row">
@@ -7207,6 +7216,7 @@
     let editorSelectedCardNodeIds = new Set();
     let editorSuppressPreviewClickUntil = 0;
     let editorActiveTab = "device";
+    let editorPairNavigation = { draft: null, ids: [] };
     let editorCardPreviewMode = "card";
     let editorPaletteDragSession = null;
     const editorDeviceDropDebugEnabled = new URLSearchParams(window.location.search).has("debugDeviceDrop");
@@ -12068,9 +12078,13 @@
       const template = owner === entry.template || owner?.id === entry.template.id ? owner
         : owner?.cardTypes?.find(card => card.id === entry.template.id);
       if (!template) return false;
-      const apply = side => entry.before ? replaceEditorTemplateContents(template, structuredClone(entry[side])) : applyEditorMetadataWrites(template, entry.writes, side);
+      const pairTargets = entry.pairChanges?.map(change => ({ change, target: editorDraft.find(item => item.id === change.id) }));
+      if (pairTargets?.some(({ target }) => !target)) return false;
+      const apply = side => pairTargets ? pairTargets.forEach(({change,target}) => Object.assign(target, change[side]))
+        : entry.before ? replaceEditorTemplateContents(template, structuredClone(entry[side])) : applyEditorMetadataWrites(template, entry.writes, side);
       apply(redo ? "after" : "before");
       try {
+        if (pairTargets) renderDeviceEditor();
         if (entry.stageboxEndId) {
           editorStageboxEndId = entry.stageboxEndId;
           editorStageboxDrafts.delete(template);
@@ -14236,6 +14250,10 @@
             const original = masterById.get(template.id);
             return !original || !libraryTemplatesEquivalent(original, template);
           });
+        for (const template of changedTemplates) {
+          const peer = template.isPartOfPair && editedTemplates.find(item => item.id === template.pairedTemplateId);
+          if (peer && !changedTemplates.includes(peer)) changedTemplates.push(peer);
+        }
         const projectCustomCopies = [];
         const projectNodes = serializeNodeLibrary(), addedNodes = [];
         changedTemplates.forEach(template => {
@@ -14245,6 +14263,10 @@
             ...deviceLibrary,
             ...projectCustomCopies
           ]));
+        });
+        const copiedPairIds = new Map(changedTemplates.map((template, index) => [template.id, projectCustomCopies[index].id]));
+        projectCustomCopies.forEach(copy => {
+          if (copiedPairIds.has(copy.pairedTemplateId)) copy.pairedTemplateId = copiedPairIds.get(copy.pairedTemplateId);
         });
         if (!projectCustomCopies.length) {
           setStatus("No master device changes to save as Project Devices.");
@@ -14415,6 +14437,68 @@
         const text = `${device.name || ""} ${deviceBrandLabel(device)} ${device.category || ""} ${device.model || ""} ${device.id || ""}`.toLowerCase();
         return terms.every(term => text.includes(term));
       });
+    }
+
+    function editorPairMembers() {
+      if (editorPairNavigation.draft !== editorDraft) editorPairNavigation = { draft: editorDraft, ids: [] };
+      if (!engineRendererRequested() || editorMode !== "library") return [];
+      const current = editorDraft[editorIndex];
+      if (!current) return [];
+      if (!editorPairNavigation.ids.includes(current.id)) editorPairNavigation.ids = [current.id];
+      const related = editorDraft.filter(item => item.id === current.pairedTemplateId && current.isPartOfPair
+        || item.isPartOfPair && item.pairedTemplateId === current.id);
+      editorPairNavigation.ids = [...new Set([...editorPairNavigation.ids, ...related.map(item => item.id)])];
+      return editorPairNavigation.ids.map(id => editorDraft.find(item => item.id === id)).filter(Boolean);
+    }
+
+    function renderEditorPairNavigation() {
+      const members = editorPairMembers(), panel = document.getElementById("editorPairedDevicePanel");
+      panel.classList.toggle("hidden", members.length < 2);
+      const select = document.getElementById("editorPairedDeviceSelect");
+      select.innerHTML = members.map(item => `<option value="${escapeAttr(item.id)}">${escapeHtml(item.name || item.id)}</option>`).join("");
+      select.value = editorDraft[editorIndex]?.id || "";
+      select.disabled = personalDefaultsBusy;
+      document.getElementById("unpairEditorDevices").disabled = personalDefaultsBusy
+        || !members.some(item => item.isPartOfPair && members.some(peer => peer.id === item.pairedTemplateId));
+    }
+
+    function switchEditorPairedDevice(id) {
+      if (personalDefaultsBusy || !editorPairMembers().some(item => item.id === id)) return false;
+      editorPendingFields?.flush();
+      syncEditorFieldsToDraft();
+      const index = editorDraft.findIndex(item => item.id === id);
+      if (index < 0 || index === editorIndex) return false;
+      cancelDeviceEditorActiveInteraction();
+      invalidateEditorFaceplateUploadTarget();
+      clearEditorPlacementMotion();
+      editorIndex = index;
+      resetEditorDeviceSelections();
+      renderDeviceEditor();
+      scheduleDeviceEditorPreviewFit(editorActiveTab);
+      return true;
+    }
+
+    function unpairEditorDevices() {
+      if (personalDefaultsBusy || editorMode !== "library" || !engineRendererRequested()) return false;
+      editorPendingFields?.flush();
+      syncEditorFieldsToDraft();
+      const current = editorDraft[editorIndex];
+      const members = editorPairMembers();
+      const fields = item => ({ isPartOfPair: item.isPartOfPair === true,
+        pairedTemplateId: item.pairedTemplateId || "", pairPlaceFirst: item.pairPlaceFirst === true });
+      const affected = members.filter(item => item === current || item.pairedTemplateId === current.id && item.isPartOfPair);
+      if (!affected.some(item => item.isPartOfPair || item.pairedTemplateId)) return false;
+      if (!confirm(`Unpair ${members.map(item => item.name || "Device").join(" and ")}? Both devices and their cable connections will be kept.`)) {
+        renderDeviceEditor(); return false;
+      }
+      const pairChanges = affected.map(item => ({ id: item.id, before: fields(item),
+        after: { isPartOfPair: false, pairedTemplateId: "", pairPlaceFirst: false } }));
+      pairChanges.forEach(change => Object.assign(editorDraft.find(item => item.id === change.id), change.after));
+      if (editorMetadataHistory.draft !== editorDraft) editorMetadataHistory = { draft: editorDraft, undo: [], redo: [] };
+      editorMetadataHistory.undo.push({ template: current, ownerId: current.id, pairChanges, closed: true });
+      editorMetadataHistory.redo = [];
+      renderDeviceEditor();
+      return true;
     }
 
     function renderPairTemplateList(template = currentEditorTemplate()) {
@@ -16995,6 +17079,7 @@
           : "Delete this device";
       }
       updateDeviceEditorTitle(template);
+      renderEditorPairNavigation();
       document.getElementById("editorAutoHeight").checked = !(Number(template.manualHeight) > 0);
       syncEditorDeviceHeightControls(template);
       editorDeviceName.value = editorMode === "instance" ? (editorInstanceName || template.name || "") : (template.name || "");
@@ -19508,7 +19593,16 @@
         definition.id = copyToLibrary ? `personal-${crypto.randomUUID()}` : factory?.id || definition.id;
         const nodes = editorNodeDefinitions(index);
         validateEditorTemplateForApply(definition, nodes);
-        const available = [...context.devices, definition];
+        const changedPeers = editorPairMembers().filter(item => item !== target
+          && (editorDefinitionChanged(item, editorLibraryBaseline[editorDraft.indexOf(item)]) || editorDependenciesChanged(editorDraft.indexOf(item))));
+        if (changedPeers.length > 1) throw new Error("This pairing has multiple edited partners. Save each definition separately before changing this pair.");
+        const peer = changedPeers[0], peerIndex = peer ? editorDraft.indexOf(peer) : -1;
+        const peerBaseline = peer ? structuredClone(peer) : null;
+        const peerDefinition = peer ? structuredClone(peer) : null;
+        const peerContext = peer ? editorDependencyContext(peerIndex) : null;
+        const peerNodes = peer ? editorNodeDefinitions(peerIndex) : null;
+        if (peer) validateEditorTemplateForApply(peerDefinition, peerNodes);
+        const available = [...context.devices, ...(mode === "library" ? editorDraft : []), definition];
         // A paired project snapshot can refer back to its old root ID.
         const dependencies = available.map(item => {
           const copy = structuredClone(item);
@@ -19517,15 +19611,21 @@
         });
         personalDefaultsBusy = true; renderEditorDefaultControls();
         const saved = await owner.save(definition, { library: dependencies, nodes,
-          expectedRevision: copyToLibrary ? null : editorDefaultRevisions.get(definition.id) || null });
-        // Only advance the saved draft's baseline. Edits typed during the async
-        // transaction and every other open draft remain unsaved and untouched.
+          expectedRevision: copyToLibrary ? null : editorDefaultRevisions.get(definition.id) || null,
+          ...(peer ? { pairedDefinition: { definition: peerDefinition, nodes: peerNodes,
+            library: [...peerContext.devices, ...editorDraft], expectedRevision: editorDefaultRevisions.get(peer.id) || null } } : {}) });
+        // Advance only the captured saved baselines; newer edits stay dirty.
         if (localUserSettingsOwner === owner && editorDependencySession === session && editorMode === mode && editorDraft[index] === target) {
           editorLibraryBaseline[index] = baseline;
           editorDependencyBaselines[index] = context;
           editorDefaultRevisions.set(definition.id, saved.revision);
+          if (peer && editorDraft[peerIndex] === peer) {
+            editorLibraryBaseline[peerIndex] = peerBaseline;
+            editorDependencyBaselines[peerIndex] = peerContext;
+            editorDefaultRevisions.set(peer.id, owner.entry(peer.id)?.revision || null);
+          }
         }
-        setStatus(`${definition.name}: ${accountLibraryUi?.isAccount() ? "Synced to your account" : "saved to browser recovery only; not account-synced"}. Existing project devices were not changed.`);
+        setStatus(`${[definition.name, peerBaseline?.name].filter(Boolean).join(" and ")}: ${accountLibraryUi?.isAccount() ? "Synced to your account" : "saved to browser recovery only; not account-synced"}. Existing project devices were not changed.`);
         return true;
       } catch (error) {
         alert(`Personal definition was not saved: ${error.message}`);
@@ -19595,11 +19695,18 @@
       syncEditorFieldsToDraft();
       const template = currentEditorTemplate(), baseline = editorLibraryBaseline[editorIndex];
       if (!baseline) return;
-      if (editorHasUnsavedChanges() && !confirm(`Discard unsaved changes to "${template.name}" and restore this editing session's baseline?`)) return;
+      const pair = editorPairMembers();
+      const discardIndices = pair.length > 1 ? pair.map(item => editorDraft.indexOf(item)) : [editorIndex];
+      const dirty = pair.length > 1
+        ? discardIndices.some(index => editorDefinitionChanged(editorDraft[index], editorLibraryBaseline[index]) || editorDependenciesChanged(index))
+        : editorHasUnsavedChanges();
+      if (dirty && !confirm(`Discard unsaved changes to ${pair.length > 1 ? "this device pair" : `"${template.name}"`} and restore this editing session's baseline?`)) return;
       invalidateEditorFaceplateUploadTarget();
       clearEditorPlacementMotion();
-      editorDraft[editorIndex] = structuredClone(baseline);
-      editorDependencyContexts[editorIndex] = editorDependencyBaselines[editorIndex];
+      discardIndices.forEach(index => {
+        editorDraft[index] = structuredClone(editorLibraryBaseline[index]);
+        editorDependencyContexts[index] = editorDependencyBaselines[index];
+      });
       if (editorMode === "instance") editorInstanceName = editorBaselineInstanceName;
       resetEditorDeviceSelections();
       renderDeviceEditor();
@@ -36828,6 +36935,10 @@ document.addEventListener("click", function(event) {
     function applyPairEditorSettings() {
       const template = currentEditorTemplate();
       if (!template) return;
+      if (engineRendererRequested() && editorMode === "library" && (!editorPartOfPair.checked || !editorPairTemplate.value)
+        && (template.isPartOfPair || editorDraft.some(item => item.isPartOfPair && item.pairedTemplateId === template.id))) {
+        unpairEditorDevices(); return;
+      }
       template.isPartOfPair = editorPartOfPair.checked;
       template.pairedTemplateId = template.isPartOfPair ? (editorPairTemplate.value || "") : "";
       if (template.pairedTemplateId === template.id) template.pairedTemplateId = "";
@@ -36836,7 +36947,12 @@ document.addEventListener("click", function(event) {
       renderDeviceEditor();
       renderDeviceLibrary();
     }
-    editorPartOfPair.addEventListener("change", applyPairEditorSettings);
+    editorPartOfPair.addEventListener("change", () => queueMicrotask(applyPairEditorSettings));
+    document.getElementById("editorPairedDeviceSelect").addEventListener("change", event => {
+      const id = event.target.value;
+      queueMicrotask(() => switchEditorPairedDevice(id));
+    });
+    document.getElementById("unpairEditorDevices").addEventListener("click", unpairEditorDevices);
     editorPairSearch.addEventListener("input", () => renderPairTemplateList());
     editorPairSearch.addEventListener("keydown", event => {
       if (event.key !== "ArrowDown") return;
