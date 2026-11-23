@@ -18,15 +18,15 @@ test("front and back artwork show two live dimension lines without mutating geom
     const g=f.parent.children[0];assert.equal(g.attributes["pointer-events"],"none");assert.equal(g.attributes["aria-hidden"],"true");
     assert.equal(g.attributes["data-editor-artwork-measurements"],side);
     assert.deepEqual(g.children.filter(n=>n.tag==="path").map(n=>[n.attributes["data-measure-axis"],n.attributes["data-pixels"]]),[["width",face.width],["height",face.height]]);
-    assert.deepEqual(g.children.filter(n=>n.tag==="g").map(n=>n.children[1].textContent),["351.3 px","92.8 px"]);
+    assert.deepEqual(g.children.filter(n=>n.tag==="g").map(n=>n.children[1].textContent),["351 px","93 px"]);
   }
 });
 test("pixel measurements are zoom independent while labels and ticks retain screen size",()=>{
   for(const zoom of [.25,1,3]){
     const f=fixture({zoom});f.draw(face);const g=f.parent.children[0],label=g.children.find(n=>n.tag==="g");
     assert.equal(g.children[0].attributes["data-pixels"],face.width);
-    assert.equal(label.children[1].attributes["font-size"]*zoom,11);
-    assert.equal(label.children[0].attributes.height*zoom,18);
+    assert.equal(label.children[1].attributes["font-size"]*zoom,16.5);
+    assert.equal(label.children[0].attributes.height*zoom,27);
     assert.equal(g.children[0].attributes["vector-effect"],"non-scaling-stroke");
   }
 });

@@ -2749,6 +2749,10 @@
       overflow: auto;
     }
 
+    .device-editor-main:has(> #editorPairedDevicePanel:not(.hidden)) {
+      grid-template-rows: auto auto auto minmax(360px, 1fr);
+    }
+
     .editor-tabs {
       display: flex;
       flex-wrap: wrap;
@@ -2806,7 +2810,7 @@
     #editorPairedDeviceSelect:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     .editor-default-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
     .editor-default-actions small { color: var(--muted); }
-    #deviceEditorModal .modal { grid-template-columns: minmax(0, 1fr); grid-template-rows: 52px minmax(0, 1fr) auto; }
+    #deviceEditorModal .modal { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(52px, auto) minmax(0, 1fr) auto; }
     #deviceEditorModal .modal-footer { flex-wrap: wrap; min-height: 54px; padding: 10px 14px; }
     #deviceEditorModal .modal-footer button { max-width: 100%; white-space: normal; }
 
@@ -4225,6 +4229,10 @@
 
       .device-editor-main {
         grid-template-rows: auto auto minmax(300px, 1fr);
+      }
+
+      .device-editor-main:has(> #editorPairedDevicePanel:not(.hidden)) {
+        grid-template-rows: auto auto auto minmax(300px, 1fr);
       }
 
       .editor-device-command-row {
@@ -23967,17 +23975,17 @@
       if (!face || ![face.x, face.y, face.width, face.height].every(Number.isFinite) || face.width <= 0 || face.height <= 0) return;
       const matrix = parent.getScreenCTM?.();
       const zoom = Math.max(.0001, matrix ? Math.hypot(matrix.a, matrix.b) : 1);
-      const insetX = Math.min(16 / zoom, face.width / 3), insetY = Math.min(16 / zoom, face.height / 3);
+      const insetX = Math.min(24 / zoom, face.width / 3), insetY = Math.min(24 / zoom, face.height / 3);
       const tick = 4 / zoom;
       const group = createSvg("g", { "data-editor-artwork-measurements": editorArtworkSide,
         "pointer-events": "none", "aria-hidden": "true" });
       const label = (x, y, value, vertical = false) => {
-        const text = `${Math.round(value * 10) / 10} px`, width = (text.length * 6.5 + 12) / zoom;
+        const text = `${Math.round(value)} px`, width = (text.length * 9.75 + 18) / zoom;
         const box = createSvg("g", vertical ? { transform: `rotate(-90 ${x} ${y})` } : {});
-        box.appendChild(createSvg("rect", { x: x - width / 2, y: y - 9 / zoom,
-          width, height: 18 / zoom, rx: 3 / zoom, fill: "#101820" }));
+        box.appendChild(createSvg("rect", { x: x - width / 2, y: y - 13.5 / zoom,
+          width, height: 27 / zoom, rx: 3 / zoom, fill: "#101820" }));
         const caption = createSvg("text", { x, y, "text-anchor": "middle", "dominant-baseline": "central",
-          "font-size": 11 / zoom, "font-family": "Inter, system-ui, sans-serif", "font-weight": 600, fill: "#8edbff" });
+          "font-size": 16.5 / zoom, "font-family": "Inter, system-ui, sans-serif", "font-weight": 600, fill: "#8edbff" });
         caption.textContent = text; box.appendChild(caption); group.appendChild(box);
       };
       const right = face.x + face.width, bottom = face.y + face.height;

@@ -49,8 +49,8 @@ try {
         fonts:[...g.querySelectorAll("text")].map(n=>Number(n.getAttribute("font-size"))*Math.hypot(n.getScreenCTM().a,n.getScreenCTM().b))};
     });
     assert.deepEqual(values.values,[values.face.width,values.face.height]);
-    assert.deepEqual(values.labels,values.values.map(n=>`${Math.round(n*10)/10} px`));
-    values.fonts.forEach(n=>assert.ok(Math.abs(n-11)<.01));return values;
+    assert.deepEqual(values.labels,values.values.map(n=>`${Math.round(n)} px`));
+    values.fonts.forEach(n=>assert.ok(Math.abs(n-16.5)<.01));return values;
   };
   for(const side of ["faceplate","backplate"]){
     await page.locator("#editorArtworkSide").selectOption(side);
