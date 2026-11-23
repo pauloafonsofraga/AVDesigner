@@ -1,5 +1,46 @@
 # Editable Transceiver Inspector (Phase A)
 
+## Independent optical settings
+
+Bandwidth remains the first control. Once an optical interface is selected, the
+existing Canvas Inspector offers an optional, host/rate-filtered Optical profile,
+fibre arrangement, signal direction, and wavelength configuration. An edit to
+a preset setting switches the draft to Custom; Apply is still required. SDI
+continues to take its TX/RX role from the device.
+
+In module capabilities, `optical.arrangement`, `optical.signalDirection` and
+`optical.wavelengthMode` are independent. `txNm`/`rxNm` hold wavelength sets;
+optional `laneWavelengths` stores sets for numbered logical lanes on a parallel
+module. These lane numbers do not define MPO pin positions or signal routing.
+A bidirectional simplex module shares one fibre (BiDi); it may use single
+wavelengths per direction or WDM. Historical values are interpreted on read,
+and old project records are not rewritten just by opening them. Missing
+wavelength evidence remains Unverified.
+
+10GBASE-LR is duplex single-wavelength and 100GBASE-LR4 is duplex WDM with four
+nominal wavelengths per direction. SR4 uses four parallel optical lanes, not
+four wavelengths on one fibre. 10G BX-U/D provides complementary simplex
+1270/1330 nm examples for SFP+ hosts. See the
+[Cisco QSFP data sheet](https://www.cisco.com/c/en/us/products/collateral/interfaces-modules/transceiver-modules/datasheet-c78-736282.html)
+and [Cisco SFP+ data sheet](https://www.cisco.com/c/en/in/products/collateral/interfaces-modules/transceiver-modules/data_sheet_c78-455693.html).
+Host eligibility, fibre type, explicit direction and receive ranges still apply.
+
+This phase displays one cable route even for duplex. A resolved WDM declaration
+uses a long/short 18/6/5/6 pattern in world pixels along the same geometry,
+including bends and hops. At most the ink changes: labels, lengths, quantities,
+occupancy, and signal paths are unchanged. Known conflicting links are not
+presented as WDM or played as operating paths. Uncertain facts such as optical
+power, reach and actual per-lane MPO pairing are not verified. Jumps without
+resolved optical endpoints retain their default style.
+
+The Designer and Technician Viewer (including offline HTML) share the Engine
+renderer, and ordinary WDM paths are emitted to SVG/PDF as a single dashed
+stroke. Play Cable retains the pattern on direct WDM wire steps. Run
+`node --test test/opticalWavelengths.test.mjs` and
+`node scripts/optical-wavelengths-smoke.mjs` against the local preview.
+
+The earlier duplex-rendering and Inspector notes below are historical.
+
 ## Bandwidth and duplex update (2026-11-19)
 
 The first Canvas Inspector choice is now **Bandwidth**, replacing the optical

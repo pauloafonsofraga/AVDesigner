@@ -1,7 +1,7 @@
 import { CAGE_FORM_FACTORS, isIntegratedCableType, resolveInstalledModule, transceiverConnectorRole,
   transceiverModuleOption, transceiverModuleOptionsForConnector, transceiverModulePatch, transceiverModuleValidation,
   connectorPhysicalTypePatch, isTransceiverCage, transceiverRateKey } from "./transceiverModules.js";
-import { CUSTOM_OPTICS, customOpticalIssue } from "./customTransceiverOptics.js";
+import { CUSTOM_OPTICS, customOpticalIssue, opticalWavelengthMode } from "./customTransceiverOptics.js";
 import { validateMpoPhysical } from "./mpoPhysical.js";
 
 // Existing QSFP cages retain their physical key; an authored form restricts
@@ -127,7 +127,10 @@ export function transceiverConfigurationPatch(connector, config) {
   if (config?.method !== "custom" || !["lc", "sc", "st", "mpo"].includes(config.interface)) throw new Error("Choose an external interface.");
   const iface = config.interface;
   const signalFamily = config.signalFamily ?? "ethernet";
-  const direction = signalFamily === "sdi" ? transceiverConnectorRole(connector) : "bidirectional";
+  const role = transceiverConnectorRole(connector);
+  const signalDirection = config.signalDirection ?? (signalFamily === "sdi" ? "inherited" : "bidirectional");
+  const direction = signalFamily === "sdi" || signalDirection === "unidirectional" ? role
+    : signalDirection === "inherited" ? role || "bidirectional" : "bidirectional";
   const fiberFamily = config.fiberFamily ?? "single-mode";
   const fiberGrade = config.fiberGrade ?? "";
   const arrangement = config.arrangement ?? (iface === "mpo" ? "parallel" : signalFamily === "sdi" ? "simplex" : "duplex");
@@ -135,7 +138,11 @@ export function transceiverConfigurationPatch(connector, config) {
     : iface + (fiberFamily === "multimode" ? "-multimode" : "-singlemode");
   const profile = transceiverModuleOption(value, connector);
   const optical = { configuration: CUSTOM_OPTICS, interface: iface === "mpo" ? "mpo" : `${arrangement}-${iface}`,
-    fiberFamily, fiberGrade, arrangement, technology: config.technology ?? "", txNm: config.txNm ?? [], rxNm: config.rxNm ?? [],
+    fiberFamily, fiberGrade, arrangement, signalDirection, wavelengthMode: opticalWavelengthMode(config),
+    ...(config.technology ? { technology: config.technology } : {}), txNm: config.txNm ?? [], rxNm: config.rxNm ?? [],
+    ...(config.rxRangeNm !== undefined ? { rxRangeNm: config.rxRangeNm } : {}),
+    ...(config.laneWavelengths?.length || config.laneWavelengths != null && !Array.isArray(config.laneWavelengths)
+      ? { laneWavelengths: config.laneWavelengths } : {}),
     fiberCount: config.fiberCount ?? null, mpoPolarity: config.mpoPolarity ?? "", laneMapping: config.laneMapping ?? [] };
   const issue = customOpticalIssue(optical, signalFamily, direction);
   if (issue) throw new Error(issue);

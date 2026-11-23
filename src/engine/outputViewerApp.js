@@ -505,6 +505,7 @@ export class EngineOutputViewer {
       const point = polylinePointAtDistance(step.points, polylineLength(step.points) * wirePlaybackEase(progress));
       this.centerPlaybackCamera(point);
       interactionState.wirePlayback = { active: true, dot: point, progress, points: step.points, color: step.color,
+        wireId: step.type === "wire" ? step.id : "",
         breakoutEndpoints: step.breakoutEndpoints,
         jumpLinkId: step.type === "jump-link" ? step.id : "" };
       if (progress === 1) {

@@ -85,13 +85,12 @@ try {
   assert.deepEqual((await port(added)).cageCapabilities.supportedFormFactors,["qsfp28"]);
   assert.deepEqual((await port("port-0")).moduleCapabilities.supportedRates,["10G"]);
   const check=await page.evaluate(async wireId=>{
-    const {isDuplexFiberWire,duplexFiberPaths}=await import("./src/engine/duplexFiberGeometry.js");
-    const b=activeEngineBridge(),w=b.scene.getWire(wireId),points=b.scene.wireRenderPolyline(w),paths=duplexFiberPaths(points,4.6);
-    return {duplex:isDuplexFiberWire(b.scene,w),simplex:isDuplexFiberWire(b.scene,b.scene.getWire("cable-3")),
-      strands:paths.length,ends:paths.map(p=>[p[0],p.at(-1)]),anchors:[points[0],points.at(-1)]};
+    const {isDuplexFiberWire}=await import("./src/engine/duplexFiberGeometry.js");
+    const {isWdmCable}=await import("./src/engine/wdmCableStyle.js");
+    const b=activeEngineBridge(),w=b.scene.getWire(wireId);
+    return {duplex:isDuplexFiberWire(b.scene,w),simplex:isDuplexFiberWire(b.scene,b.scene.getWire("cable-3")),wdm:isWdmCable(b.scene,w)};
   },wireId);
-  assert.equal(check.duplex,true);assert.equal(check.simplex,false);assert.equal(check.strands,2);
-  assert.ok(check.ends.every(ends=>JSON.stringify(ends)===JSON.stringify(check.anchors)));
+  assert.deepEqual(check,{duplex:true,simplex:false,wdm:false});
   await page.mouse.click(1050,700);await page.mouse.move(1100,720);
   await page.screenshot({path:process.env.AVDESIGNER_SCREENSHOT || "/tmp/wirenexus-bandwidth-duplex.png"});
   const html=await page.evaluate(async()=>(await prepareEngineViewerOutput()).html);

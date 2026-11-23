@@ -73,7 +73,7 @@ test("duplex crossover changes strand sides once, not the underlying cable route
   assert.deepEqual(duplexFiberPaths([{x:0,y:0}],4.6),[]);
 });
 
-test("editor/output scene, offline Viewer and SVG/PDF share duplex primitives; simplex and assembly graphics remain single", () => {
+test("duplex metadata survives while the shared editor, Viewer and PDF renderer uses a single solid path", () => {
   const fixture = transceiverBandwidthFixture(), before=structuredClone(fixture);
   const snapshot=buildEngineOutputScene(fixture), {scene,contract}=createOutputViewerModel(snapshot);
   assert.equal(isDuplexFiberWire(scene,scene.getWire("cable-0")),true);
@@ -81,7 +81,10 @@ test("editor/output scene, offline Viewer and SVG/PDF share duplex primitives; s
   assert.equal(isDuplexFiberWire(scene,{...scene.getWire("cable-0"),cableAssembly:{version:1}}),false);
   assert.equal(isDuplexFiberWire(scene,{...scene.getWire("cable-0"),cableType:"aoc-qsfp28"}),false);
   const primitives=engineOutputPrimitives(scene,contract);
-  assert.ok(primitives.wires.find(w=>w.id==="cable-0").vertices.length > primitives.wires.find(w=>w.id==="cable-3").vertices.length);
+  const duplex=primitives.wires.find(w=>w.id==="cable-0");
+  const route=contract.wires.find(w=>w.id===duplex.id).renderPolyline;
+  assert.equal(duplex.vertices.length, (route.length-1) * 36, "one six-vertex strip per route segment");
+  assert.equal(duplex.wdmStroke,undefined);
   const {svg}=renderEngineOutputSvg(snapshot);
   assert.equal([...svg.matchAll(/data-wire-id=/g)].length,2);
   assert.deepEqual(buildEngineOutputScene(JSON.parse(JSON.stringify(fixture))),snapshot);

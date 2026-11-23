@@ -70,7 +70,7 @@ try {
   await field("Installed interface").selectOption("mpo");
   await field("Fibre category").selectOption("multimode");
   await field("Fibre grade").selectOption("om5");
-  await field("Optical technology").selectOption("parallel");
+  await field("Wavelength configuration").selectOption("single-wavelength");
   await field("Bandwidth").selectOption("100G");
   await field("MPO fibre count").selectOption("12");
   await field("MPO polarity").selectOption("B");

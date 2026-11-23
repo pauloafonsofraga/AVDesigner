@@ -6387,6 +6387,7 @@ class ProductionEngineBridge {
         active: true,
         stepIndex: state.stepIndex,
         stepType: "complete",
+        wireId: state.steps.at(-1)?.wireId || "",
         points: state.lastPoints || [],
         progress: 1,
         dot: state.lastPoint || null,

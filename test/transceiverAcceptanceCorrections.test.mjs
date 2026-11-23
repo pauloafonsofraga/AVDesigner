@@ -28,7 +28,7 @@ test("LR4 editing clears profile-only UI restrictions without dropping wavelengt
   assert.equal(patch.installedModuleType, "lc-singlemode");
   assert.equal(patch.installedModuleName, "Custom LC");
   assert.deepEqual(patch.moduleCapabilities.optical.txNm, [1295, 1300, 1304, 1309]);
-  assert.equal(patch.moduleCapabilities.optical.technology, "wdm");
+  assert.equal(patch.moduleCapabilities.optical.wavelengthMode, "wdm");
   assert.deepEqual(patch.moduleCapabilities.supportedRates, ["100G"]);
   const multi = { ...c, ...patch };
   multi.moduleCapabilities.supportedRates = ["40 Gb/s", "100G"];

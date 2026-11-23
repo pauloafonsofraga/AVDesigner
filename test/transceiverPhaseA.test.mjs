@@ -18,13 +18,13 @@ const compare = (a,b) => engineCompatibilitySummary({ device: { id: "a" }, conne
 test("presets populate editable characteristics; any property edit clears their identity", () => {
   const c = cage();
   const draft = draftFromPreset(c, "10gbase-sr");
-  assert.deepEqual([draft.interface, draft.fiberFamily, draft.arrangement, draft.technology, draft.txNm], ["lc", "multimode", "duplex", "single-wavelength", "850"]);
+  assert.deepEqual([draft.interface, draft.fiberFamily, draft.arrangement, draft.wavelengthMode, draft.txNm], ["lc", "multimode", "duplex", "single-wavelength", "850"]);
   assert.equal(transceiverDraftPatch(c, draft).installedModuleType, "10gbase-sr");
   const edited = editTransceiverDraft(draft, "fiberGrade", "om3");
   const patch = transceiverDraftPatch(c, edited);
   assert.equal(edited.preset, "");
   assert.equal(patch.installedModuleType, "lc-multimode");
-  assert.equal(patch.moduleCapabilities.optical.technology, "single-wavelength");
+  assert.equal(patch.moduleCapabilities.optical.wavelengthMode, "single-wavelength");
   assert.equal(patch.moduleCapabilities.optical.fiberGrade, "om3");
   const before = JSON.stringify(c);
   assert.equal(transceiverDraft(c).interface, "empty");

@@ -766,7 +766,7 @@ function inferFiberModeFromModuleValue(value) {
   return "";
 }
 
-function engineFiberModesCompatible(source, target, sourceType, targetType) {
+export function engineFiberModesCompatible(source, target, sourceType, targetType) {
   if (!isEngineFiberCableType(sourceType) || !isEngineFiberCableType(targetType)) return true;
   if (sourceType !== targetType) return true;
   const [sourceFamily, targetFamily] = engineFiberFamiliesForLink(source, target);

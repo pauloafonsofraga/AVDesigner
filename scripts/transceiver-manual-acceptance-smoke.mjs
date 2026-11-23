@@ -67,10 +67,10 @@ try {
   }, originalLab), [11, 380, 260]);
   assert.equal(await field("Bandwidth").inputValue(),"100G");
   await field("Installed interface").selectOption("lc");
-  await field("Optical technology").selectOption("wdm");
+  await field("Wavelength configuration").selectOption("wdm");
   await field("TX wavelengths (nm, comma-separated)").fill("1295, 1300, 1304, 1309");
   await field("RX wavelengths (nm, comma-separated)").fill("1295, 1300, 1304, 1309");
-  assert.equal(await field("Optical technology").inputValue(), "wdm");
+  assert.equal(await field("Wavelength configuration").inputValue(), "wdm");
   assert.equal(await field("TX wavelengths (nm, comma-separated)").inputValue(), "1295, 1300, 1304, 1309");
   await apply();
   assert.equal((await port(originalLab, "qsfp28-2")).module, "lc-singlemode");
@@ -84,7 +84,7 @@ try {
   await page.locator("#undoAction").click(); assert.equal((await port(originalLab, "qsfp28-2")).caps.optical.fiberGrade, "");
   await page.locator("#redoAction").click(); assert.deepEqual(await port(originalLab, "qsfp28-2"), custom);
   await select(originalLab, "qsfp28-2");
-  await field("Optical technology").selectOption("single-wavelength"); await apply();
+  await field("Wavelength configuration").selectOption("single-wavelength"); await apply();
   assert.match(await panel.getByRole("alert").innerText(), /at most one wavelength/);
   assert.deepEqual(await port(originalLab, "qsfp28-2"), custom);
   assert.deepEqual(await port(originalLab, "qsfp28"), untouchedBreakout);
@@ -101,7 +101,7 @@ try {
   }
   await select(configLab, "qsfp28-test");
   await field("Bandwidth").selectOption("100G");
-  await field("Optical technology").selectOption("wdm");
+  await field("Wavelength configuration").selectOption("wdm");
   await field("RX wavelengths (nm, comma-separated)").fill("1295, 1300, 1304, 1309");
   assert.deepEqual(await options("Bandwidth"), ["40G", "100G"]);
   await field("TX wavelengths (nm, comma-separated)").fill("1296, 1300, 1304, 1309");
@@ -113,7 +113,7 @@ try {
   for (const iface of ["sc", "st"]) {
     await field("Installed interface").selectOption(iface);
     await field("Fibre grade").selectOption("os2");
-    await field("Optical technology").selectOption("single-wavelength");
+    await field("Wavelength configuration").selectOption("single-wavelength");
     await field("TX wavelengths (nm, comma-separated)").fill("1310");
     await field("RX wavelengths (nm, comma-separated)").fill("1310");
     await field("Bandwidth").selectOption("1G"); await apply();

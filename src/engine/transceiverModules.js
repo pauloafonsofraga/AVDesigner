@@ -1,5 +1,5 @@
 import { opticalLinkCheck, opticalTransceiverProfiles } from "./transceiverOptics.js";
-import { CUSTOM_OPTICS, customOpticalIssue } from "./customTransceiverOptics.js";
+import { CUSTOM_OPTICS, customOpticalIssue, opticalWavelengthMode } from "./customTransceiverOptics.js";
 import { mpoConnectorCheck, mpoPhysicalPresentation } from "./mpoPhysical.js";
 
 // Module profiles describe capability, not a guarantee of host-platform support.
@@ -273,8 +273,9 @@ export function transceiverModuleValidation(connector, capabilities = installedM
     if (declared.length && (!rates.length || rates.some(rate => !hasRate(declared, rate)))) {
       return reject("Module rates contradict the selected profile.");
     }
-    if (profile.capabilities.optical && ["technology", "interface", "fiberFamily"].some(field =>
-      key(capabilities.optical?.[field]) !== key(profile.capabilities.optical[field]))) {
+    if (profile.capabilities.optical && (["technology", "interface", "fiberFamily", "arrangement", "signalDirection"].some(field =>
+      key(capabilities.optical?.[field]) !== key(profile.capabilities.optical[field]))
+      || opticalWavelengthMode(capabilities.optical) !== opticalWavelengthMode(profile.capabilities.optical))) {
       return reject("Optical capabilities contradict the selected profile.");
     }
   }
@@ -509,7 +510,7 @@ export function opticalEthernetDirection(connector, caps = installedModuleCapabi
 
 export function effectiveTransceiverDirection(connector) {
   const caps = isTransceiverCage(connector) && !connector.jumpModuleCompatibilityProxy ? installedModuleCapabilities(connector) : {};
-  if (caps.optical?.configuration === CUSTOM_OPTICS && caps.signalFamily === "ethernet") return "bidirectional";
+  if (caps.optical?.configuration === CUSTOM_OPTICS && caps.signalFamily === "ethernet" && caps.direction === "bidirectional") return "bidirectional";
   const node = normalizeDirection(connector?.signalDirection) || normalizeDirection(connector?.direction);
   const direction = caps.direction;
   return ["input", "output"].includes(direction) ? direction : node;
