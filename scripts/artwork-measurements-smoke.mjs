@@ -44,12 +44,18 @@ try {
     const values=await page.evaluate(()=>{
       const face=editorFaceImageVisiblePlacement(readonlyDeviceEditorPreviewTemplate(currentEditorTemplate()));
       const g=deviceEditorPreview.querySelector("[data-editor-artwork-measurements]");
+      const frame=deviceEditorPreview.querySelector(".editor-face-image-frame").getBoundingClientRect();
+      const [widthLabel,heightLabel]=[...g.querySelectorAll("rect")].map(n=>n.getBoundingClientRect());
+      const [widthLine,heightLine]=[...g.querySelectorAll("[data-measure-axis]")].map(n=>n.getBoundingClientRect());
       return{face,values:[...g.querySelectorAll("[data-measure-axis]")].map(n=>Number(n.dataset.pixels)),
+        outside:[widthLabel,widthLine].every(r=>r.bottom<frame.top || r.top>frame.bottom)
+          && [heightLabel,heightLine].every(r=>r.left>frame.right || r.right<frame.left),
         labels:[...g.querySelectorAll("text")].map(n=>n.textContent),
         fonts:[...g.querySelectorAll("text")].map(n=>Number(n.getAttribute("font-size"))*Math.hypot(n.getScreenCTM().a,n.getScreenCTM().b))};
     });
     assert.deepEqual(values.values,[values.face.width,values.face.height]);
     assert.deepEqual(values.labels,values.values.map(n=>`${Math.round(n)} px`));
+    assert.ok(values.outside,"both rulers and labels stay outside the artwork");
     values.fonts.forEach(n=>assert.ok(Math.abs(n-16.5)<.01));return values;
   };
   for(const side of ["faceplate","backplate"]){

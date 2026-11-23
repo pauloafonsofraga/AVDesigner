@@ -4,9 +4,10 @@ import {readFileSync} from "node:fs";
 import vm from "node:vm";
 const html=readFileSync(new URL("../index.html",import.meta.url),"utf8");
 const source=html.match(/^    function drawEditorArtworkMeasurements\([^\n]*\) \{[\s\S]*?^    \}/m)[0];
-function fixture({side="faceplate",kind="custom-face-image",handle="se",zoom=1}={}){
+function fixture({side="faceplate",kind="custom-face-image",handle="se",zoom=1,viewport}={}){
   const node=(tag,attributes={})=>({tag,attributes,children:[],appendChild(child){this.children.push(child);}});
   const parent=node("svg");parent.getScreenCTM=()=>({a:zoom,b:0,c:0,d:zoom});
+  if(viewport)parent.viewBox={baseVal:viewport};
   const c=vm.createContext({editorActiveTab:"faceplate",editorArtworkSide:side,editorResizeSession:{kind,handle,backplate:side==="backplate"},createSvg:node});
   vm.runInContext(source,c);return{c,parent,draw:face=>c.drawEditorArtworkMeasurements(parent,face)};
 }
@@ -28,6 +29,23 @@ test("pixel measurements are zoom independent while labels and ticks retain scre
     assert.equal(label.children[1].attributes["font-size"]*zoom,16.5);
     assert.equal(label.children[0].attributes.height*zoom,27);
     assert.equal(g.children[0].attributes["vector-effect"],"non-scaling-stroke");
+  }
+});
+test("rulers and their labels are outside the artwork and prefer the edge with room",()=>{
+  for(const [viewport,above,onRight] of [
+    [{x:-40,y:-40,width:460,height:230},true,true],
+    [{x:-40,y:30,width:420,height:230},false,false]
+  ]){
+    const f=fixture({viewport});f.draw(face);
+    const [widthLine,heightLine,widthLabel,heightLabel]=f.parent.children[0].children;
+    const y=Number(widthLabel.children[1].attributes.y),x=Number(heightLabel.children[1].attributes.x);
+    const bottom=face.y+face.height,right=face.x+face.width;
+    assert.ok(above?y+13.5<face.y:y-13.5>bottom);
+    assert.ok(onRight?x-13.5>right:x+13.5<face.x);
+    assert.ok(y-13.5>=viewport.y && y+13.5<=viewport.y+viewport.height);
+    assert.ok(x-13.5>=viewport.x && x+13.5<=viewport.x+viewport.width);
+    assert.ok(widthLine.attributes.d.startsWith(`M ${face.x} ${y} H ${right}`));
+    assert.ok(heightLine.attributes.d.startsWith(`M ${x} ${face.y} V ${bottom}`));
   }
 });
 test("guides are transient and hidden during moves, idle, other tabs and unrelated resizes",()=>{

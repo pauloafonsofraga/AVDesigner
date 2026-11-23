@@ -23975,7 +23975,7 @@
       if (!face || ![face.x, face.y, face.width, face.height].every(Number.isFinite) || face.width <= 0 || face.height <= 0) return;
       const matrix = parent.getScreenCTM?.();
       const zoom = Math.max(.0001, matrix ? Math.hypot(matrix.a, matrix.b) : 1);
-      const insetX = Math.min(24 / zoom, face.width / 3), insetY = Math.min(24 / zoom, face.height / 3);
+      const offset = 19 / zoom, labelClearance = offset + 14 / zoom;
       const tick = 4 / zoom;
       const group = createSvg("g", { "data-editor-artwork-measurements": editorArtworkSide,
         "pointer-events": "none", "aria-hidden": "true" });
@@ -23989,7 +23989,12 @@
         caption.textContent = text; box.appendChild(caption); group.appendChild(box);
       };
       const right = face.x + face.width, bottom = face.y + face.height;
-      const y = face.y + insetY, x = right - insetX;
+      const viewport = parent.viewBox?.baseVal;
+      const usePreferredSide = (preferred, opposite) => preferred >= labelClearance || preferred >= opposite;
+      const above = !viewport?.height || usePreferredSide(face.y - viewport.y, viewport.y + viewport.height - bottom);
+      const onRight = !viewport?.width || usePreferredSide(viewport.x + viewport.width - right, face.x - viewport.x);
+      const y = above ? face.y - offset : bottom + offset;
+      const x = onRight ? right + offset : face.x - offset;
       group.appendChild(createSvg("path", { "data-measure-axis": "width", "data-pixels": face.width,
         d: `M ${face.x} ${y} H ${right} M ${face.x} ${y - tick} V ${y + tick} M ${right} ${y - tick} V ${y + tick}`,
         fill: "none", stroke: "#8edbff", "stroke-width": 1, "vector-effect": "non-scaling-stroke" }));
