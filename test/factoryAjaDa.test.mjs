@@ -5,8 +5,8 @@ import {createHash} from "node:crypto";
 import {promotionDevice,promotionFingerprint} from "../src/factoryPromotion.js";
 import {inlineProjectArtwork,imageMime,imageDataUrl} from "../src/imageAssets.js";
 import {collectDevicePackage,encodeDevicePackage,decodeDevicePackage,attributionLabel} from "../src/devicePackage.js";
-import {beforeAjaDaAdditions} from "./helpers/factoryImportHistory.mjs";
-const catalogue=JSON.parse(await readFile(new URL("../data/factory-catalogue.json",import.meta.url)));
+import {beforeAjaDaAdditions,beforeFactoryOpticalDefaults} from "./helpers/factoryImportHistory.mjs";
+const catalogue=beforeFactoryOpticalDefaults(JSON.parse(await readFile(new URL("../data/factory-catalogue.json",import.meta.url))));
 const review=JSON.parse(await readFile(new URL("./fixtures/factory-aja-da-2026-11-19.json",import.meta.url)));
 const hash=b=>createHash("sha256").update(b).digest("hex");
 

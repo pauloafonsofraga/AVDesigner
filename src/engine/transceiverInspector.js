@@ -6,7 +6,7 @@ import { mountMpoPhysicalFields } from "./mpoPhysicalInspector.js";
 
 const names = { lc: "LC", sc: "SC", st: "ST", mpo: "MPO", rj45: "RJ45", bnc: "BNC", dac: "DAC", aoc: "AOC", empty: "Empty" };
 const opticalInterface = value => ["lc", "sc", "st", "mpo"].includes(value);
-export function mountTransceiverInspector(root, connector, { commit, disabled = false }) {
+export function mountTransceiverInspector(root, connector, { commit, disabled = false, prefix = "transceiver" }) {
   const choices = transceiverConfigurationChoices(connector);
   const profilesFor = iface => choices.standard.filter(p => p.activeType === "fiber-" + iface);
   const fiberFamiliesFor = iface => [...new Set([...choices.fiberFamilies[iface],
@@ -59,7 +59,7 @@ export function mountTransceiverInspector(root, connector, { commit, disabled = 
     wrap.append(title, control); fields.append(wrap);
   }
   function select(key, label, options, callback) {
-    const control = el("select"); control.id = "transceiver-" + key;
+    const control = el("select"); control.id = prefix + "-" + key;
     for (const [value, title] of options) { const option = el("option", title); option.value = value; control.append(option); }
     control.value = draft[key] ?? "";
     if (control.selectedIndex < 0) {
@@ -74,7 +74,7 @@ export function mountTransceiverInspector(root, connector, { commit, disabled = 
     return control;
   }
   function input(key, label) {
-    const control = el("input"); control.id = "transceiver-" + key; control.value = draft[key] ?? ""; control.maxLength = 180;
+    const control = el("input"); control.id = prefix + "-" + key; control.value = draft[key] ?? ""; control.maxLength = 180;
     control.addEventListener("change", () => { mark(key, control.value); applySelection(); });
     control.addEventListener("keydown", event => {
       if (event.key === "Enter") { event.preventDefault(); control.blur(); }
@@ -183,7 +183,7 @@ export function mountTransceiverInspector(root, connector, { commit, disabled = 
         input("laneMapping", "Lane fibre positions (comma-separated)");
         if (direction !== "input" || draft.laneTxNm) input("laneTxNm", "Lane TX wavelengths (nm; semicolon between lanes)");
         if (direction !== "output" || draft.laneRxNm) input("laneRxNm", "Lane RX wavelengths (nm; semicolon between lanes)");
-        const mpo = mountMpoPhysicalFields(fields, draft.mpoPhysical, { expanded: true,
+        const mpo = mountMpoPhysicalFields(fields, draft.mpoPhysical, { expanded: true, prefix: prefix === "transceiver" ? "mpo" : prefix + "-mpo",
           onChange: () => { mark("mpoPhysical", mpo.read()); applySelection(); } });
       }
     } else if (["dac", "aoc", "bnc"].includes(draft.interface)) {

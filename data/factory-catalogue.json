@@ -3714,7 +3714,18 @@
           "y": 1230,
           "resolutionFrameRate": "",
           "customText": "MASTER / BACKUP",
-          "installedModuleType": "",
+          "installedModuleType": "lc-singlemode",
+          "moduleCapabilities": {
+            "mediaType": "fiber",
+            "supportedRates": ["10G"],
+            "optical": {
+              "interface": "duplex-lc",
+              "fiberFamily": "single-mode",
+              "arrangement": "duplex",
+              "wavelengthMode": "single-wavelength",
+              "txNm": [1310]
+            }
+          },
           "empty": false,
           "pairedConnectorId": "output-slot-19",
           "networkGroupId": "network-mq57d4kl-hk4m",
@@ -3759,7 +3770,18 @@
           "y": 1212,
           "resolutionFrameRate": "",
           "customText": "MASTER / BACKUP",
-          "installedModuleType": "",
+          "installedModuleType": "lc-singlemode",
+          "moduleCapabilities": {
+            "mediaType": "fiber",
+            "supportedRates": ["10G"],
+            "optical": {
+              "interface": "duplex-lc",
+              "fiberFamily": "single-mode",
+              "arrangement": "duplex",
+              "wavelengthMode": "single-wavelength",
+              "txNm": [1310]
+            }
+          },
           "empty": false,
           "pairedConnectorId": "output-slot-22",
           "networkGroupId": "network-mq57d6y6-6aiv",
@@ -3804,7 +3826,18 @@
           "y": 1176,
           "resolutionFrameRate": "",
           "customText": "MASTER / BACKUP",
-          "installedModuleType": "",
+          "installedModuleType": "lc-singlemode",
+          "moduleCapabilities": {
+            "mediaType": "fiber",
+            "supportedRates": ["10G"],
+            "optical": {
+              "interface": "duplex-lc",
+              "fiberFamily": "single-mode",
+              "arrangement": "duplex",
+              "wavelengthMode": "single-wavelength",
+              "txNm": [1310]
+            }
+          },
           "empty": false,
           "pairedConnectorId": "output-slot-21",
           "networkGroupId": "network-mq57d8pr-g6at",
@@ -3849,7 +3882,18 @@
           "y": 1158,
           "resolutionFrameRate": "",
           "customText": "MASTER / BACKUP",
-          "installedModuleType": "",
+          "installedModuleType": "lc-singlemode",
+          "moduleCapabilities": {
+            "mediaType": "fiber",
+            "supportedRates": ["10G"],
+            "optical": {
+              "interface": "duplex-lc",
+              "fiberFamily": "single-mode",
+              "arrangement": "duplex",
+              "wavelengthMode": "single-wavelength",
+              "txNm": [1310]
+            }
+          },
           "empty": false,
           "pairedConnectorId": "output-slot-20",
           "networkGroupId": "network-mq57dabe-vijv",
@@ -242294,6 +242338,17 @@
           "id": "sdi",
           "baseFingerprint": "3933519ad05147b14f43287e43002c966845f5ef015325e8ca456d42751158f3",
           "candidateFingerprint": "3933519ad05147b14f43287e43002c966845f5ef015325e8ca456d42751158f3"
+        }
+      ]
+    },
+    {
+      "packageId": "a9ee3ec1a73d8826a9f2a49f2a54fe8a8052313b9eab7b9c3404e223c7ba683d",
+      "records": [
+        {
+          "kind": "device",
+          "id": "novastar-mctrl4k",
+          "baseFingerprint": "62305a5aaa10d9fc1822294e8f4b194d9fc7a13a810c3099b321500c9c119f86",
+          "candidateFingerprint": "147c8ce5e7f1e34d9cf08c0ebfab035df049eeebb7563ca1c7ae9769f3b1f73b"
         }
       ]
     }

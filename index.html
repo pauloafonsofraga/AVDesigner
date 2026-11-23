@@ -11488,6 +11488,23 @@
       });
     }
 
+    function mountEditorTransceiverControls(owner) {
+      const root = document.querySelector('[data-transceiver-editor="' + owner + '"]');
+      const api = engineTransceiverApi();
+      if (!root || !api) return;
+      const { template, connector, options } = sfpEditorSelection(owner);
+      if (!api.isTransceiverCage(connector)) return;
+      api.mountTransceiverInspector(root, connector, {
+        prefix: "editor-" + owner + "-transceiver",
+        commit(config) {
+          const patch = api.transceiverConfigurationPatch(connector, config);
+          if (!patch) return;
+          commitEditorConnectorConfiguration(template, connector.id, patch, { ...options, transceiverConfig: config });
+          refreshSfpEditor(owner);
+        }
+      });
+    }
+
     function sfpEditorSelection(owner) {
       if (owner === "node") {
         const node = selectedNodeType();
@@ -17615,8 +17632,7 @@
       ` : "";
       const moduleSection = isCageConnector(connector) ? `
         <div class="connector-inspector-section">
-          <h4 class="connector-inspector-heading">Module</h4>
-          ${engineTransceiverApi() ? `<div class="field-hint">${escapeHtml(engineTransceiverApi().transceiverModulePresentation(connector))}</div>`
+          ${engineTransceiverApi() ? '<div data-transceiver-editor="card"></div>'
             : transceiverModuleSelectHtml("selectedCardConnectorModule", connector).replace("<select", `<select data-card-field="installedModuleType" data-card-node-index="${connectorIndex}"`)}
         </div>
       ` : "";
@@ -17734,6 +17750,7 @@
       document.getElementById("addCardOutputNode").disabled = card?.kind === "input";
       cardConnectorList.innerHTML = renderCardConnectorInspector(template, card);
       mountEditorMpoControls("card");
+      mountEditorTransceiverControls("card");
       renderCardConnectorRelationshipsPanel();
     }
 
@@ -18444,8 +18461,7 @@
       ` : "";
       const moduleSection = isCageConnector(connector) ? `
         <div class="connector-inspector-section">
-          <h4 class="connector-inspector-heading">Module</h4>
-          ${engineTransceiverApi() ? `<div class="field-hint">${escapeHtml(engineTransceiverApi().transceiverModulePresentation(connector))}</div>`
+          ${engineTransceiverApi() ? '<div data-transceiver-editor="device"></div>'
             : transceiverModuleSelectHtml("selectedConnectorModule", connector)}
         </div>
       ` : "";
@@ -18550,6 +18566,7 @@
         ${powerSection}
       `;
       mountEditorMpoControls("device");
+      mountEditorTransceiverControls("device");
       const setSelectedConnectorValue = (field, value) => {
         if (installedSelection) {
           setCardSlotConnectorOverride(
@@ -26779,20 +26796,34 @@
     function commitEditorConnectorConfiguration(template, connectorId, patch, options = {}) {
       const before = structuredClone(template);
       const draft = structuredClone(template);
+      const api = engineTransceiverApi();
+      const patchCagePair = (owner, selected, apply, resolve = port => port) => {
+        if (!options.transceiverConfig || !selected.pairedConnectorId) return;
+        const pair = owner?.connectors?.find(item => item.id === selected.pairedConnectorId && item.id !== selected.id);
+        if (!pair) return;
+        const current = resolve(pair);
+        if (!api.isTransceiverCage(current)) return;
+        const pairedPatch = api.transceiverConfigurationPatch(current, options.transceiverConfig);
+        if (pairedPatch) apply(pair, pairedPatch);
+      };
       let connector;
       if (options.slotId) {
         const slot = draft.cardSlots?.find(item => item.id === options.slotId);
-        const source = cardTypeById(draft, slot?.installedCardTypeId)?.connectors?.find(item => item.id === options.sourceConnectorId);
+        const card = cardTypeById(draft, slot?.installedCardTypeId);
+        const source = card?.connectors?.find(item => item.id === options.sourceConnectorId);
         if (!source) throw new Error("The installed card connector no longer exists.");
         connector = { ...mergedCardConnectorForSlot(draft, slot, source), ...patch };
-        Object.entries(patch).forEach(([field, value]) => setCardSlotConnectorOverride(draft, slot, source.id, field, value));
+        const apply = (port, changes) => Object.entries(changes)
+          .forEach(([field, value]) => setCardSlotConnectorOverride(draft, slot, port.id, field, value));
+        apply(source, patch);
+        patchCagePair(card, connector, apply, port => mergedCardConnectorForSlot(draft, slot, port));
       } else {
         const owner = options.cardTypeId ? cardTypeById(draft, options.cardTypeId) : draft;
         connector = owner?.connectors?.find(item => item.id === connectorId);
         if (!connector) throw new Error("The connector no longer exists.");
         Object.assign(connector, patch);
+        patchCagePair(owner, connector, Object.assign);
       }
-      const api = engineTransceiverApi();
       if (api.isTransceiverCage(connector) && api.installedModuleValue(connector)) {
         const validation = api.transceiverModuleValidation(connector);
         if (!validation.valid) throw new Error(validation.reason);
@@ -33743,7 +33774,8 @@
       }
       if (configureModule) {
         const port = scene.getConnector(deviceId, connectorId) || connector;
-        const occupied = [connectorId, port.pairedConnectorId].filter(Boolean).some(id => connectorHasCable(deviceId, id)
+        const pairedCage = api.isTransceiverCage(scene.getConnector(deviceId, port.pairedConnectorId)) ? port.pairedConnectorId : "";
+        const occupied = [connectorId, pairedCage].filter(Boolean).some(id => connectorHasCable(deviceId, id)
           || scene.connectorWireIds(deviceId, id).size || bridge.breakoutConnectorRejectionReason({ device, connector: scene.getConnector(deviceId, id) || port }));
         api.mountTransceiverInspector(inspectorBody.querySelector("[data-transceiver-config]"), port, {
           disabled: !bridge.isReady() || occupied || device?.layerLocked || device?.layerHidden,
@@ -36272,6 +36304,7 @@ document.addEventListener("click", function(event) {
           const host = { ...selection.connector.cageCapabilities };
           if (values.length) host[key] = values; else delete host[key];
           commitEditorConnectorConfiguration(selection.template, selection.connector.id, { cageCapabilities: host }, selection.options);
+          mountEditorTransceiverControls(owner);
         }
       } catch (error) { alert(error.message); refreshSfpEditor(owner); }
     });

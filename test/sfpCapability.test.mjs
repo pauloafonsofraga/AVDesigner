@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import * as api from "../src/engine/transceiverModules.js";
 import * as compatibility from "../src/engine/connectorCompatibility.js";
+import { transceiverConfigurationPatch } from "../src/engine/transceiverConfiguration.js";
 import { createNodeBuilderPreviewScene } from "../src/engine/nodePreview.js";
 const original = () => ({ id: "stable", type: "hdmi", x: 12, y: 40, displaySide: "both", signalDirection: "bidirectional",
   direction: "io", anchors: [{ id: "left", x: 0 }, { id: "right", x: 320 }], cardSlotId: "slot", nameText: "Authored" });
@@ -108,6 +109,17 @@ for (const scope of ["device", "card", "installed"]) test(`actual ${scope} metad
     : { ...template.cardTypes[0].connectors[0], ...template.cardSlots[0].overrides };
   for (const key of ["id", "x", "y", "anchors", "cardSlotId", "direction", "displaySide"]) assert.deepEqual(after[key], connector[key]);
   assert.equal(after.type, "sfp-plus-cage");
+  const config = { method: "custom", interface: "sc", fiberFamily: "single-mode",
+    fiberGrade: "os2", supportedRates: ["10G"], wavelengthMode: "single-wavelength", txNm: [1310], rxNm: [1310] };
+  const configured = transceiverConfigurationPatch(after, config);
+  context.commitEditorConnectorConfiguration(template, connector.id, configured, { ...options, transceiverConfig: config });
+  const port = scope === "device" ? template.connectors[0] : scope === "card" ? template.cardTypes[0].connectors[0]
+    : { ...template.cardTypes[0].connectors[0], ...template.cardSlots[0].overrides };
+  assert.equal(history, 2);
+  assert.equal(port.installedModuleType, "sc-singlemode");
+  assert.deepEqual(port.moduleCapabilities.optical.txNm, [1310]);
+  assert.deepEqual(port.anchors, connector.anchors);
+  if (scope === "installed") assert.equal(template.cardTypes[0].connectors[0].type, "hdmi");
 });
 test("connected comparison covers effective direction changes as well as family and module", () => {
   const context = vm.createContext({ engineTransceiverApi: () => ({ ...api, ...compatibility }), isFiberCableType: () => false });

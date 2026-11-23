@@ -133,6 +133,36 @@ try {
   await interfaces.fill("lc; sc; st"); await interfaces.press("Tab");
   assert.deepEqual(await page.evaluate(() => currentEditorTemplate().connectors.at(-1).cageCapabilities.supportedModuleInterfaces), ["lc", "sc", "st"]);
   assert.equal(await page.locator("#selectedConnectorModule").count(), 0);
+  const draftPanel = page.locator('[data-transceiver-editor="device"]');
+  const draftField = name => draftPanel.getByLabel(name, { exact: true });
+  await draftField("Bandwidth").selectOption("100G");
+  await draftField("Installed interface").selectOption("lc");
+  await draftField("Optical profile").selectOption("100gbase-lr4");
+  assert.equal(await page.evaluate(() => currentEditorTemplate().connectors.at(-1).installedModuleType), "100gbase-lr4");
+  await draftField("Fibre grade").selectOption("os2");
+  const draftPort = await page.evaluate(() => currentEditorTemplate().connectors.at(-1));
+  assert.equal(draftPort.installedModuleType, "lc-singlemode");
+  assert.equal(draftPort.moduleCapabilities.optical.wavelengthMode, "wdm");
+  assert.deepEqual(draftPort.moduleCapabilities.optical.txNm, [1295, 1300, 1304, 1309]);
+
+  await page.evaluate(() => {
+    const template = currentEditorTemplate(), card = createCardType(template, "Optical Card");
+    card.connectors.push({ id: "card-optic", direction: "output", type: "sfp-plus-cage", x: 380, y: 50 });
+    template.cardTypes = [card]; template.hasSwappableCards = true;
+    renderDeviceEditor();
+  });
+  await page.locator('[data-editor-tab="cards"]').click();
+  await page.evaluate(() => { setEditorCardNodeSelection(0); renderCardEditor(); });
+  const cardPanel = page.locator('[data-transceiver-editor="card"]');
+  await cardPanel.getByLabel("Installed interface", { exact: true }).selectOption("st");
+  assert.equal(await page.evaluate(() => currentEditorCard().connectors[0].installedModuleType), "st-singlemode");
+  assert.equal(await page.evaluate(() => currentEditorTemplate().connectors.at(-1).installedModuleType), "lc-singlemode");
+  const authoredId = await page.evaluate(() => currentEditorTemplate().id);
+  await page.locator("#applyDeviceEditor").click();
+  await page.waitForFunction(id => localUserSettingsOwner?.entry(id)?.definition, authoredId);
+  const savedDefault = await page.evaluate(id => localUserSettingsOwner.entry(id).definition, authoredId);
+  assert.equal(savedDefault.connectors.at(-1).moduleCapabilities.optical.wavelengthMode, "wdm");
+  assert.equal(savedDefault.cardTypes[0].connectors[0].installedModuleType, "st-singlemode");
   assert.deepEqual(failures, []);
-  console.log("Chrome passed: physical cage authoring, progressive Inspector, filtered profiles, custom MPO validation, occupied cage, SDI, DAC, Undo/Redo and .avd reopen.");
+  console.log("Chrome passed: physical cage authoring, progressive Inspector, chassis and card defaults saved to the library, filtered profiles, custom MPO validation, occupied cage, SDI, DAC, Undo/Redo and .avd reopen.");
 } finally { await browser.close(); }

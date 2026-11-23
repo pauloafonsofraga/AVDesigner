@@ -9,7 +9,27 @@ const connectorAdditions = JSON.parse(await readFile(new URL("../fixtures/mini-u
 const ajaAuthorship = JSON.parse(await readFile(new URL("../fixtures/factory-aja-attribution-2026-11-19.json", import.meta.url)));
 const ajaDa = JSON.parse(await readFile(new URL("../fixtures/factory-aja-da-2026-11-19.json", import.meta.url)));
 
+export const factoryOpticalDefaultsReceipt = "a9ee3ec1a73d8826a9f2a49f2a54fe8a8052313b9eab7b9c3404e223c7ba683d";
+export function beforeFactoryOpticalDefaults(catalogue) {
+  if (!catalogue.promotions.some(p => p.packageId === factoryOpticalDefaultsReceipt)) return catalogue;
+  const ports = new Set(["sfp-cage-input", "sfp-cage-input-2", "sfp-cage-input-3", "sfp-cage-input-4"]);
+  const devices = catalogue.devices.map(device => device.id !== "novastar-mctrl4k" ? device : {
+    ...device, connectors: device.connectors.map(port => {
+      if (!ports.has(port.id)) return port;
+      assert.equal(port.installedModuleType, "lc-singlemode");
+      assert.deepEqual(port.moduleCapabilities, { mediaType: "fiber", supportedRates: ["10G"], optical: {
+        interface: "duplex-lc", fiberFamily: "single-mode", arrangement: "duplex", wavelengthMode: "single-wavelength", txNm: [1310]
+      } });
+      const copy = { ...port, installedModuleType: "" };
+      delete copy.moduleCapabilities;
+      return copy;
+    })
+  });
+  return { ...catalogue, devices, promotions: catalogue.promotions.filter(p => p.packageId !== factoryOpticalDefaultsReceipt) };
+}
+
 export function beforeAjaDaAdditions(catalogue) {
+  catalogue = beforeFactoryOpticalDefaults(catalogue);
   if (!catalogue.promotions.some(p => p.packageId === ajaDa.packageId)) return catalogue;
   const hash = value => createHash("sha256").update(JSON.stringify(value)).digest("hex");
   for (const [id, expected] of Object.entries({ ...ajaDa.baselineDeviceHashes, ...ajaDa.expectedDefinitionHashes })) {

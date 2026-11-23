@@ -7729,7 +7729,7 @@ class ProductionEngineBridge {
       this.markCommitted("inspector relationship fields", applied.mutationMs, { inspectorFieldEdit: true, connectorId });
       return true;
     }
-    const affectedConnectorIds = connectorIdsForInspectorEdit(connector, fields);
+    const affectedConnectorIds = connectorIdsForInspectorEdit(connector, fields, id => this.scene.getConnector(device.id, id));
     const installsModule = fields.installedModuleType !== undefined || fields.transceiverConfiguration !== undefined || fields.mpoPhysical !== undefined;
     if (installsModule) {
       try {
@@ -13254,9 +13254,11 @@ function normalizeConnectorInspectorPatch(connector, fields = {}, { installModul
   return patch;
 }
 
-function connectorIdsForInspectorEdit(connector, fields = {}) {
+function connectorIdsForInspectorEdit(connector, fields = {}, getConnector) {
   const ids = [String(connector?.id || "")].filter(Boolean);
-  if ((fields.installedModuleType !== undefined || fields.transceiverConfiguration !== undefined) && connector?.pairedConnectorId) ids.push(String(connector.pairedConnectorId));
+  const pairId = connector?.pairedConnectorId;
+  if ((fields.installedModuleType !== undefined || fields.transceiverConfiguration !== undefined)
+    && pairId && isEngineCageConnector(getConnector(pairId))) ids.push(String(pairId));
   return uniqueItems(ids);
 }
 

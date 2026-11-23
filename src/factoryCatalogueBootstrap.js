@@ -8,7 +8,7 @@ import { isMultiCoreConnection } from "./engine/multiCoreConnectivity.js";
 import * as editorLifecycle from "./editorLifecycle.js";
 import * as transceivers from "./engine/transceiverModules.js";
 import * as standaloneConnectors from "./engine/standaloneConnectors.js";
-import { CAGE_DEFINITION_CHOICES, cageDefinitionValue, cageDefinitionPatch } from "./engine/transceiverConfiguration.js";
+import { CAGE_DEFINITION_CHOICES, cageDefinitionValue, cageDefinitionPatch, transceiverConfigurationPatch } from "./engine/transceiverConfiguration.js";
 import { mountTransceiverInspector } from "./engine/transceiverInspector.js";
 import { mountFixedMpoInspector } from "./engine/mpoPhysicalInspector.js";
 import { mpoConnectorCheck, mpoPhysicalPresentation } from "./engine/mpoPhysical.js";
@@ -58,7 +58,7 @@ function start() {
     Object.defineProperty(window, "WireNexusWireRouting", { value: wireRouting });
     Object.defineProperty(window, "WireNexusModularCardSafety", { value: Object.freeze({ ...modularCardSafety, ...nodeReplacement }) });
     Object.defineProperty(window, "WireNexusTransceivers", { value: Object.freeze({ ...transceivers, ...standaloneConnectors,
-      CAGE_DEFINITION_CHOICES, cageDefinitionValue, cageDefinitionPatch, mountTransceiverInspector,
+      CAGE_DEFINITION_CHOICES, cageDefinitionValue, cageDefinitionPatch, transceiverConfigurationPatch, mountTransceiverInspector,
       mountFixedMpoInspector, mpoConnectorCheck, mpoPhysicalPresentation,
       installedModuleDetailsForEngine, activeTypeForEngineCageConnector, isEngineCageConnector, isEngineDeadCageConnector,
       engineConnectorTypeDisplayName, engineConnectorCanvasLabelLines,

@@ -9,6 +9,14 @@ import { mpoConnectorCheck } from "../src/engine/mpoPhysical.js";
 const source = readFileSync(new URL("../src/engine/productionBridge.js", import.meta.url), "utf8");
 const method = (name, next) => source.slice(source.indexOf(`  ${name}(`), source.indexOf(`  ${next}(`));
 
+test("a missing or non-cage paired connector does not prevent editing the installed module", () => {
+  const fn = source.match(/function connectorIdsForInspectorEdit\([\s\S]*?\n}/)[0];
+  const ids = vm.runInNewContext(fn + "\nconnectorIdsForInspectorEdit", { ...compatibility, uniqueItems: items => [...new Set(items)] });
+  const connector = { id: "p1", type: "sfp-plus-cage", pairedConnectorId: "p2" }, patch = { transceiverConfiguration: {} };
+  for (const pair of [undefined, { type: "ethercon" }]) assert.deepEqual(Array.from(ids(connector, patch, () => pair)), ["p1"]);
+  assert.deepEqual(Array.from(ids(connector, patch, () => ({ type: "sfp-plus-cage" }))), ["p1", "p2"]);
+});
+
 test("MPO history restores recoverable imported metadata without accepting it as a new edit", () => {
   const helpers = source.slice(source.indexOf("function sanitizeConnectorInspectorFields("),
     source.indexOf("function connectorIdsForInspectorEdit("));

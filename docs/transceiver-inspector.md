@@ -1,5 +1,25 @@
 # Editable Transceiver Inspector (Phase A)
 
+## Device and card defaults
+
+Select a cage in Device Editor / Connectors or on a card in Cards to use the
+same transceiver controls as on the canvas. A device or card draft keeps its
+module when saved to the library; an installed card's connector can also be
+configured for that slot. Canvas edits change only that placed device, and
+connected cages still need to be unplugged before changing modules.
+
+New placements of the NovaStar MCTRL4K default to the documented 10G,
+1310 nm single-mode duplex LC configuration on its four OPT ports. This is a
+catalogue default, not a claim that every shipment has the same module or that
+the optics interoperate as 10GBASE-LR. See the
+[NovaStar product catalogue](https://oss.novastar.tech/uploads/2020/01/NovaStar-Catalog-2020.pdf)
+and [MCTRL4K specifications](https://oss.novastar.tech/uploads/2019/09/MCTRL4K-LED-Display-Controller-Specifications-V1.1.0.pdf).
+Optional or ambiguous modules are not guessed, including
+[Tessera XD-S](https://www.bromptontech.com/wp-content/uploads/2025/09/Brompton-XD-S-Data-Sheet-July2025-EN.pdf)
+and [QD-S](https://www.bromptontech.com/wp-content/uploads/2025/09/Brompton-QD-S-Data-Sheet-July2025-EN1.pdf),
+which are supplied with empty cages. Saved project definitions retain their own
+module settings.
+
 ## Independent optical settings
 
 Bandwidth remains the first control. Once an optical interface is selected, the
