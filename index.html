@@ -7124,7 +7124,7 @@
     let editorIndex = 0;
     let editorFaceplateUploadRevision = 0;
     let editorArtworkSide = "faceplate";
-    const editorCardReplacementApprovals = new Set();
+    let editorCardReplacementApprovals = new Set();
     let editorCloseGuard = null;
     let editorPendingFields = null;
     let editorPreviewZoom = 1;
@@ -7226,6 +7226,7 @@
     let editorMode = "library";
     let editorInstanceId = null;
     let editorInstanceName = "";
+    let editorPlacedPairSession = null;
     let editorProjectTemplateId = "";
     let editorProjectSourceInstanceId = "";
     let editorDeviceFilter = "";
@@ -12074,7 +12075,17 @@
       const source = redo ? editorMetadataHistory.redo : editorMetadataHistory.undo;
       const entry = source.at(-1);
       if (!entry) return false;
-      const owner = editorDraft.find(item => item.id === entry.ownerId);
+      const placedSession = typeof editorPlacedPairSession !== "undefined" && editorMode === "instance" && editorPlacedPairSession;
+      if (entry.placedPairChanges) {
+        if (!placedSession || entry.placedPairChanges.some(change => !instanceById(change.instanceId)
+          || placedSession.entries.get(change.instanceId)?.drafts[0] !== change.template)) return false;
+        entry.placedPairChanges.forEach(change => Object.assign(change.template, change[redo ? "after" : "before"]));
+        source.pop(); (redo ? editorMetadataHistory.undo : editorMetadataHistory.redo).push(entry);
+        renderDeviceEditor(); return true;
+      }
+      const drafts = placedSession ? [...placedSession.entries.values()].flatMap(item => item.drafts) : editorDraft;
+      const owner = placedSession ? drafts.find(item => item === entry.template || item.cardTypes?.includes(entry.template))
+        : drafts.find(item => item.id === entry.ownerId);
       const template = owner === entry.template || owner?.id === entry.template.id ? owner
         : owner?.cardTypes?.find(card => card.id === entry.template.id);
       if (!template) return false;
@@ -13843,6 +13854,7 @@
       const instance = instanceById(instanceId);
       const template = templateForInstance(instance);
       if (!instance || !template) return;
+      editorPlacedPairSession = null;
       recordDeviceEditorOpen("canvas-device-edit", {
         instanceId,
         templateId: instance.templateId || ""
@@ -13880,6 +13892,14 @@
       clearEditorCardNodeSelection();
       renderDeviceEditor();
       captureEditorSessionBaseline();
+      const candidates = pairedCanvasDeviceCandidates(instance);
+      if (engineRendererRequested() && candidates.length) {
+        editorPlacedPairSession = { rootId: instanceId, ids: [instanceId, ...candidates.map(item => item.instanceId)],
+          partnerId: candidates.length === 1 ? candidates[0].instanceId : null, entries: new Map() };
+        editorMetadataHistory = { draft: editorDraft, undo: [], redo: [] };
+        cacheEditorPlacedInstance();
+        renderEditorPairNavigation();
+      }
       beginEditorCloseGuard();
       deviceEditorModal.classList.remove("hidden");
       scheduleDeviceEditorEnginePreviewOpenFit();
@@ -13894,6 +13914,7 @@
       editorDependencySession++;
       editorPendingFields?.dispose();
       editorPendingFields = null;
+      editorPlacedPairSession = null;
       deviceEditorModal.classList.add("hidden");
       clearEditorPaletteDragSession();
       cancelEditorResizeSession(null, { render: false });
@@ -14111,10 +14132,101 @@
       return editorCloseGuard?.save();
     }
 
+    function applyEditorInstanceDefinition(instance, sourceTemplate, editedTemplate, normalizedName, isolateShared = false) {
+      const sourceTemplateName = String(sourceTemplate?.name || "").trim();
+      const shouldCreateProjectCustomFromRename = normalizedName !== sourceTemplateName;
+      const ownedProjectTemplate = projectCustomTemplateRecordForInstance(instance);
+      const shared = isolateShared && ownedProjectTemplate && state.devices.some(other => other !== instance && other.templateId === ownedProjectTemplate.id);
+      delete instance.powerWatts; delete instance.powerUnit;
+      if (ownedProjectTemplate && !shared) {
+        const previousName = ownedProjectTemplate.name || sourceTemplateName;
+        editedTemplate.id = ownedProjectTemplate.id; editedTemplate.name = normalizedName;
+        if (!editedTemplate.model || editedTemplate.model === previousName || editedTemplate.model === sourceTemplateName) editedTemplate.model = normalizedName;
+        markProjectCustomDeviceTemplate(editedTemplate);
+        const existingIndex = deviceLibrary.findIndex(template => template.id === ownedProjectTemplate.id);
+        if (existingIndex >= 0) deviceLibrary.splice(existingIndex, 1, editedTemplate);
+        else deviceLibrary.push(editedTemplate);
+        normalizeProjectCustomTemplates(deviceLibrary);
+        instance.templateId = editedTemplate.id; instance.templateOverride = structuredClone(editedTemplate);
+      } else if (shouldCreateProjectCustomFromRename || shared) {
+        const customSource = structuredClone(editedTemplate); customSource.name = normalizedName;
+        if (!customSource.model || customSource.model === sourceTemplateName) customSource.model = normalizedName;
+        customSource.favorite = false;
+        const customTemplate = projectCustomTemplateFromEditedLibraryTemplate(customSource, deviceLibrary);
+        customTemplate.name = normalizedName;
+        if (!customTemplate.model || customTemplate.model === sourceTemplateName) customTemplate.model = normalizedName;
+        deviceLibrary.push(customTemplate); normalizeProjectCustomTemplates(deviceLibrary);
+        instance.templateId = customTemplate.id; instance.templateOverride = structuredClone(customTemplate);
+      } else instance.templateOverride = editedTemplate;
+      instance.name = normalizedName;
+      return { ownedProjectTemplate, shouldCreateProjectCustomFromRename };
+    }
+
+    function persistEditorPlacedInstances() {
+      cacheEditorPlacedInstance();
+      const session = editorPlacedPairSession, active = session.entries.get(editorInstanceId);
+      const entries = [...session.entries.values()].filter(editorPlacedEntryDirty), plans = [], nodes = serializeNodeLibrary();
+      try {
+        for (const entry of entries) {
+          activateEditorPlacedInstance(entry);
+          const instance = instanceById(entry.instanceId);
+          if (!instance || instance.locked) throw new Error(`Placed device ${entry.instanceId} is missing or locked. Your drafts were kept.`);
+          if (editorPlacedInstanceSource(instance) !== entry.source) throw new Error(`Placed device ${entry.instanceId} changed while editing. Close and reopen before applying these drafts.`);
+          const sourceTemplate = templateForInstance(instance), oldTemplateId = instance.templateId;
+          const resolved = resolveEditorDraftForProject(editorDraft[editorIndex], editorIndex, nodes);
+          nodes.push(...resolved.nodes);
+          const editedTemplate = resolved.definition;
+          requireDeviceEditorPlacementModule().retainChangedCardSlotLayouts(sourceTemplate, editedTemplate);
+          validateEditorTemplateForApply(editedTemplate, nodes);
+          const safety = assertEditorModularCardChanges(editedTemplate, true);
+          if (window.WireNexusTransceivers) assertEditorConnectedCageChanges(editedTemplate);
+          plans.push({ instance, sourceTemplate, oldTemplateId, editedTemplate, name: entry.name.trim() || editedTemplate.name,
+            replacements: editorApprovedCardReplacementWireIds(editedTemplate), approvals: [...editorCardReplacementApprovals], warnings: safety?.warnings || [] });
+        }
+      } finally { activateEditorPlacedInstance(active); }
+      if (!plans.length) return true;
+      const replacementIds = new Set(plans.flatMap(plan => plan.replacements));
+      const invalid = plans.flatMap(plan => invalidConnectionsAfterInstanceDeviceEdit(plan.instance.instanceId, plan.editedTemplate)).filter(wire => !replacementIds.has(wire.id));
+      if (!confirmDeviceEditorWireRemoval([...new Map(invalid.map(wire => [wire.id, wire])).values()])) return false;
+      const removedIds = new Set(invalid.map(wire => wire.id));
+      const before = deviceEditorEngineSnapshot();
+      const previousUndo = undoStack.slice(), previousRedo = redoStack.slice();
+      pushUndo(projectSnapshot({ includeClipboardDependencies: true }));
+      try {
+        installEditorProjectNodes(nodes.filter(node => !before.nodeLibrary.some(original => original.id === node.id)));
+        for (const plan of plans) {
+          applyEditorInstanceDefinition(plan.instance, plan.sourceTemplate, plan.editedTemplate, plan.name, true);
+          pruneEditorOwnedInstanceConnectorOverrides(plan.instance, plan.editedTemplate);
+        }
+        const unique = new Map();
+        for (const plan of plans) unique.set(plan.oldTemplateId, plans.filter(item => item.oldTemplateId === plan.oldTemplateId).length === 1 ? plan.instance.templateId : null);
+        for (const plan of plans) {
+          const template = plan.instance.templateOverride, mapped = unique.get(template.pairedTemplateId);
+          if (template.isPartOfPair && mapped) {
+            template.pairedTemplateId = mapped;
+            const record = projectCustomTemplateRecordForInstance(plan.instance);
+            if (record) record.pairedTemplateId = mapped;
+          }
+          hydrateDeviceInstance(plan.instance);
+        }
+        state.connections = state.connections.filter(wire => !replacementIds.has(wire.id)
+          && (window.WireNexusMultiCore.isMultiCoreConnection(wire) || !removedIds.has(wire.id)));
+        pruneInvalidJumpLinks();
+        const after = deviceEditorEngineSnapshot();
+        editorCardReplacementApprovals = new Set(plans.flatMap(plan => plan.approvals));
+        renderDeviceLibrary(); renderProjectCustomDevices(); renderRackBuilderSources(); renderInspector();
+        if (!commitDeviceEditorApplyToEngineBridge(before, after, plans.map(plan => plan.instance.instanceId))) render();
+        setStatus([`${plans.length} placed device drafts saved. Library definitions were not changed.`, ...plans.flatMap(plan => plan.warnings)].join(" "));
+        return true;
+      } catch (error) { restoreDeviceEditorEngineSnapshot(before); undoStack = previousUndo; redoStack = previousRedo; throw error; }
+      finally { activateEditorPlacedInstance(active); }
+    }
+
     async function persistDeviceEditor() {
       try {
         syncEditorFieldsToDraft();
         if (editorMode === "instance") {
+          if (typeof editorPlacedPairSession !== "undefined" && editorPlacedPairSession?.entries.size > 1) return persistEditorPlacedInstances();
           const instance = instanceById(editorInstanceId);
           if (!instance) throw new Error("The device instance being edited is no longer on the canvas.");
           const sourceTemplate = templateForInstance(instance);
@@ -14132,41 +14244,7 @@
           installEditorProjectNodes(resolved.nodes);
           syncEditorRackToInstance();
           const normalizedName = editorInstanceName.trim() || editedTemplate.name || instance.name || "Custom Device";
-          const sourceTemplateName = String(sourceTemplate?.name || "").trim();
-          const shouldCreateProjectCustomFromRename = normalizedName !== sourceTemplateName;
-          const ownedProjectTemplate = projectCustomTemplateRecordForInstance(instance);
-          delete instance.powerWatts;
-          delete instance.powerUnit;
-          if (ownedProjectTemplate) {
-            const previousName = ownedProjectTemplate.name || sourceTemplateName;
-            editedTemplate.id = ownedProjectTemplate.id;
-            editedTemplate.name = normalizedName;
-            if (!editedTemplate.model || editedTemplate.model === previousName || editedTemplate.model === sourceTemplateName) {
-              editedTemplate.model = normalizedName;
-            }
-            markProjectCustomDeviceTemplate(editedTemplate);
-            const existingIndex = deviceLibrary.findIndex(template => template.id === ownedProjectTemplate.id);
-            if (existingIndex >= 0) deviceLibrary.splice(existingIndex, 1, editedTemplate);
-            else deviceLibrary.push(editedTemplate);
-            normalizeProjectCustomTemplates(deviceLibrary);
-            instance.templateId = editedTemplate.id;
-            instance.templateOverride = structuredClone(editedTemplate);
-          } else if (shouldCreateProjectCustomFromRename) {
-            const customSource = structuredClone(editedTemplate);
-            customSource.name = normalizedName;
-            if (!customSource.model || customSource.model === sourceTemplateName) customSource.model = normalizedName;
-            customSource.favorite = false;
-            const customTemplate = projectCustomTemplateFromEditedLibraryTemplate(customSource, deviceLibrary);
-            customTemplate.name = normalizedName;
-            if (!customTemplate.model || customTemplate.model === sourceTemplateName) customTemplate.model = normalizedName;
-            deviceLibrary.push(customTemplate);
-            normalizeProjectCustomTemplates(deviceLibrary);
-            instance.templateId = customTemplate.id;
-            instance.templateOverride = structuredClone(customTemplate);
-          } else {
-            instance.templateOverride = editedTemplate;
-          }
-          instance.name = normalizedName;
+          const { ownedProjectTemplate, shouldCreateProjectCustomFromRename } = applyEditorInstanceDefinition(instance, sourceTemplate, editedTemplate, normalizedName);
           pruneEditorOwnedInstanceConnectorOverrides(instance, editedTemplate);
           hydrateDeviceInstance(instance);
           state.connections = state.connections.filter(connection => {
@@ -14430,7 +14508,7 @@
 
     function pairTemplateEntries(template, query = "") {
       const terms = String(query).trim().toLowerCase().split(/\s+/).filter(Boolean);
-      const available = editorMode === "library" ? editorDraft : [...libraryDeviceTemplates(), ...editorDraft];
+      const available = editorMode === "library" ? editorDraft : [...libraryDeviceTemplates(), ...(editorMode === "instance" ? deviceLibrary : []), ...editorDraft];
       const candidates = new Map(available.map(device => [device.id, device]));
       return [...candidates.values()].filter(device => {
         if (device.id === template?.id) return false;
@@ -14452,6 +14530,9 @@
     }
 
     function renderEditorPairNavigation() {
+      if (editorMode === "instance" && typeof editorPlacedPairSession !== "undefined" && editorPlacedPairSession) {
+        renderEditorPlacedPairNavigation(); return;
+      }
       const members = editorPairMembers(), panel = document.getElementById("editorPairedDevicePanel");
       panel.classList.toggle("hidden", members.length < 2);
       const select = document.getElementById("editorPairedDeviceSelect");
@@ -14463,6 +14544,7 @@
     }
 
     function switchEditorPairedDevice(id) {
+      if (editorMode === "instance" && typeof editorPlacedPairSession !== "undefined" && editorPlacedPairSession) return switchEditorPlacedDevice(id);
       if (personalDefaultsBusy || !editorPairMembers().some(item => item.id === id)) return false;
       editorPendingFields?.flush();
       syncEditorFieldsToDraft();
@@ -14479,6 +14561,7 @@
     }
 
     function unpairEditorDevices() {
+      if (editorMode === "instance" && typeof editorPlacedPairSession !== "undefined" && editorPlacedPairSession) return unpairEditorPlacedDevices();
       if (personalDefaultsBusy || editorMode !== "library" || !engineRendererRequested()) return false;
       editorPendingFields?.flush();
       syncEditorFieldsToDraft();
@@ -14501,6 +14584,120 @@
       return true;
     }
 
+    function pairedCanvasDeviceCandidates(instance) {
+      const identities = device => {
+        const template = templateForInstance(device);
+        return [device.templateId, template?.id, template?.factoryTemplateId, template?.libraryProvenance?.catalogueId].filter(Boolean);
+      };
+      const current = templateForInstance(instance), ids = identities(instance);
+      return state.devices.filter(other => {
+        if (other.instanceId === instance.instanceId) return false;
+        const template = templateForInstance(other);
+        return current?.isPartOfPair && identities(other).includes(current.pairedTemplateId)
+          || template?.isPartOfPair && ids.includes(template.pairedTemplateId);
+      });
+    }
+
+    function editorPlacedInstanceSource(instance) {
+      return window.WireNexusEditorLifecycle.editorDataContent({ template: templateForInstance(instance), name: instance?.name,
+        connectorOverrides: instance?.connectorOverrides, powerWatts: instance?.powerWatts, powerUnit: instance?.powerUnit });
+    }
+
+    function cacheEditorPlacedInstance() {
+      if (!editorPlacedPairSession || editorMode !== "instance") return;
+      const previous = editorPlacedPairSession.entries.get(editorInstanceId);
+      editorPlacedPairSession.entries.set(editorInstanceId, { ...previous, instanceId: editorInstanceId,
+        drafts: editorDraft, index: editorIndex, name: editorInstanceName, baselineName: editorBaselineInstanceName,
+        baseline: editorLibraryBaseline, contexts: editorDependencyContexts, dependencyBaselines: editorDependencyBaselines,
+        revisions: editorDefaultRevisions, approvals: editorCardReplacementApprovals,
+        source: previous?.source || editorPlacedInstanceSource(instanceById(editorInstanceId)) });
+    }
+
+    function activateEditorPlacedInstance(entry) {
+      editorInstanceId = entry.instanceId; editorDraft = entry.drafts; editorIndex = entry.index;
+      editorInstanceName = entry.name; editorBaselineInstanceName = entry.baselineName;
+      editorLibraryBaseline = entry.baseline; editorDependencyDrafts = editorDraft;
+      editorDependencyContexts = entry.contexts; editorDependencyBaselines = entry.dependencyBaselines;
+      editorDefaultRevisions = entry.revisions; editorCardReplacementApprovals = entry.approvals;
+      editorDependencySession++;
+      editorMetadataHistory.draft = editorDraft;
+    }
+
+    function editorPlacedEntryDirty(entry) {
+      if (entry.name !== entry.baselineName) return true;
+      return entry.drafts.some((draft, index) => editorDefinitionChanged(draft, entry.baseline[index])
+        || window.WireNexusEditorLifecycle.editorDataContent(entry.contexts[index]) !== window.WireNexusEditorLifecycle.editorDataContent(entry.dependencyBaselines[index]));
+    }
+
+    function renderEditorPlacedPairNavigation() {
+      const session = editorPlacedPairSession, select = document.getElementById("editorPairedDeviceSelect");
+      document.getElementById("editorPairedDevicePanel").classList.toggle("hidden", session.ids.length < 2);
+      select.innerHTML = session.ids.map(id => {
+        const instance = instanceById(id), entry = session.entries.get(id);
+        return `<option value="${escapeAttr(id)}"${instance ? "" : " disabled"}>${escapeHtml(entry?.name || instance?.name || "Missing device")} (${escapeHtml(id)})</option>`;
+      }).join("");
+      select.value = editorInstanceId; select.disabled = personalDefaultsBusy;
+      document.getElementById("unpairEditorDevices").disabled = personalDefaultsBusy
+        || !session.ids.some(id => (session.entries.get(id)?.drafts[0] || templateForInstance(instanceById(id)))?.isPartOfPair);
+    }
+
+    function switchEditorPlacedDevice(id) {
+      const session = editorPlacedPairSession;
+      if (personalDefaultsBusy || !session?.ids.includes(id) || id === editorInstanceId) return false;
+      const instance = instanceById(id);
+      if (!instance) { alert("This placed device is no longer on the canvas. Your drafts were kept."); return false; }
+      editorPendingFields?.flush(); syncEditorFieldsToDraft();
+      cancelDeviceEditorActiveInteraction(); invalidateEditorFaceplateUploadTarget(); clearEditorPlacementMotion();
+      cacheEditorPlacedInstance();
+      const history = editorMetadataHistory;
+      const entry = session.entries.get(id);
+      if (entry) activateEditorPlacedInstance(entry);
+      else {
+        editorInstanceId = id; editorDraft = [structuredClone(templateForInstance(instance))]; editorIndex = 0;
+        hydrateEditorDraftFromInstanceConnectorOverrides(editorDraft[0], instance);
+        if (Number.isFinite(Number(instance.powerWatts))) editorDraft[0].powerWatts = normalizedPowerWatts(instance.powerWatts);
+        if (instance.powerUnit) editorDraft[0].powerUnit = normalizePowerUnit(instance.powerUnit);
+        editorInstanceName = instance.name || editorDraft[0].name || "";
+        editorCardReplacementApprovals = new Set();
+        editorDependencyContext();
+        validateDraftDefaults(editorDraft[0], { normalizePlacement: false });
+        editorLibraryBaseline = structuredClone(editorDraft); editorBaselineInstanceName = editorInstanceName;
+        editorDependencyBaselines = editorDependencyContexts.slice();
+        editorDefaultRevisions = new Map([[editorPersonalTargetId(), localUserSettingsOwner?.entry(editorPersonalTargetId())?.revision || null]]);
+        editorMetadataHistory = history; editorMetadataHistory.draft = editorDraft;
+      }
+      if (id !== session.rootId) session.partnerId = id;
+      resetEditorDeviceSelections(); renderDeviceEditor();
+      if (!entry) {
+        editorLibraryBaseline = structuredClone(editorDraft);
+        cacheEditorPlacedInstance();
+      }
+      scheduleDeviceEditorPreviewFit(editorActiveTab); return true;
+    }
+
+    function unpairEditorPlacedDevices() {
+      const session = editorPlacedPairSession;
+      if (personalDefaultsBusy || !session) return false;
+      if (!session.partnerId) { alert("Choose the intended placed partner in Editing before unpairing. No device was changed."); renderDeviceEditor(); return false; }
+      const ids = [session.rootId, session.partnerId];
+      if (ids.some(id => !instanceById(id) || instanceById(id).locked)) { alert("Both placed devices must exist and be unlocked before unpairing."); renderDeviceEditor(); return false; }
+      editorPendingFields?.flush(); syncEditorFieldsToDraft(); cacheEditorPlacedInstance();
+      const activeId = editorInstanceId;
+      for (const id of ids) if (!session.entries.has(id)) switchEditorPlacedDevice(id);
+      if (editorInstanceId !== activeId) switchEditorPlacedDevice(activeId);
+      const fields = template => ({ isPartOfPair: template.isPartOfPair === true, pairedTemplateId: template.pairedTemplateId || "", pairPlaceFirst: template.pairPlaceFirst === true });
+      const changes = ids.map(id => ({ instanceId: id, template: session.entries.get(id).drafts[0] }));
+      if (!changes.some(change => change.template.isPartOfPair || change.template.pairedTemplateId)) return false;
+      if (!confirm(`Unpair these placed devices (${ids.join(" and ")})? Both devices and their cable connections will be kept. Library definitions will not change.`)) { renderDeviceEditor(); return false; }
+      for (const change of changes) {
+        change.before = fields(change.template); change.after = { isPartOfPair: false, pairedTemplateId: "", pairPlaceFirst: false };
+        Object.assign(change.template, change.after);
+      }
+      editorMetadataHistory.draft = editorDraft;
+      editorMetadataHistory.undo.push({ placedPairChanges: changes, closed: true }); editorMetadataHistory.redo = [];
+      renderDeviceEditor(); return true;
+    }
+
     function renderPairTemplateList(template = currentEditorTemplate()) {
       const entries = pairTemplateEntries(template, editorPairSearch.value);
       editorPairList.innerHTML = entries.map(device => `
@@ -14519,7 +14716,7 @@
         editorPairSearch.dataset.templateId = template.id;
       }
       const paired = pairTemplateEntries(template).find(device => device.id === template.pairedTemplateId);
-      if (!paired) template.pairedTemplateId = "";
+      if (!paired && editorMode !== "instance") template.pairedTemplateId = "";
       editorPairTemplate.value = template.pairedTemplateId || "";
       editorPairSearch.disabled = editorPairList.disabled = !editorPartOfPair.checked;
       editorPairSearch.closest(".editor-pair-dependent").classList.toggle("hidden", !editorPartOfPair.checked);
@@ -19521,6 +19718,10 @@
     }
 
     function editorSessionHasUnsavedChanges() {
+      if (editorMode === "instance" && typeof editorPlacedPairSession !== "undefined" && editorPlacedPairSession) {
+        cacheEditorPlacedInstance();
+        return [...editorPlacedPairSession.entries.values()].some(editorPlacedEntryDirty);
+      }
       if (editorDraft.length !== editorLibraryBaseline.length) return true;
       return editorDraft.some((template, index) => editorDefinitionChanged(template, editorLibraryBaseline[index])
         || editorDependenciesChanged(index))
@@ -19695,6 +19896,16 @@
       syncEditorFieldsToDraft();
       const template = currentEditorTemplate(), baseline = editorLibraryBaseline[editorIndex];
       if (!baseline) return;
+      if (editorMode === "instance" && typeof editorPlacedPairSession !== "undefined" && editorPlacedPairSession) {
+        cacheEditorPlacedInstance();
+        const entries = [...editorPlacedPairSession.entries.values()];
+        if (entries.some(editorPlacedEntryDirty) && !confirm("Discard unsaved changes to all visited placed devices and restore this editing session's baselines?")) return;
+        invalidateEditorFaceplateUploadTarget(); clearEditorPlacementMotion();
+        for (const entry of entries) { entry.drafts = structuredClone(entry.baseline); entry.name = entry.baselineName; entry.contexts = entry.dependencyBaselines.slice(); entry.approvals = new Set(); }
+        activateEditorPlacedInstance(editorPlacedPairSession.entries.get(editorInstanceId));
+        editorMetadataHistory = { draft: editorDraft, undo: [], redo: [] };
+        resetEditorDeviceSelections(); renderDeviceEditor(); return;
+      }
       const pair = editorPairMembers();
       const discardIndices = pair.length > 1 ? pair.map(item => editorDraft.indexOf(item)) : [editorIndex];
       const dirty = pair.length > 1
@@ -36935,7 +37146,7 @@ document.addEventListener("click", function(event) {
     function applyPairEditorSettings() {
       const template = currentEditorTemplate();
       if (!template) return;
-      if (engineRendererRequested() && editorMode === "library" && (!editorPartOfPair.checked || !editorPairTemplate.value)
+      if (engineRendererRequested() && (editorMode === "library" || editorMode === "instance" && editorPlacedPairSession) && (!editorPartOfPair.checked || !editorPairTemplate.value)
         && (template.isPartOfPair || editorDraft.some(item => item.isPartOfPair && item.pairedTemplateId === template.id))) {
         unpairEditorDevices(); return;
       }
