@@ -31,12 +31,16 @@ test("presets populate editable characteristics; any property edit clears their 
   assert.equal(JSON.stringify(c), before);
 });
 
-test("SC/ST require host interface declarations and use existing physical types and colour rules", () => {
+test("SC/ST is unverified on undeclared hosts and respects explicit restrictions", () => {
   for (const iface of ["sc", "st"]) {
     const config = { method: "custom", interface: iface, fiberFamily: "single-mode", fiberGrade: "os2",
       arrangement: "duplex", technology: "single-wavelength", lineRate: "1G", txNm: [1310], rxNm: [1310] };
-    assert.equal(transceiverConfigurationChoices(cage()).fiberFamilies[iface].length, 0);
-    assert.throws(() => transceiverConfigurationPatch(cage(), config), /explicit host/);
+    const generic = cage(), module = { ...generic, ...transceiverConfigurationPatch(generic, config) };
+    assert.ok(transceiverConfigurationChoices(generic).fiberFamilies[iface].length);
+    assert.match(compare(module, module).warnings.join(" "), /SC\/ST host interface support is unverified/);
+    const restricted = cage("sfp-plus-cage", { supportedModuleInterfaces: ["lc"] });
+    assert.equal(transceiverConfigurationChoices(restricted).fiberFamilies[iface].length, 0);
+    assert.throws(() => transceiverConfigurationPatch(restricted, config), /does not declare support for the selected SC\/ST interface/);
     const c = cage("sfp-cage", { supportedModuleInterfaces: [iface.toUpperCase()] });
     const patch = transceiverConfigurationPatch(c, config), installed = { ...c, ...patch };
     assert.equal(resolveInstalledModule(installed).effectiveType, "fiber-" + iface);

@@ -41,7 +41,7 @@ try {
     const c=activeEngineBridge().scene.getConnector(deviceId,port);
     return{id:c.id,x:c.x,y:c.y,anchors:c.anchors,module:c.installedModuleType,caps:c.moduleCapabilities??null};
   },{port,deviceId});
-  const panel=page.locator("[data-transceiver-config]"),field=name=>panel.getByLabel(name,{exact:true}),apply=()=>panel.getByRole("button",{name:"Apply Transceiver"}).click();
+  const panel=page.locator("[data-transceiver-config]"),field=name=>panel.getByLabel(name,{exact:true});
   await select("port-0");
   const original=await snapshot("port-0");
   assert.equal(await panel.locator("details").count(),0);
@@ -54,7 +54,6 @@ try {
   assert.deepEqual(await snapshot("port-0"),original);
   await field("Fibre grade").selectOption("om3");
   assert.equal(await field("Preset (optional)").count(),0);
-  await apply();
   assert.equal((await snapshot("port-0")).module,"lc-multimode");
   await page.locator("#undoAction").click();
   assert.equal((await snapshot("port-0")).module,"10gbase-sr");
@@ -70,15 +69,16 @@ try {
     assert.deepEqual(await field("Bandwidth").locator("option").evaluateAll(options=>options.map(o=>o.value)),["1G","10G"]);
     await field("Bandwidth").selectOption("1G");
     await field("TX wavelengths (nm, comma-separated)").fill("1310");
+    await field("TX wavelengths (nm, comma-separated)").press("Enter");
     await field("RX wavelengths (nm, comma-separated)").fill("1310");
-    await apply();
+    await field("RX wavelengths (nm, comma-separated)").press("Enter");
     assert.equal((await snapshot("port-1")).caps.optical.interface,"duplex-"+iface);
   }
   await select("port-3");
   assert.equal(await field("Bandwidth").inputValue(),"__current__");
   assert.deepEqual(await field("Bandwidth").locator("option").evaluateAll(options=>options.map(o=>o.value)),["__current__","1G","2.5G","5G","10G"]);
   assert.match(await panel.locator("[data-transceiver-rate-support]").innerText(),/Unverified/);
-  await field("Fibre grade").selectOption("om4");await apply();
+  await field("Fibre grade").selectOption("om4");
   assert.deepEqual((await snapshot("port-3")).caps.supportedRates,["1 Gb/s","10G"]);
   for (const width of [1366,1024,1920]) {
     await page.setViewportSize({width,height:1000});
@@ -88,11 +88,10 @@ try {
   await field("Installed interface").selectOption("mpo");
   await field("Fibre category").selectOption("multimode");
   await field("Bandwidth").selectOption("100G");
-  await apply();
   const extra=await snapshot("qsfp28-2","lab");
   assert.equal(extra.module,"mpo-multimode");
   assert.equal((await snapshot("qsfp28","lab")).module,"");
-  await page.locator("#undoAction").click();assert.equal((await snapshot("qsfp28-2","lab")).module,"");
+  await page.locator("#undoAction").click();assert.equal((await snapshot("qsfp28-2","lab")).module,"mpo-fiber");
   await page.locator("#redoAction").click();assert.deepEqual(await snapshot("qsfp28-2","lab"),extra);
   // Use the existing canvas context menu for an actual device duplication.
   const body=await page.evaluate(()=>{

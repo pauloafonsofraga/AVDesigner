@@ -655,6 +655,7 @@ function normalizeProjectDevice(instance, index, templates, nodeColorByType, nod
     selectedProjectorLensId: visual.selectedProjectorLensId,
     autoAttachJumpNodes: Boolean(instance.autoAttachJumpNodes),
     notes: String(instance.notes || ""),
+    ...(instance.mpoHarnessLength != null ? { mpoHarnessLength: String(instance.mpoHarnessLength) } : {}),
     locked: Boolean(instance.locked),
     powerWatts: template.isStageboxSnake === true ? 0 : instance.powerWatts ?? template.powerWatts ?? "",
     powerUnit: instance.powerUnit || template.powerUnit || "",

@@ -231,6 +231,7 @@ export class ProjectMutationAdapter {
       "name",
       "label",
       "notes",
+      "mpoHarnessLength",
       "x",
       "y",
       "width",

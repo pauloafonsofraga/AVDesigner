@@ -5,8 +5,15 @@
 Bandwidth remains the first control. Once an optical interface is selected, the
 existing Canvas Inspector offers an optional, host/rate-filtered Optical profile,
 fibre arrangement, signal direction, and wavelength configuration. An edit to
-a preset setting switches the draft to Custom; Apply is still required. SDI
-continues to take its TX/RX role from the device.
+a preset setting switches the installed profile to Custom. Select changes
+commit immediately; text edits commit on Enter or when leaving the field.
+Invalid edits keep the previous module. SDI continues to take its TX/RX role
+from the device.
+
+SC/ST are selectable on SFP-family cages without declared interface restrictions.
+That configuration remains Unverified unless the host declares support. Explicit
+host restrictions still apply. An unoccupied MPO port can also attach a
+[detachable MPO breakout](./mpo-physical-metadata.md).
 
 In module capabilities, `optical.arrangement`, `optical.signalDirection` and
 `optical.wavelengthMode` are independent. `txNm`/`rxNm` hold wavelength sets;
@@ -30,8 +37,9 @@ uses a long/short 18/6/5/6 pattern in world pixels along the same geometry,
 including during drawing and replugging, bends and hops. At most the ink changes: labels, lengths, quantities,
 occupancy, and signal paths are unchanged. Known conflicting links are not
 presented as WDM or played as operating paths. Uncertain facts such as optical
-power, reach and actual per-lane MPO pairing are not verified. Jumps without
-resolved optical endpoints retain their default style.
+power, reach and actual per-lane MPO pairing are not verified. A WDM leg stays
+dashed when connected to a Jump, and a compatible paired leg inherits the same
+pattern. Jumps without a resolved WDM endpoint retain their default style.
 
 A rate-only mismatch across a detachable transceiver link is allowed and shown
 as Unverified. Different speed prefixes do not by themselves change an optical

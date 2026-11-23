@@ -50,13 +50,11 @@ try {
   }, { port, deviceId });
   const panel = page.locator("[data-transceiver-config]");
   const field = label => panel.getByLabel(label, { exact: true });
-  const apply = panel.getByRole("button", { name: "Apply Transceiver" });
   await select("port-0");
   const before = await status("port-0");
   assert.deepEqual(await field("Bandwidth").locator("option").evaluateAll(options => options.map(o => o.value)), ["10G"]);
   await field("Installed interface").selectOption("lc");
-  assert.deepEqual(await status("port-0"), before, "a draft cannot change the canvas");
-  await apply.click();
+  assert.equal(await panel.getByRole("button", { name: "Apply Transceiver" }).count(), 0);
   let result = await status("port-0");
   assert.equal(result.module, "10gbase-sr");
   assert.equal(result.caps.optical.arrangement, "duplex");
@@ -75,12 +73,14 @@ try {
   await field("MPO fibre count").selectOption("12");
   await field("MPO polarity").selectOption("B");
   await field("Lane fibre positions (comma-separated)").fill("1, 2, 13");
-  await apply.click();
+  await field("Lane fibre positions (comma-separated)").press("Enter");
   assert.match(await panel.getByRole("alert").innerText(), /within the declared fibre count/);
   await field("Lane fibre positions (comma-separated)").fill("1, 2, 11, 12");
+  await field("Lane fibre positions (comma-separated)").press("Enter");
   await field("TX wavelengths (nm, comma-separated)").fill("850");
+  await field("TX wavelengths (nm, comma-separated)").press("Enter");
   await field("RX wavelengths (nm, comma-separated)").fill("850");
-  await apply.click();
+  await field("RX wavelengths (nm, comma-separated)").press("Enter");
   result = await status("port-1");
   assert.equal(result.caps.optical.mpoPolarity, "B");
   assert.deepEqual(result.caps.optical.laneMapping, [1, 2, 11, 12]);
@@ -95,7 +95,6 @@ try {
     await field("Installed interface").selectOption("lc");
     await field("Signal family").selectOption("sdi");
     await field("Bandwidth").selectOption("12G-SDI");
-    await apply.click();
     assert.equal((await status("port-3", device)).module, "lc-singlemode");
     assert.equal((await status("port-3", device)).caps.direction, profile.endsWith("tx") ? "output" : "input");
   }
@@ -104,7 +103,6 @@ try {
   await field("Installed interface").selectOption("dac");
   assert.equal(await field("Fibre category").count(), 0);
   assert.equal(await field("Cable assembly").inputValue(), "dac-sfp-plus");
-  await apply.click();
   assert.equal((await status("port-3")).module, "dac-sfp-plus");
 
   await page.evaluate(() => { window.showSaveFilePicker = undefined; });

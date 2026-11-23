@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {multibandWirePolygons,multibandCableWidth} from "../src/engine/multibandGeometry.js";
 import { isWdmCable, wdmInkRuns } from "../src/engine/wdmCableStyle.js";
+import { transceiverModulePatch } from "../src/engine/transceiverModules.js";
+import { JUMP_NODE_CONNECTOR_ID } from "../src/engine/jumpNodeModel.js";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import * as colors from "../src/engine/connectorCompatibility.js";
@@ -12,6 +14,29 @@ const bridge = readFileSync(new URL("../src/engine/productionBridge.js", import.
 const renderer = readFileSync(new URL("../src/engine/renderer.js", import.meta.url), "utf8");
 const expected = ["#03E300", "#2A7FFF", "#A05A2C", "#4A4A4A", "#999999"];
 const plain = value => JSON.parse(JSON.stringify(value));
+
+test("a WDM Jump leg and its paired leg inherit the pattern without changing cable records", () => {
+  const cage = { id: "optic", type: "qsfp-cage", direction: "output" };
+  const a = { id: "a", kind: "device", connectors: [{ ...cage, ...transceiverModulePatch(cage, "100gbase-lr4") }] };
+  const b = { id: "b", kind: "device", connectors: [{ id: "port", type: "fiber-lc", direction: "input" }] };
+  const jumps = ["j1", "j2"].map(id => ({ id, kind: "jump", connectors: [{ id: JUMP_NODE_CONNECTOR_ID, type: "jump" }] }));
+  const wires = [{
+    id: "near", cableType: "fiber-lc", fiberMode: "single-mode", fromDeviceId: "a", fromConnectorId: "optic",
+    toDeviceId: "j1", toConnectorId: JUMP_NODE_CONNECTOR_ID
+  }, {
+    id: "far", cableType: "fiber-lc", fiberMode: "single-mode", fromDeviceId: "j2", fromConnectorId: JUMP_NODE_CONNECTOR_ID,
+    toDeviceId: "b", toConnectorId: "port"
+  }];
+  const saved = structuredClone(wires);
+  const getDevice = id => [a, b, ...jumps].find(device => device.id === id);
+  const scene = { getDevice, wires, getConnector: (id, port) => getDevice(id)?.connectors.find(c => c.id === port),
+    pairedJumpId: id => id === "j1" ? "j2" : "j1" };
+  assert.ok(wires.every(wire => isWdmCable(scene, wire)));
+  assert.deepEqual(wires, saved);
+  scene.pairedJumpId = () => "";
+  assert.equal(isWdmCable(scene, wires[0]), true);
+  assert.equal(isWdmCable(scene, wires[1]), false);
+});
 function method(name) {
   const tail = bridge.slice(bridge.indexOf(`\n  ${name}(`) + 1);
   return tail.slice(0, tail.slice(1).search(/\n  (?:async )?\w+\(/) + 1);

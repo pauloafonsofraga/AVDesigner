@@ -79,7 +79,6 @@ try {
   const after = await snapshot("port-0");
   assert.deepEqual({ ...after, physical: before.physical }, before);
   await select("port-1");
-  const beforeModule = await snapshot("port-1");
   const panel = page.locator("[data-transceiver-config]");
   await panel.getByLabel("Installed interface", { exact: true }).selectOption("mpo");
   await panel.getByLabel("Fibre category", { exact: true }).selectOption("multimode");
@@ -88,15 +87,14 @@ try {
   await panel.getByLabel("MPO fibre category", { exact: true }).selectOption("os2");
   await panel.getByLabel("Guide pins", { exact: true }).selectOption("pinned");
   await panel.getByLabel("Cable mapping preset", { exact: true }).selectOption("B");
-  await panel.getByRole("button", { name: "Apply Transceiver" }).click();
   assert.match(await panel.getByRole("alert").innerText(), /fibre category/);
+  const beforeGrade = await snapshot("port-1");
   await panel.getByLabel("MPO fibre category", { exact: true }).selectOption("om4");
-  await panel.getByRole("button", { name: "Apply Transceiver" }).click();
   const module = await snapshot("port-1");
   assert.equal(module.caps.mpoPhysical.positionCount, 12);
   assert.equal(module.caps.mpoPhysical.positionMapping.pairs[0].to, 12);
   await page.locator("#undoAction").click();
-  assert.deepEqual(await snapshot("port-1"), beforeModule);
+  assert.deepEqual(await snapshot("port-1"), beforeGrade);
   await page.locator("#redoAction").click();
   assert.deepEqual(await snapshot("port-1"), module);
   await page.evaluate(() => { window.showSaveFilePicker = undefined; });

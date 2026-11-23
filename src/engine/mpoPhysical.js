@@ -144,7 +144,7 @@ export function mpoLinkValidation(a, b, capsA = {}, capsB = {}, cageA = false, c
   // A declared plug is a directly mateable end; otherwise the wire denotes an
   // intervening patch lead whose guide pins/keying are not specified here.
   if (left.termination === "plug" || right.termination === "plug") {
-    const mating = mpoMatingValidation(left, right);
+    const mating = mpoMatingValidation(...values);
     if (!mating.valid) return mating;
     return verdict([...checks.flatMap(c => c.warnings), ...mating.warnings]);
   }

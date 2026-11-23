@@ -31,13 +31,12 @@ try {
     await page.waitForFunction(name => projectFileName === name && activeEngineBridge().scene.getConnector("host-0", "optic"), name);
     await page.locator("#zoomFit").click();
   };
-  const point = id => page.evaluate(id => {
-    const b = activeEngineBridge(), d = b.scene.getDevice(id), port = b.scene.getConnector(id,"optic");
+  const point = (id, connector = "optic") => page.evaluate(([id, connector]) => {
+    const b = activeEngineBridge(), d = b.scene.getDevice(id), port = b.scene.getConnector(id,connector);
     const p = b.worldToScreenPoint(b.scene.connectorWorldPoint(d, port)), r = b.canvas.getBoundingClientRect();
     return {x: p.x + r.x, y: p.y + r.y};
-  }, id);
+  }, [id, connector]);
   const panel = page.locator("[data-transceiver-config]"), field = name => panel.getByLabel(name,{exact: true});
-  const apply = () => panel.getByRole("button",{name:"Apply Transceiver"}).click();
   const select = async id => {
     const p = await point(id);
     await page.mouse.click(p.x,p.y,{button:"right"});
@@ -52,7 +51,7 @@ try {
     await field("Optical profile").selectOption(profile);
     assert.equal(await field("Fibre arrangement").inputValue(),"duplex");
     assert.equal(await field("Wavelength configuration").inputValue(),profile.endsWith("lr4") ? "wdm" : "single-wavelength");
-    await apply(); await waitModule(id, profile);
+    await waitModule(id, profile);
   };
   const connect = async ({wdm=false}={}) => {
     const a = await point("host-0"), b = await point("host-1");
@@ -96,7 +95,7 @@ try {
   await select("host-0"); await field("Fibre grade").selectOption("os2");
   assert.equal(await field("Optical profile").inputValue(),"");
   assert.equal(await field("TX wavelengths (nm, comma-separated)").inputValue(),"1295, 1300, 1304, 1309");
-  await apply(); await waitModule("host-0","lc-singlemode");
+  await waitModule("host-0","lc-singlemode");
   await page.locator("#undoAction").click(); assert.equal(await moduleType("host-0"),"100gbase-lr4");
   await page.locator("#redoAction").click(); assert.equal(await moduleType("host-0"),"lc-singlemode");
   await page.locator("#undoAction").click();
@@ -151,8 +150,11 @@ try {
     assert.equal(await field("Signal direction").inputValue(),"bidirectional");
     await field("Wavelength configuration").selectOption("wdm");
     const [tx,rx] = host==="host-0" ? ["1270, 1290","1310, 1330"] : ["1310, 1330","1270, 1290"];
-    await field("TX wavelengths (nm, comma-separated)").fill(tx); await field("RX wavelengths (nm, comma-separated)").fill(rx);
-    await apply(); await waitModule(host,"lc-singlemode");
+    for (const [label, value] of [["TX", tx], ["RX", rx]]) {
+      const input = field(label + " wavelengths (nm, comma-separated)");
+      await input.fill(value); await input.press("Enter");
+    }
+    await waitModule(host,"lc-singlemode");
   }
   assert.equal((await readRender(await connect())).wdm,true,"simplex BiDi WDM is independently configurable");
   await page.locator("#undoAction").click();
@@ -170,6 +172,32 @@ try {
   const mixedFile = await save("#saveProjectAs","mixed-rate.avd");
   await load(await readFile(mixedFile),"mixed-rate-reopened.avd");
   assert.deepEqual(await page.evaluate(id=>activeEngineBridge().savedTransceiverStatuses().get(id),mixedId),mixed);
+  const jumpFixture = fixture(true);
+  jumpFixture.jumpNodes = [{id:"jump-a",x:435,y:120},{id:"jump-b",x:660,y:120}];
+  jumpFixture.jumpLinks = [{id:"lr4-jump-link",outputJumpId:"jump-a",inputJumpId:"jump-b",deviceIndependent:true}];
+  await load(Buffer.from(JSON.stringify(jumpFixture)),"lr4-jumps.avd");
+  await configure("host-0","100gbase-lr4");
+  await configure("host-1","100gbase-lr4");
+  const jumpConnector = id => page.evaluate(id => activeEngineBridge().scene.getDevice(id).connectors[0].id,id);
+  const a = await point("host-0"), j = await point("jump-a",await jumpConnector("jump-a"));
+  await page.mouse.move(a.x,a.y); await page.mouse.down();
+  await page.mouse.move(j.x,j.y,{steps:16});
+  await page.waitForFunction(async () => {
+    const {isWdmCable} = await import("./src/engine/wdmCableStyle.js");
+    const b = activeEngineBridge(), temp = b.interactionRenderState().tempWire;
+    return temp?.targetHit?.device.id === "jump-a" && isWdmCable(b.scene,temp);
+  });
+  await page.mouse.up();
+  await page.waitForFunction(() => state.connections.length === 1);
+  const firstLeg = await page.evaluate(() => state.connections[0].id);
+  assert.equal((await readRender(firstLeg)).wdm,true);
+  const j2 = await point("jump-b",await jumpConnector("jump-b")), end = await point("host-1");
+  await page.mouse.move(end.x,end.y); await page.mouse.down();
+  await page.mouse.move(j2.x,j2.y,{steps:16}); await page.mouse.up();
+  await page.waitForFunction(() => state.connections.length === 2);
+  const secondLeg = await page.evaluate(() => state.connections[1].id);
+  assert.equal((await readRender(secondLeg)).wdm,true);
+  await page.screenshot({path:join(directory,"wdm-after-jump-connection.png")});
   assert.deepEqual(errors,[]);
-  console.log(JSON.stringify({passed:true,directory,checks:["LR4 and custom profile edits","WDM before and after snapping and commit","preserved route/zoom","Inspector BiDi + WDM","undo/redo and AVD reopen","Play Cable and Signal Chain","offline HTML viewer","native WDM PDF stroke","solid single wavelength","10G/25G SR connect with a rate warning on reopen"]},null,2));
+  console.log(JSON.stringify({passed:true,directory,checks:["LR4 and custom profile auto-apply","WDM before and after snapping and commit","WDM on both legs of a Jump pair","preserved route/zoom","Inspector BiDi + WDM","undo/redo and AVD reopen","Play Cable and Signal Chain","offline HTML viewer","native WDM PDF stroke","solid single wavelength","10G/25G SR connect with a rate warning on reopen"]},null,2));
 } finally { await browser.close(); }

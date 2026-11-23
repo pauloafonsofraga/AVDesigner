@@ -16,7 +16,7 @@ export function mountTransceiverInspector(root, connector, { commit, disabled = 
   if (choices.copper) interfaces.push("rj45");
   if (choices.coax.length) interfaces.push("bnc");
   for (const kind of ["dac", "aoc"]) if (choices.assemblies.some(p => p.value.startsWith(kind + "-"))) interfaces.push(kind);
-  let draft = transceiverDraft(connector), edited = false, apply, rateControl, presetControl;
+  let draft = transceiverDraft(connector), edited = false, rateControl, presetControl;
   const el = (tag, text = "") => { const n = document.createElement(tag); n.textContent = text; return n; };
   const fields = el("fieldset");
   fields.disabled = disabled;
@@ -26,20 +26,26 @@ export function mountTransceiverInspector(root, connector, { commit, disabled = 
     "Installed: " + transceiverModulePresentation(connector), disabled ? "Cage occupied or locked" : ""
   ].filter(Boolean).join(" | "));
   summary.className = "field-hint"; summary.style.overflowWrap = "anywhere";
-  const pending = el("p"); pending.className = "field-hint"; pending.dataset.transceiverDraftStatus = "";
-  pending.setAttribute("role", "status"); pending.hidden = true;
   const error = el("p"); error.className = "field-hint"; error.setAttribute("role", "alert"); error.hidden = true;
-  root.replaceChildren(el("h4", "Transceiver"), summary, pending, fields, error);
-  function updatePending() {
-    pending.hidden = !edited;
-    const profile = choices.standard.find(p => p.value === draft.preset);
-    pending.textContent = (profile?.label || (draft.interface === "empty" ? "Empty" : "Custom " + names[draft.interface])) + " - Not applied";
+  root.replaceChildren(el("h4", "Transceiver"), summary, fields, error);
+  function applySelection() {
+    if (disabled) return;
+    try {
+      if (opticalInterface(draft.interface) && !draft.supportedRates.length) {
+        const rate = transceiverBandwidthChoices(connector, draft.signalFamily)[0];
+        if (!rate) throw new Error("No supported bandwidth is available for this cage.");
+        draft.supportedRates = [rate];
+      }
+      if (transceiverDraftPatch(connector, draft)) commit(transceiverDraftConfiguration(draft));
+    } catch (failure) {
+      error.textContent = failure.message + " The installed transceiver was not changed.";
+      error.hidden = false;
+    }
   }
   function mark(field, value) {
     draft = editTransceiverDraft(draft, field, value);
     if (field !== "preset" && presetControl?.isConnected) presetControl.value = "";
-    edited = true; apply.disabled = false; error.hidden = true;
-    updatePending();
+    edited = true; error.hidden = true;
     if (field !== "rateChoice" && rateControl?.isConnected && opticalInterface(draft.interface)) {
       rateControl.replaceChildren(...rateOptions().map(([value, title]) => {
         const option = el("option", title); option.value = value; return option;
@@ -62,13 +68,18 @@ export function mountTransceiverInspector(root, connector, { commit, disabled = 
     }
     control.addEventListener("change", () => {
       mark(key, control.value); callback?.(control.value);
+      applySelection();
     });
     append(control, label);
     return control;
   }
   function input(key, label) {
     const control = el("input"); control.id = "transceiver-" + key; control.value = draft[key] ?? ""; control.maxLength = 180;
-    control.addEventListener("input", () => mark(key, control.value)); append(control, label);
+    control.addEventListener("change", () => { mark(key, control.value); applySelection(); });
+    control.addEventListener("keydown", event => {
+      if (event.key === "Enter") { event.preventDefault(); control.blur(); }
+    });
+    append(control, label);
   }
   function rateOptions() {
     let rates = transceiverBandwidthChoices(connector, draft.signalFamily);
@@ -83,7 +94,6 @@ export function mountTransceiverInspector(root, connector, { commit, disabled = 
       ? [["__current__", "Current: " + current.join(" / ")]] : []), ...rates.map(rate => [rate, rate])];
   }
   function render() {
-    updatePending();
     fields.replaceChildren();
     rateControl = presetControl = null;
     const bandwidths = rateOptions();
@@ -108,6 +118,9 @@ export function mountTransceiverInspector(root, connector, { commit, disabled = 
         declaredRates: [], txNm: "", rxNm: "", fiberCount: "", mpoPolarity: "", laneMapping: "", laneTxNm: "", laneRxNm: "" });
       delete draft.mpoPhysical;
       delete draft.rxRangeNm;
+      if (opticalInterface(draft.interface) && !fiberFamiliesFor(draft.interface).includes(draft.fiberFamily)) {
+        draft.fiberFamily = fiberFamiliesFor(draft.interface)[0] || "single-mode";
+      }
       const assembly = choices.assemblies.find(p => p.value.startsWith(draft.interface + "-"));
       const profile = assembly || (draft.interface === "bnc" ? choices.coax[0] : null);
       if (profile) { draft.assemblyProfile = profile.value; draft.supportedRates = [...profile.capabilities.supportedRates]; draft.signalFamily = profile.capabilities.signalFamily; }
@@ -171,7 +184,7 @@ export function mountTransceiverInspector(root, connector, { commit, disabled = 
         if (direction !== "input" || draft.laneTxNm) input("laneTxNm", "Lane TX wavelengths (nm; semicolon between lanes)");
         if (direction !== "output" || draft.laneRxNm) input("laneRxNm", "Lane RX wavelengths (nm; semicolon between lanes)");
         const mpo = mountMpoPhysicalFields(fields, draft.mpoPhysical, { expanded: true,
-          onChange: () => mark("mpoPhysical", mpo.read()) });
+          onChange: () => { mark("mpoPhysical", mpo.read()); applySelection(); } });
       }
     } else if (["dac", "aoc", "bnc"].includes(draft.interface)) {
       const options = draft.interface === "bnc" ? choices.coax : choices.assemblies.filter(p => p.value.startsWith(draft.interface + "-"));
@@ -182,18 +195,6 @@ export function mountTransceiverInspector(root, connector, { commit, disabled = 
         draft.supportedRates = [...(options.find(p => p.value === draft.assemblyProfile)?.capabilities.supportedRates || [])]; render();
       });
     }
-    apply = el("button", "Apply Transceiver"); apply.type = "button"; apply.className = "tool-button"; apply.disabled = !edited;
-    apply.addEventListener("click", () => {
-      try {
-        if (opticalInterface(draft.interface) && !draft.supportedRates.length) {
-          const rate = transceiverBandwidthChoices(connector, draft.signalFamily)[0];
-          if (!rate) throw new Error("No supported bandwidth is available for this cage.");
-          draft = editTransceiverDraft(draft, "supportedRates", [rate]);
-        }
-        if (transceiverDraftPatch(connector, draft)) commit(transceiverDraftConfiguration(draft));
-      } catch (failure) { error.textContent = failure.message; error.hidden = false; }
-    });
-    fields.append(apply);
   }
   render();
 }

@@ -2373,6 +2373,7 @@ function normalizeDevice(device) {
     autoAttachJumpNodes: Boolean(device.autoAttachJumpNodes),
     selectedProjectorLensId: visual.selectedProjectorLensId,
     notes: String(device.notes || ""),
+    ...(device.mpoHarnessLength != null ? { mpoHarnessLength: String(device.mpoHarnessLength) } : {}),
     locked: Boolean(device.locked),
     powerWatts: device.powerWatts ?? "",
     powerUnit: String(device.powerUnit || ""),

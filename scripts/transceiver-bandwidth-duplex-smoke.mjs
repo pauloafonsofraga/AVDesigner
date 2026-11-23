@@ -27,32 +27,31 @@ try {
   const port=id=>page.evaluate(id=>structuredClone(activeEngineBridge().scene.getConnector("source",id)),id);
   const panel=page.locator("[data-transceiver-config]"),field=name=>panel.getByLabel(name,{exact:true});
   const rates=()=>field("Bandwidth").locator("option").evaluateAll(options=>options.map(o=>o.value));
-  const apply=()=>panel.getByRole("button",{name:"Apply Transceiver"}).click();
   await select("port-1");const empty=await port("port-1");
   assert.equal(await field("Bandwidth").inputValue(),"1G");assert.deepEqual(await rates(),["1G","10G"]);
   assert.equal(await panel.getByLabel("Preset (optional)",{exact:true}).count(),0);
   assert.equal(await panel.getByRole("option",{name:"None",exact:true}).count(),0);
-  assert.equal(await panel.getByRole("button",{name:"Apply Transceiver"}).isEnabled(),false);
+  assert.equal(await panel.getByRole("button",{name:"Apply Transceiver"}).count(),0);
   assert.deepEqual(await port("port-1"),empty);
   for(const iface of ["sc","st"]) {
     await field("Installed interface").selectOption(iface);
-    await field("Bandwidth").selectOption("10G");await apply();
+    await field("Bandwidth").selectOption("10G");
     assert.equal((await port("port-1")).moduleCapabilities.optical.interface,"duplex-"+iface);
     assert.deepEqual((await port("port-1")).moduleCapabilities.supportedRates,["10G"]);
   }
   await select("port-0");const original=await port("port-0");
   assert.equal(original.installedModuleType,"10gbase-lr");assert.equal(await field("Bandwidth").inputValue(),"10G");
   assert.deepEqual(await port("port-0"),original,"opening a legacy preset must not convert it");
-  await field("Bandwidth").selectOption("1G");await apply();
+  await field("Bandwidth").selectOption("1G");
   assert.equal((await port("port-0")).installedModuleType,"lc-singlemode");
   assert.deepEqual((await port("port-0")).moduleCapabilities.supportedRates,["1G"]);
   await page.locator("#undoAction").click();assert.equal((await port("port-0")).installedModuleType,"10gbase-lr");
   await page.locator("#redoAction").click();assert.deepEqual((await port("port-0")).moduleCapabilities.supportedRates,["1G"]);
   // Return to the valid 10G link for rendering and export checks.
   await select("port-0");
-  await field("Bandwidth").selectOption("10G");await apply();
+  await field("Bandwidth").selectOption("10G");
   await select("port-2");assert.deepEqual(await rates(),["100G"]);assert.equal(await field("Bandwidth").inputValue(),"100G");
-  await field("Installed interface").selectOption("mpo");await apply();
+  await field("Installed interface").selectOption("mpo");
   assert.deepEqual((await port("port-2")).moduleCapabilities.supportedRates,["100G"]);
   await page.evaluate(()=>openDeviceEditorForInstance("source"));
   await page.locator('[data-editor-tab="connectors"]').click();
@@ -105,5 +104,5 @@ try {
   assert.equal(await page.locator('[data-sfp-owner="node"] [data-sfp-family]').inputValue(),"qsfp28-cage");
   await page.locator("#closeNodeBuilder").click();
   assert.deepEqual(errors,[]);assert.deepEqual(viewerErrors,[]);
-  console.log("Chrome passed: speed-only defaults, no preview mutation, SC/ST, existing presets, Apply, Undo/Redo, independent QSFP28, native cage drag, .avd reopen, duplex/simplex geometry and offline Viewer.");
+  console.log("Chrome passed: speed-only defaults, no preview mutation, SC/ST, existing presets, auto-apply, Undo/Redo, independent QSFP28, native cage drag, .avd reopen, duplex/simplex geometry and offline Viewer.");
 } finally {await browser.close();}

@@ -32951,6 +32951,7 @@
       const instance = instanceById(instanceId);
       const template = templateForInstance(instance);
       if (!instance || !template) return;
+      const mpoHarness = template.mpoHarness?.schemaVersion === 1 && template.isAdapterBreakout;
       const projector = AVDesignerProjectors.resolveProjectorLens(template, instance);
       const lenses = projector.projectorLenses.filter(lens => lens.name);
       inspectorBody.innerHTML = `
@@ -32971,13 +32972,15 @@
           </select>
         </div>` : ""}
         ${connectedNodesMarkup(instance, template)}
+        ${mpoHarness ? `<div class="field"><label for="mpoHarnessLength">Harness length</label>
+          <input id="mpoHarnessLength" value="${escapeAttr(instance.mpoHarnessLength || "")}" placeholder="e.g. 5 m"></div>` : ""}
         <div class="field">
           <label for="deviceNotes">Notes</label>
           <textarea id="deviceNotes">${escapeHtml(instance.notes || "")}</textarea>
         </div>
         ${activeEngineBridge() ? `<div class="jump-auto-attach-row" title="Automatically attach current and future Jump Nodes connected directly to this device. Existing attachments remain when switched off."><span>Auto-attach Jump Nodes</span><label class="feature-toggle"><input id="deviceAutoAttachJumpNodes" type="checkbox" aria-label="Auto-attach Jump Nodes" ${instance.autoAttachJumpNodes ? "checked" : ""}><span>${instance.autoAttachJumpNodes ? "ON" : "OFF"}</span></label></div>` : ""}
         ${template.isMatrixRouter ? matrixRoutingMarkup(instance, { presentation: "inspector" }) : ""}
-        <button class="tool-button" id="editCanvasDevice" type="button">Edit in Device Editor</button>
+        ${mpoHarness ? "" : '<button class="tool-button" id="editCanvasDevice" type="button">Edit in Device Editor</button>'}
         <button class="danger-button" id="deleteSelected" type="button">Delete Device</button>
         <button class="tool-button" id="deviceTechSpecsButton" type="button">Device Tech Specs</button>
       `;
@@ -32993,6 +32996,9 @@
         }
       });
       bindConnectedNodeInspector();
+      document.getElementById("mpoHarnessLength")?.addEventListener("change", event => {
+        activeEngineBridge()?.commitObjectInspectorFields(instanceId, { mpoHarnessLength: event.target.value.trim() });
+      });
       bindCanvasDeviceNameInput(document.getElementById("deviceNameInput"), instanceId);
       bindDeferredCanvasTextareaCommit(
         document.getElementById("deviceNotes"),
@@ -33010,7 +33016,7 @@
       });
       if (template.isMatrixRouter) bindMatrixRoutingInspector(instance, inspectorBody, { presentation: "inspector" });
       document.getElementById("deviceTechSpecsButton").addEventListener("click", () => openDeviceTechSpecs(template, instance));
-      document.getElementById("editCanvasDevice").addEventListener("click", () => openDeviceEditorForInstance(instanceId));
+      document.getElementById("editCanvasDevice")?.addEventListener("click", () => openDeviceEditorForInstance(instanceId));
       document.getElementById("deleteSelected").addEventListener("click", () => {
         state.selected = { type: "device", id: instanceId };
         deleteSelection();
@@ -33743,11 +33749,11 @@
           disabled: !bridge.isReady() || occupied || device?.layerLocked || device?.layerHidden,
           commit(config) {
             bridge.commitConnectorInspectorFields(deviceId, connectorId, { transceiverConfiguration: config });
-            renderConnectorInspector(deviceId, connectorId);
           }
         });
       }
       activeEngineBridge()?.renderQsfpBreakoutPortInspector(inspectorBody, deviceId, connectorId);
+      bridge?.renderMpoHarnessPortInspector(inspectorBody, deviceId, connectorId);
       bindCanvasConnectorFieldInputs(deviceId, connectorId);
       const moduleControl = !configureModule && document.getElementById("connectorModule");
       if (moduleControl) {

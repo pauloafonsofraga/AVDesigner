@@ -78,7 +78,6 @@ try {
   for(const kind of ["dac","aoc"]) {
     await field("Installed interface").selectOption(kind);
     assert.equal(await field("Cable assembly").inputValue(),kind+"-sfp-plus");
-    await panel.getByRole("button",{name:"Apply Transceiver"}).click();
     assert.equal((await snapshot(addedCage)).installedModuleType,kind+"-sfp-plus");
   }
   await page.locator("#undoAction").click();assert.equal((await snapshot(addedCage)).installedModuleType,"dac-sfp-plus");

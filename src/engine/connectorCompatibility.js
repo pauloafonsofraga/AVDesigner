@@ -337,6 +337,12 @@ export function engineCompatibilitySummary(sourceHit, targetHit) {
     const physical = mpoCheck(source, target);
     if (!physical.valid) return result(false, physical.rule, physical.reason, sourceType, targetType, source, target);
   }
+  if (sourceType === "fiber-lc" && targetType === "fiber-lc" && [source, target].some(port =>
+    port.fiberCapability?.mpoHarnessBranch && (port.fiberCapability.arrangement !== "duplex"
+      || resolveInstalledModule(port === source ? target : source).capabilities.optical?.arrangement === "simplex"
+      || (port === source ? target : source).fiberCapability?.arrangement === "simplex"))) {
+    return result(false, "mpo-harness-duplex", "An MPO harness branch requires duplex LC.", sourceType, targetType, source, target);
+  }
   const moduleCheck = transceiverConnectionValidation(source, target, sourceType, targetType);
   if (!moduleCheck.valid) return result(false, moduleCheck.rule, moduleCheck.reason, sourceType, targetType, source, target);
   if (sourceType === targetType && !engineFiberModesCompatible(source, target, sourceType, targetType)) {

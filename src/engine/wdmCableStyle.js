@@ -1,6 +1,7 @@
 import { engineCompatibilitySummary, engineConnectorCompatibilityType, engineFiberModesCompatible } from "./connectorCompatibility.js";
 import { isTransceiverCage, resolveInstalledModule } from "./transceiverModules.js";
 import { opticalWavelengthMode } from "./customTransceiverOptics.js";
+import { sceneJumpDeviceWire } from "./jumpNodeModel.js";
 
 // World units: identical at 100% in the designer, Viewer and vector export.
 export const WDM_CABLE_DASH = Object.freeze([18, 6, 5, 6]);
@@ -21,13 +22,22 @@ export function isWdmCable(scene, wire) {
     const id = wire[`${end}DeviceId`];
     return { device: scene?.getDevice?.(id), connector: scene?.getConnector?.(id, wire[`${end}ConnectorId`]) };
   });
-  if (!ends.every(end => end.connector && end.device && end.device.kind !== "jump")) return false;
-  if (!ends.some(({ connector }) => isTransceiverCage(connector)
+  if (!ends.every(end => end.connector && end.device)) return false;
+  const physical = ends.flatMap(end => {
+    if (end.device.kind !== "jump") return [end];
+    const paired = scene?.pairedJumpId?.(end.device.id);
+    const peer = paired && sceneJumpDeviceWire(scene, paired);
+    if (!peer?.otherConnector || !peer.otherDevice || peer.wire.loomId
+      || peer.wire.cableType !== wire.cableType
+      || scene?.savedWireStatuses?.get(peer.wire.sourceId || peer.wire.id)?.status === "incompatible") return [];
+    return [{ device: peer.otherDevice, connector: peer.otherConnector }];
+  });
+  if (!physical.some(({ connector }) => isTransceiverCage(connector)
     && opticalWavelengthMode(resolveInstalledModule(connector).capabilities.optical) === "wdm")) return false;
   if (scene?.savedWireStatuses?.get(wire.sourceId || wire.id)?.status === "incompatible"
-    || !ends.every(({connector}) => engineConnectorCompatibilityType(connector) === wire.cableType)
-    || ends.length === 2 && !engineCompatibilitySummary(...ends).valid) return false;
-  return !wire.fiberMode || ends.every(({connector}) => engineFiberModesCompatible(connector,
+    || !physical.every(({connector}) => engineConnectorCompatibilityType(connector) === wire.cableType)
+    || physical.length === 2 && !engineCompatibilitySummary(...physical).valid) return false;
+  return !wire.fiberMode || physical.every(({connector}) => engineFiberModesCompatible(connector,
     {type: wire.cableType, fiberMode: wire.fiberMode}, wire.cableType, wire.cableType));
 }
 

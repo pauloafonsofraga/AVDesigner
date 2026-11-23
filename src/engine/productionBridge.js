@@ -14,7 +14,9 @@ import { CONNECTOR_RELATIONSHIP_FIELDS, applyConnectorRelationshipFieldPatch } f
 import { multiCoreCanvasMethods } from "./multiCoreCanvas.js";
 import { transceiverModulePatch, integratedCableAssemblyForConnectors, isIntegratedCableType, integratedCableReplugValidation } from "./transceiverModules.js";
 import { transceiverConfigurationPatch } from "./transceiverConfiguration.js";
-import { mpoConnectorCheck } from "./mpoPhysical.js";
+import { mpoConnectorCheck, mpoPhysicalForConnector } from "./mpoPhysical.js";
+import { createMpoHarnessDevice, MPO_HARNESS_GRADES, MPO_HARNESS_LABEL, MPO_HARNESS_TRUNK } from "./mpoHarness.js";
+import { LEGACY_ADAPTER_WIDTH } from "./adapterMapping.js";
 import { hasQsfpBreakoutData, qsfpBreakoutWarningMessages } from "./qsfpBreakoutValidation.js";
 import { collectSavedTransceiverStatuses, connectionStatusText } from "./savedCableStatus.js";
 import {
@@ -28,6 +30,8 @@ import {
   engineWireColorSegmentsForWire,
   engineConnectorDisplayLabel,
   engineConnectorFiberFamily,
+  engineDeclaredConnectorFiberMode,
+  engineFiberModeFamily,
   engineConnectorFiberMode,
   engineConnectorInfoFields,
   engineConnectorUserFacingTypeLabel,
@@ -7383,6 +7387,92 @@ class ProductionEngineBridge {
     this.scheduleRender();
   }
 
+  renderMpoHarnessPortInspector(panel, deviceId, connectorId) {
+    const device = this.scene.getDevice(deviceId);
+    const connector = this.scene.getConnector(deviceId, connectorId);
+    if (engineConnectorCompatibilityType(connector) !== "fiber-mpo" || connectorId === MPO_HARNESS_TRUNK) return;
+    const available = () => this.ready && layerEditable(this.scene.getDevice(deviceId))
+      && !this.scene.connectorWireIds(deviceId, connectorId).size
+      && !breakoutPortReserved(this.mutations.root, device.sourceId || deviceId, connectorId);
+    const physical = mpoPhysicalForConnector(connector, installedModuleDetailsForEngine(connector).capabilities, isEngineCageConnector(connector));
+    const family = engineFiberModeFamily(physical?.fiberCategory || engineDeclaredConnectorFiberMode(connector));
+    const grades = MPO_HARNESS_GRADES.filter(grade => {
+      return !family || (grade === "os2" ? "single-mode" : "multimode") === family;
+    });
+    if (!grades.length) return;
+    const section = document.createElement("section");
+    section.className = "connector-inspector-section";
+    section.innerHTML = `<h4 class="connector-inspector-heading">MPO Breakout</h4>
+      <label class="field">Harness<select aria-label="Harness"><option>${MPO_HARNESS_LABEL}</option></select></label>
+      <label class="field">Harness fibre grade<select data-mpo-harness-grade>${grades.map(grade =>
+        `<option value="${grade}">${grade.toUpperCase()}</option>`).join("")}</select></label>
+      <button type="button" class="tool-button">Attach MPO Breakout</button>`;
+    const grade = section.querySelector("[data-mpo-harness-grade]");
+    const button = section.querySelector("button");
+    button.disabled = !available();
+    button.onclick = () => {
+      if (available()) this.attachMpoHarness(deviceId, connectorId, grade.value);
+    };
+    panel.append(section);
+  }
+
+  attachMpoHarness(deviceId, connectorId, grade) {
+    const source = hitForSceneWireEndpoint(this.scene, { fromDeviceId: deviceId, fromConnectorId: connectorId }, "from");
+    if (!source || !this.ready || !layerEditable(source.device)
+      || engineConnectorCompatibilityType(source.connector) !== "fiber-mpo" || connectorId === MPO_HARNESS_TRUNK
+      || !MPO_HARNESS_GRADES.includes(grade) || this.scene.connectorWireIds(deviceId, connectorId).size
+      || breakoutPortReserved(this.mutations.root, source.device.sourceId || deviceId, connectorId)) return false;
+    const id = `mpo-harness-${crypto.randomUUID()}`;
+    const left = source.point.x < source.device.x + source.device.width / 2;
+    const x = left ? source.device.x - LEGACY_ADAPTER_WIDTH - 140 : source.device.x + source.device.width + 140;
+    const raw = createMpoHarnessDevice({ id, grade, x: Math.round(x), y: Math.round(source.point.y - 86),
+      layerId: source.device.layerId, rotation: left ? 180 : 0 });
+    const project = this.mutations.root;
+    const index = project.devices.length;
+    const placement = this.resolveLibraryDropPlacement([raw], index, { placementMode: "MPO breakout" });
+    if (!placement.ok) { this.showError("No clear space to attach the MPO breakout."); return false; }
+    const provisional = normalizeAvDesignerDevice(project, raw, index);
+    const port = provisional.connectors.find(port => port.id === MPO_HARNESS_TRUNK);
+    const target = { device: provisional, connector: port, anchorId: port.primaryAnchorId,
+      point: this.scene.connectorAnchorWorldPoint(provisional, port) };
+    const check = engineCompatibilitySummary(source, target);
+    if (!check.valid) { this.showError(check.reason); return false; }
+    const metadata = this.wireMetadataForHits(source, target, check);
+    const route = this.wireRouteForEndpoints(source.point, target.point);
+    const wireData = { id: id + "-trunk", ...wireEndpointPayloadForHit(source, "from"),
+      ...wireEndpointPayloadForHit(target, "to"), ...metadata, ...route, hideLabel: true };
+    this.beginProductionCommit("Attach MPO breakout", { deviceIds: [id] });
+    const created = this.restoreCreatedDevice(raw, index);
+    if (!created.device) return false;
+    const wire = this.scene.addWire(wireData);
+    if (!wire) { this.removeCreatedDevice(id); return false; }
+    const wireMs = this.mutations.commitCreatedWire(this.scene, wire);
+    const connectionData = this.mutations.connectionDataForWire(wire.id);
+    this.refreshWireVisuals([wire.id], { appendWireId: wire.id, reason: "attach MPO breakout" });
+    const createDevice = createDevicesCommand([raw], index);
+    const createTrunk = createWireCommand(cloneWire(wire), connectionData);
+    this.recordCommand({ type: "AttachMpoHarnessCommand", protocolDeviceIds: [id],
+      affectedIds: [id, wire.id],
+      undo: bridge => {
+        const wireResult = createTrunk.undo(bridge);
+        const deviceResult = createDevice.undo(bridge);
+        return { mutationMs: (wireResult.mutationMs || 0) + (deviceResult.mutationMs || 0) };
+      },
+      redo: bridge => {
+        const deviceResult = createDevice.redo(bridge);
+        const wireResult = createTrunk.redo(bridge);
+        bridge.scene.selectOnly(id);
+        bridge.updateSelectionHud();
+        return { mutationMs: (deviceResult.mutationMs || 0) + (wireResult.mutationMs || 0) };
+      }
+    });
+    this.scene.selectOnly(id);
+    this.updateSelectionHud();
+    this.markCommitted("Attach MPO breakout", (created.mutationMs || 0) + wireMs);
+    this.scheduleRender();
+    return true;
+  }
+
   commitObjectInspectorFields(objectId, fields = {}) {
     if (!this.ready) return false;
     const device = this.resolveDeviceBySourceId(objectId);
@@ -9941,6 +10031,8 @@ class ProductionEngineBridge {
   refreshJumpNodeVisuals(jumpIds = [], { wireIds = [], reason = "jump node visual" } = {}) {
     const ids = uniqueItems((jumpIds || []).map(id => String(id || "")).filter(id => isJumpNodeDevice(this.scene.getDevice(id))));
     if (!ids.length) return { totalMs: 0, dirtyDevices: 0, dirtyWires: 0 };
+    const legs = ids.flatMap(id => [id, this.scene.pairedJumpId(id)]).filter(Boolean);
+    wireIds = uniqueItems([...wireIds, ...this.scene.affectedWireIdsForObjects(legs)]);
     this.scene.refreshJumpNodeRoles(ids);
     const dirtyStats = this.renderer.updateDirty(this.scene, {
       deviceIds: ids,
@@ -13015,7 +13107,7 @@ function engineInspectorPositionForDevice(device) {
 }
 
 function sanitizeObjectInspectorFields(fields = {}) {
-  const allowed = new Set(["name", "label", "notes", "locked", "powerWatts", "powerUnit", "showInternalWiring", "showInternalMatrixRouting", "selectedProjectorLensId"]);
+  const allowed = new Set(["name", "label", "notes", "mpoHarnessLength", "locked", "powerWatts", "powerUnit", "showInternalWiring", "showInternalMatrixRouting", "selectedProjectorLensId"]);
   const sanitized = {};
   Object.entries(fields || {}).forEach(([key, value]) => {
     if (!allowed.has(key)) return;
@@ -13069,6 +13161,7 @@ function applyObjectFieldsToSceneDevice(device, fields = {}) {
     device.labelMapped = true;
   }
   if (sanitized.notes !== undefined) device.notes = sanitized.notes;
+  if (sanitized.mpoHarnessLength !== undefined) device.mpoHarnessLength = sanitized.mpoHarnessLength;
   if (sanitized.locked !== undefined) device.locked = sanitized.locked;
   if (sanitized.powerWatts !== undefined) device.powerWatts = sanitized.powerWatts;
   if (sanitized.powerUnit !== undefined) device.powerUnit = sanitized.powerUnit;

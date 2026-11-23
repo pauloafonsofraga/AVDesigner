@@ -35,7 +35,7 @@ test("LR4 editing clears profile-only UI restrictions without dropping wavelengt
   assert.deepEqual(transceiverDraftPatch(multi, editTransceiverDraft(transceiverDraft(multi), "fiberGrade", "")).moduleCapabilities.supportedRates, ["40 Gb/s", "100G"]);
 });
 
-test("the factory provides a labelled synthetic SC/ST host without changing real hardware eligibility", () => {
+test("the factory still provides a labelled synthetic SC/ST host; undeclared interfaces remain configurable", () => {
   const lab = catalogue().devices.find(d => d.id === "generic-transceiver-configuration-lab");
   assert.ok(lab);
   assert.match(lab.description, /synthetic/i);
@@ -43,7 +43,7 @@ test("the factory provides a labelled synthetic SC/ST host without changing real
   assert.match(port.nameText, /SC\/ST/);
   for (const iface of ["sc", "st"]) {
     assert.equal(transceiverConfigurationChoices(port).fiberFamilies[iface].length, 2);
-    assert.equal(transceiverConfigurationChoices(host).fiberFamilies[iface].length, 0);
+    assert.equal(transceiverConfigurationChoices(host).fiberFamilies[iface].length, 2);
   }
   assert.deepEqual(lab.connectors.map(c => transceiverLineRateChoices(c)), [["100M", "1G"], ["1G", "10G"], ["10G", "25G"], ["40G"], ["40G", "100G"]]);
   assert.ok(lab.connectors.every(c => !c.cageCapabilities.breakoutModes));

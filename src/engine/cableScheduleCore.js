@@ -11,6 +11,7 @@ import {groupedCoaxMetadata, groupedCoaxLabel, multibandColors} from "./multiban
 import {CABLE_NUMBER_PREFIXES, parseCableNumber, formatCableNumber} from "./cableNumbering.js";
 import { connectionStatusText } from "./savedCableStatus.js";
 import { projectWireEndpoint } from "./projectWireEndpoint.js";
+import { MPO_HARNESS_LABEL, mpoHarnessDefinition } from "./mpoHarness.js";
 import { uniquelyIdentifiedQsfpBreakouts, qsfpBreakoutChannels, qsfpBreakoutMode, qsfpBreakoutModeLabel, qsfpBreakoutLinkId,
   qsfpBreakoutCableLabel, qsfpBreakoutLengthLabel, qsfpBreakoutChannelStatus } from "./qsfpBreakoutModel.js";
 export { multiCorePathMarkup } from "./multiCoreReportPresentation.js";
@@ -146,6 +147,13 @@ export function groupedCables(project, getConnector) {
   const wires = project.connections || [];
   const byId = new Map(wires.map(wire => [String(wire.id), wire]));
   const visited = new Set(), groups = [];
+  const harnesses = new Map((project.devices || []).flatMap(instance => {
+    const deviceId = instance?.instanceId || instance?.id;
+    const definition = deviceId && mpoHarnessDefinition(instance.templateOverride || instance.template || instance);
+    if (!definition) return [];
+    const trunk = { deviceId, connectorId: definition.trunkId };
+    return [[deviceId, { instance, definition, trunk, legs: new Map(), wires: [] }]];
+  }));
   for (const wire of wires) {
     const id = String(wire.id || "");
     if (!id || visited.has(id)) continue;
@@ -159,7 +167,23 @@ export function groupedCables(project, getConnector) {
     const first = group[0], last = group[group.length - 1];
     const source = group.length > 1 ? realEndpoint(first, "from") : projectWireEndpoint(first, "from");
     const destination = group.length > 1 ? realEndpoint(last, "to") : projectWireEndpoint(last, "to");
-    groups.push({ wires: group, source, destination, primary: first });
+    const fromHarness = harnesses.get(source?.deviceId), toHarness = harnesses.get(destination?.deviceId);
+    const harness = fromHarness || toHarness;
+    const harnessEnd = fromHarness ? source : destination;
+    const peer = fromHarness ? destination : source;
+    const port = harnessEnd?.connectorId;
+    if (harness && (!fromHarness || !toHarness) && (harness.definition.trunkId === port
+      || harness.definition.branches.some(branch => branch.connectorId === port))) {
+      if (!harness.legs.has(port)) harness.legs.set(port, []);
+      harness.legs.get(port).push(peer);
+      harness.wires.push(...group);
+    } else groups.push({ wires: group, source, destination, primary: first });
+  }
+  for (const harness of harnesses.values()) {
+    const { trunk, legs, wires } = harness;
+    const source = legs.get(trunk.connectorId)?.[0] || trunk;
+    const destination = harness.definition.branches.flatMap(branch => legs.get(branch.connectorId) || [])[0];
+    groups.push({ wires, source, destination: destination || {}, primary: wires[0] || {}, harness });
   }
   return groups;
 }
@@ -174,6 +198,7 @@ function preferredNumber(group, family, claimed) {
 }
 
 function groupFamily(project, group, options) {
+  if (group.harness) return "F";
   const cableType = group.wires.find(wire => wire.cableType && wire.cableType !== "jump")?.cableType
     || group.primary.cableType;
   const cable = cableFamily(cableType, options.nodeDefinitions);
@@ -205,6 +230,7 @@ function numberCableGroups(project, groups, options, commit) {
   }
   const claimed = new Set();
   for (const group of groups) {
+    if (group.harness && !group.wires.length) { group.family = "F"; continue; }
     const family = groupFamily(project, group, options);
     let number = preferredNumber(group, family, claimed);
     if (!number) number = `${CABLE_NUMBER_PREFIXES[family]}-${String(++counters[family]).padStart(3, "0")}`;
@@ -324,7 +350,7 @@ export function buildCableSchedule(input, options = {}) {
     const statuses = group.wires.map(wire => wireStatuses?.get(wire.id)).filter(Boolean);
     const connectionStatus = statuses.find(status => status.status === "incompatible")
       || statuses.find(status => status.status === "unverified") || statuses[0];
-    return {
+    const row = {
       ...(connectionStatus ? { connectionStatus } : {}),
       ...(physicalCircuits ? {physicalCircuits:{...physicalCircuits,
         sourceConnectorFamily:source.physicalCircuits?.connectorFamily || physicalCircuits.connectorFamily,
@@ -366,6 +392,27 @@ export function buildCableSchedule(input, options = {}) {
       cableTypeId: cableType, cableColor: String(value("customColor") || node(cableType)?.color || "#32b6ff"),
       ...(multibandColors(cableSignal) ? {cableColors:multibandColors(cableSignal)} : {}),
       cableCustomColor: String(value("customColor"))
+    };
+    if (!group.harness) return row;
+    const { instance, definition, legs, trunk } = group.harness;
+    const branches = definition.branches.map((branch, i) => ({
+      name: "LC " + (i + 1),
+      destinations: (legs.get(branch.connectorId) || []).map(ref => endpointDisplay(project, ref, options.getConnector, nodeColors, nodeDefinitions))
+    }));
+    return { ...row,
+      cableNumber: row.cableNumber || instance.instanceId || instance.id,
+      connector: "MPO-12 to duplex LC",
+      cableTypeId: "fiber-mpo",
+      cable: MPO_HARNESS_LABEL + " (" + definition.grade.toUpperCase() + ")",
+      length: cableLengthDisplayLabel(instance.mpoHarnessLength),
+      loomId: "", loom: "",
+      destinationDevice: [...new Set(branches.flatMap(branch => branch.destinations.map(end => end.device)))].join("; "),
+      destinationPort: "",
+      notes: [
+        ...(!legs.has(trunk.connectorId) ? ["MPO trunk disconnected."] : []),
+        ...branches.map(branch => branch.name + ": " + (branch.destinations.map(end => end.device + " / " + end.port).join("; ") || "Unconnected")),
+        "End-to-end optical operation unverified.", row.notes
+      ].filter(Boolean).join("\n")
     };
   }).sort((a, b) => familyOrder.indexOf(parseCableNumber(a.cableNumber)?.family) - familyOrder.indexOf(parseCableNumber(b.cableNumber)?.family)
     || (parseCableNumber(a.cableNumber)?.number || 0) - (parseCableNumber(b.cableNumber)?.number || 0)

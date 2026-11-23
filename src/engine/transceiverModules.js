@@ -260,8 +260,9 @@ export function transceiverModuleValidation(connector, capabilities = installedM
   const uncommonInterface = ["fiber-sc", "fiber-st"].includes(profile?.activeType) ? profile.activeType.slice(6) : "";
   const declaredInterface = uncommonInterface && (list(host.supportedModuleInterfaces).some(value => key(value) === uncommonInterface)
     || list(host.supportedModuleTypes).some(value => key(value) === key(profile.value)));
-  if (uncommonInterface && !declaredInterface && resolveInstalledModule(connector).profile?.value !== profile.value) {
-    return reject("SC/ST requires explicit host module-interface support.");
+  if (uncommonInterface && !declaredInterface && (form === "qsfp" || Array.isArray(host.supportedModuleInterfaces))
+    && resolveInstalledModule(connector).profile?.value !== profile.value) {
+    return reject("This cage does not declare support for the selected SC/ST interface.");
   }
   if (profile?.value) {
     for (const field of ["formFactor", "direction", "signalFamily", "mediaType", "cableAssembly"]) {
@@ -310,7 +311,7 @@ export function transceiverModuleValidation(connector, capabilities = installedM
   if (["input", "output"].includes(nodeDirection) && ["input", "output"].includes(capabilities.direction)
     && nodeDirection !== capabilities.direction) return reject("Module direction conflicts with the node direction.");
   const warnings = [];
-  if (uncommonInterface && !declaredInterface) warnings.push("Historical SC/ST host interface support is unverified.");
+  if (uncommonInterface && !declaredInterface) warnings.push("SC/ST host interface support is unverified.");
   if (capabilities.optical?.configuration === CUSTOM_OPTICS) {
     if (profile?.capabilities.optical || !["fiber-lc", "fiber-sc", "fiber-st", "fiber-mpo"].includes(profile?.activeType)
       || (profile.activeType === "fiber-mpo") !== (capabilities.optical.interface === "mpo")

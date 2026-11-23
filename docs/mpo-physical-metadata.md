@@ -72,15 +72,27 @@ transceiver TX/RX assignments. No lanes, branches or signal paths are generated.
 
 ## Controls and Preservation
 
-Custom MPO uses collapsed physical fields within the existing Advanced Inspector.
-Fixed MPO uses the same form in the Device Editor, Card Editor and Canvas
-Inspector. Apply is explicit; mounting/expanding a form does not mutate a device.
+Custom MPO Inspector edits apply as soon as a selection is made or a text field
+is committed. Fixed MPO uses the same fields in the Device Editor, Card Editor
+and Canvas Inspector, with explicit Apply. Termination and numbering reference
+are not editable here; historical values remain stored, and new position entries
+use the standard reference internally. Opening the controls does not modify a device.
 Occupied ports must be disconnected before changing their physical properties.
 
 The existing project mutation/history, instance/card overrides, output contract
 and device package paths carry the metadata. No reporting columns, cable counts,
 geometry or routing modes were added. Invalid imported attachments remain
 documented and are handled by the existing validated connection-status path.
+
+## Detachable harnesses
+
+An unoccupied MPO port can attach an MPO-12 to four duplex LC harness in OM3,
+OM4 or OS2. The harness is one Adapter/Breakout instance with a private template,
+stable trunk and branch connector IDs, a fixed fibre-position map and its own
+length. The project uses normal connection gestures for the attachment legs;
+the schedule counts them together as one harness. The trunk can be disconnected
+without changing the optical module. It does not configure host breakout mode,
+claim operational lane compatibility or add a separate polarity control.
 
 ## References
 

@@ -78,7 +78,8 @@ import {
   jumpNodeCenter,
   jumpNodeRenderRadius,
   jumpNodeVisualState,
-  jumpNodeRoleColor
+  jumpNodeRoleColor,
+  sceneJumpLinkPhysicalWires
 } from "./jumpNodeModel.js";
 import { wirePlaybackEase } from "./wirePlayback.js";
 import { isPhysicalJumpWire, wireCaption } from "./cableCaption.js";
@@ -2520,20 +2521,24 @@ function pushJumpLinkOverlays(vertices, interaction = {}, scene = null) {
       : jumpLinkBezierPolyline(overlay.from, overlay.to);
     const width = jumpLinkOverlayWidth(scene, overlay);
     const alpha = overlay.valid === false ? 0.58 : selected ? 0.98 : pairSelected ? 0.94 : overlay.mode === "hover" ? 0.82 : 0.9;
+    const link = scene?.getJumpLink?.(overlay.id);
+    const paths = link && sceneJumpLinkPhysicalWires(scene, link).some(wire => isWdmCable(scene, wire)) ? wdmInkRuns(points) : [points];
     if (selected) {
-      pushPolyline(vertices, points, width + 11, "rgba(251,121,4,.16)");
-      pushPolyline(vertices, points, width + 6, "rgba(255,255,255,.16)");
+      paths.forEach(path => {
+        pushPolyline(vertices, path, width + 11, "rgba(251,121,4,.16)");
+        pushPolyline(vertices, path, width + 6, "rgba(255,255,255,.16)");
+      });
     } else if (pairSelected) {
-      pushPolyline(vertices, points, width + 8, "rgba(251,121,4,.12)");
+      paths.forEach(path => pushPolyline(vertices, path, width + 8, "rgba(251,121,4,.12)"));
     }
-    pushGradientPolyline(
+    paths.forEach(path => pushGradientPolyline(
       vertices,
-      points,
+      path,
       width,
       overlay.fromColor || JUMP_NODE_ROLE_COLORS.output,
       overlay.toColor || JUMP_NODE_ROLE_COLORS.input,
       alpha
-    );
+    ));
     count += 1;
   });
   return count;
