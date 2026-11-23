@@ -4,6 +4,7 @@ import {multibandWirePolygons,multibandCableWidth} from "../src/engine/multiband
 import { isWdmCable, wdmInkRuns } from "../src/engine/wdmCableStyle.js";
 import { transceiverModulePatch } from "../src/engine/transceiverModules.js";
 import { JUMP_NODE_CONNECTOR_ID } from "../src/engine/jumpNodeModel.js";
+import { isDuplexFiberWire, opticalWireStrokes } from "../src/engine/duplexFiberGeometry.js";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import * as colors from "../src/engine/connectorCompatibility.js";
@@ -32,10 +33,12 @@ test("a WDM Jump leg and its paired leg inherit the pattern without changing cab
   const scene = { getDevice, wires, getConnector: (id, port) => getDevice(id)?.connectors.find(c => c.id === port),
     pairedJumpId: id => id === "j1" ? "j2" : "j1" };
   assert.ok(wires.every(wire => isWdmCable(scene, wire)));
+  assert.ok(wires.every(wire => isDuplexFiberWire(scene, wire)));
   assert.deepEqual(wires, saved);
   scene.pairedJumpId = () => "";
   assert.equal(isWdmCable(scene, wires[0]), true);
   assert.equal(isWdmCable(scene, wires[1]), false);
+  assert.equal(isDuplexFiberWire(scene, wires[1]), false);
 });
 function method(name) {
   const tail = bridge.slice(bridge.indexOf(`\n  ${name}(`) + 1);
@@ -126,12 +129,12 @@ for (const type of ["hdmi", "sdi", "fiber-lc", "led-signal", "misc"]) test(`Engi
 });
 
 function rendererHarness() {
-  const context = { wirePolylineFromPoints, isWdmCable, wdmInkRuns, DEFAULT_RENDER_OPTIONS: {},
+  const context = { wirePolylineFromPoints, opticalWireStrokes, wdmInkRuns, DEFAULT_RENDER_OPTIONS: {},
     pushPolyline: (vertices, points, width, color) => vertices.push({ points, color }),
     multibandWirePolygons, multibandCableWidth, pushBandPolygon:(vertices, polygon)=>vertices.push(polygon),
     colorWithOpacity: (color, opacity) => opacity >= 1 ? color : color,
     connectorVisualRadius: () => 10, pushConnectorHighlight() {}, pushWirePlaybackOverlay: () => 0, pushSnapGuides: () => 0 };
-  const names = ["pushInteractionOverlay", "pushWireColorSegments", "polylineLength", "polylinePointAtDistance", "polylineSlice"];
+  const names = ["pushInteractionOverlay", "pushWireColorSegments", "pushOpticalWireStroke", "polylineLength", "polylinePointAtDistance", "polylineSlice"];
   return vm.runInNewContext(`${names.map(name => fn(renderer, name)).join("\n")}\n({pushInteractionOverlay, pushWireColorSegments, polylineLength})`, context);
 }
 
@@ -155,6 +158,23 @@ test("WDM preview paints one dashed route before a target is resolved and while 
   const vertices = [];
   r.pushInteractionOverlay(vertices, {}, {tempWire:{...route,sourceHit:source,targetHit:incompatible}});
   assert.equal(vertices.length,1,"conflicting optics are not presented as a WDM pair");
+});
+
+test("duplex optical previews draw two strands while drawing and when replugging from either end", () => {
+  const r = rendererHarness();
+  const source = { device: { id: "duplex" },
+    connector: { id: "port", type: "fiber-lc", fiberCapability: { arrangement: "duplex" } } };
+  const ordinary = { device: { id: "unknown" }, connector: { id: "port", type: "fiber-lc" } };
+  for (const hits of [{sourceHit: source}, {sourceHit: ordinary, targetHit: source}, {previewFixedHit: source, sourceHit: null}]) {
+    const vertices = [], from = {x: 0, y: 0}, to = {x: 200, y: 0};
+    r.pushInteractionOverlay(vertices, {}, { tempWire: { ...hits, from, to, cableType: "fiber-lc", routeStyle: "orthogonal" } });
+    assert.equal(vertices.length, 2);
+    for (const { points } of vertices) {
+      assert.deepEqual(points[0], from);
+      assert.deepEqual(points.at(-1), to);
+      assert.ok(points.some(point => point.y > 0) && points.some(point => point.y < 0), "each strand crosses the centre near the end");
+    }
+  }
 });
 
 test("rotated adapter drawing, rewiring and Loom preview directions reach the renderer", () => {

@@ -60,8 +60,9 @@ try {
       await page.mouse.move((a.x+b.x)/2,(a.y+b.y)/2-90,{steps:12});
       await page.waitForFunction(async () => {
         const {isWdmCable} = await import("./src/engine/wdmCableStyle.js");
+        const {isDuplexFiberWire} = await import("./src/engine/duplexFiberGeometry.js");
         const b=activeEngineBridge(), temp=b.interactionRenderState().tempWire;
-        return state.connections.length===0 && temp && !temp.targetHit && isWdmCable(b.scene,temp);
+        return state.connections.length===0 && temp && !temp.targetHit && isWdmCable(b.scene,temp) && isDuplexFiberWire(b.scene,temp);
       });
       await page.screenshot({path:join(directory,"wdm-while-drawing.png")});
     }
@@ -79,8 +80,9 @@ try {
   };
   const readRender = id => page.evaluate(async id => {
     const {isWdmCable} = await import("./src/engine/wdmCableStyle.js");
+    const {opticalWireStrokes} = await import("./src/engine/duplexFiberGeometry.js");
     const b = activeEngineBridge(), wire = b.scene.getWire(id), route = b.scene.wireRenderPolyline(wire);
-    return {wdm:isWdmCable(b.scene,wire), route, color:wire.color, count:b.scene.wires.length,
+    return {wdm:isWdmCable(b.scene,wire), strands:opticalWireStrokes(b.scene,wire,route,2.2), route, color:wire.color, count:b.scene.wires.length,
       vertices:Array.from(b.renderer.wireVertexMap.get(id) || [])};
   },id);
   const save = async (button, filename, confirm) => {
@@ -103,10 +105,12 @@ try {
   const id = await connect({wdm:true});
   const rendered = await readRender(id);
   assert.equal(rendered.wdm,true); assert.equal(rendered.count,1); assert.ok(rendered.vertices.length > 36);
+  assert.deepEqual(rendered.strands.map(strand=>strand.dashed),[true,true]);
+  assert.notDeepEqual(rendered.strands[0].points,rendered.strands[1].points);
   const xs = rendered.vertices.filter((_,i) => i%6===0);
   assert.ok(!xs.some(x=>x>rendered.route[0].x+18.5 && x<rendered.route[0].x+23.5),"there is a gap on the existing cable centerline");
   await page.mouse.move(950,650);
-  await page.screenshot({path:join(directory,"editor-lr4-single-path.png")});
+  await page.screenshot({path:join(directory,"editor-lr4-duplex.png")});
   await page.locator("#zoomIn").click();
   assert.deepEqual(await readRender(id),rendered,"camera zoom does not change world stroke, geometry or color");
   await page.locator("#zoomFit").click();
@@ -130,7 +134,7 @@ try {
   viewer.on("pageerror", error => errors.push(error.message));
   await viewer.goto(pathToFileURL(html).href); await viewer.evaluate(() => engineOutputReady);
   assert.equal(await viewer.evaluate(() => outputViewer.scene.wires.length),1);
-  await viewer.screenshot({path:join(directory,"offline-viewer-lr4-single-path.png")});
+  await viewer.screenshot({path:join(directory,"offline-viewer-lr4-duplex.png")});
   await viewer.evaluate(id => outputViewer.select({type:"wire",id}),id);
   await viewer.locator('[data-action="play"]').click();
   await viewer.waitForFunction(id => outputViewer.playback?.steps[0]?.id===id,id);
@@ -156,13 +160,14 @@ try {
     }
     await waitModule(host,"lc-singlemode");
   }
-  assert.equal((await readRender(await connect())).wdm,true,"simplex BiDi WDM is independently configurable");
+  assert.deepEqual((await readRender(await connect())).strands.map(strand=>strand.dashed),[true],"simplex BiDi WDM remains one strand");
   await page.locator("#undoAction").click();
   await page.waitForFunction(() => state.connections.length===0);
   for (const host of ["host-0","host-1"]) await configure(host,"10gbase-lr");
   const single = await readRender(await connect());
   assert.equal(single.wdm,false); assert.equal(single.count,1);
-  assert.equal(single.vertices.length,(single.route.length-1)*36,"single-wavelength duplex uses one solid stroke");
+  assert.deepEqual(single.strands.map(strand=>strand.dashed),[false,false]);
+  assert.equal(single.vertices.length,single.strands.reduce((total,strand)=>total+(strand.points.length-1)*36,0));
   await load(Buffer.from(JSON.stringify(fixture(false,true))),"different-rate-sr-ports.avd");
   await configure("host-0","10gbase-sr"); await configure("host-1","25gbase-sr");
   const mixedId = await connect();
@@ -190,13 +195,13 @@ try {
   await page.mouse.up();
   await page.waitForFunction(() => state.connections.length === 1);
   const firstLeg = await page.evaluate(() => state.connections[0].id);
-  assert.equal((await readRender(firstLeg)).wdm,true);
+  assert.deepEqual((await readRender(firstLeg)).strands.map(strand=>strand.dashed),[true,true]);
   const j2 = await point("jump-b",await jumpConnector("jump-b")), end = await point("host-1");
   await page.mouse.move(end.x,end.y); await page.mouse.down();
   await page.mouse.move(j2.x,j2.y,{steps:16}); await page.mouse.up();
   await page.waitForFunction(() => state.connections.length === 2);
   const secondLeg = await page.evaluate(() => state.connections[1].id);
-  assert.equal((await readRender(secondLeg)).wdm,true);
+  assert.deepEqual((await readRender(secondLeg)).strands.map(strand=>strand.dashed),[true,true]);
   await page.screenshot({path:join(directory,"wdm-after-jump-connection.png")});
   assert.deepEqual(errors,[]);
   console.log(JSON.stringify({passed:true,directory,checks:["LR4 and custom profile auto-apply","WDM before and after snapping and commit","WDM on both legs of a Jump pair","preserved route/zoom","Inspector BiDi + WDM","undo/redo and AVD reopen","Play Cable and Signal Chain","offline HTML viewer","native WDM PDF stroke","solid single wavelength","10G/25G SR connect with a rate warning on reopen"]},null,2));

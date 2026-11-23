@@ -1,14 +1,15 @@
 import { resolveInstalledModule } from "./transceiverModules.js";
 import { offsetPolyline } from "./routingPlacement.js";
 import { standaloneFiberArrangement } from "./standaloneConnectors.js";
+import { physicalOpticalCableEnds } from "./opticalCableEndpoints.js";
+import { isWdmCable } from "./wdmCableStyle.js";
 
 // Drawing-only: a pair of strands is still one physical patch cable. Never
 // infer duplex from fibre colour, an MPO interface, or an integrated assembly.
 export function isDuplexFiberWire(scene, wire) {
-  if (!wire || wire.cableAssembly || /^(?:dac|aoc)-/.test(wire.cableType || "")) return false;
-  const ports = [scene?.getConnector?.(wire.fromDeviceId, wire.fromConnectorId),
-    scene?.getConnector?.(wire.toDeviceId, wire.toConnectorId), wire.sourceHit?.connector].filter(Boolean);
-  const arrangements = ports.map(port => {
+  if (!wire || wire.cableAssembly || wire.stageboxAssemblyId || wire.multiCoreIdentity?.kind === "multi-core-trunk"
+    || /^(?:dac|aoc)-/.test(wire.cableType || "")) return false;
+  const arrangements = physicalOpticalCableEnds(scene, wire).map(({ connector: port }) => {
     const standalone = standaloneFiberArrangement(port);
     if (standalone) return standalone;
     const module = resolveInstalledModule(port);
@@ -17,6 +18,15 @@ export function isDuplexFiberWire(scene, wire) {
     return optical.arrangement || optical.interface?.split("-")[0] || "";
   });
   return !arrangements.includes("simplex") && arrangements.includes("duplex");
+}
+
+export function opticalWireStrokes(scene, wire, points, width) {
+  const duplex = isDuplexFiberWire(scene, wire);
+  const dashed = isWdmCable(scene, wire);
+  if (!duplex && !dashed) return null;
+  return (duplex ? duplexFiberPaths(points, width) : [points]).map(points => ({
+    points, width: duplex ? width * .65 : width, dashed
+  }));
 }
 
 export function duplexFiberPaths(points, width) {

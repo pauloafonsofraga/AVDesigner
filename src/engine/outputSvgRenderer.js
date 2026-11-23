@@ -112,12 +112,15 @@ export function renderEngineOutputSvg(snapshot, { images = {}, textMetrics = {},
   shellDiagnostics.imageCount+=shell.imageCount; shellDiagnostics.fallbackCount+=shell.fallbackCount;
   meshes(primitives.racks.filter(item => !contract.racks.some(rack => rack.id === item.id && rack.presentationMode === "compact")),"data-rack-id");
   for (const wire of primitives.wires) ctx.group({ "data-wire-id": wire.id }, () => {
-    const stroke = wire.wdmStroke;
-    if (!stroke?.points.length) return ctx.mesh(wire.vertices);
-    ctx.save(); ctx.strokeStyle = stroke.color; ctx.lineWidth = stroke.width;
-    ctx.lineCap = "butt"; ctx.setLineDash(wdmDashPattern(stroke.points)); ctx.beginPath();
-    stroke.points.forEach((point, i) => i ? ctx.lineTo(point.x, point.y) : ctx.moveTo(point.x, point.y));
-    ctx.stroke(); ctx.restore();
+    if (!wire.opticalStrokes?.length) return ctx.mesh(wire.vertices);
+    ctx.save(); ctx.strokeStyle = wire.color; ctx.lineCap = "butt";
+    for (const stroke of wire.opticalStrokes) {
+      ctx.lineWidth = stroke.width;
+      ctx.setLineDash(stroke.dashed ? wdmDashPattern(stroke.points) : []); ctx.beginPath();
+      stroke.points.forEach((point, i) => i ? ctx.lineTo(point.x, point.y) : ctx.moveTo(point.x, point.y));
+      ctx.stroke();
+    }
+    ctx.restore();
   });
   meshes(primitives.looms,"data-loom-id");
   meshes(primitives.breakouts,"data-breakout-id");

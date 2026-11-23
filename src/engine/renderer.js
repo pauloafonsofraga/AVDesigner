@@ -42,6 +42,7 @@ import {
 import { sharedBusOrthogonalSegments } from "./sharedBusRendering.js";
 import {multibandNodePolygons, multibandWirePolygons, multibandCableWidth} from "./multibandGeometry.js";
 import { isWdmCable, wdmInkRuns } from "./wdmCableStyle.js";
+import { isDuplexFiberWire, opticalWireStrokes } from "./duplexFiberGeometry.js";
 import {resolveConnectorLabelCollisions} from './connectorLabelLayout.js';
 import {sharedBusTypeLabels,adaptiveSharedBusLabel,resolveSharedBusLabels} from './sharedBusLabels.js';
 import { connectorFieldRowWidth } from "./connectorFieldLayout.js";
@@ -3625,7 +3626,10 @@ function pushWireSelection(vertices, scene, wire, offsets, options = DEFAULT_REN
   pushWire(vertices, scene, wire, offsets, width + 11, "rgba(255,121,4,.18)", drawOptions, cableHopMap);
   pushWire(vertices, scene, wire, offsets, width + 6, "rgba(255,121,4,.36)", drawOptions, cableHopMap);
   pushWire(vertices, scene, wire, offsets, width + 1.5, "rgba(255,121,4,.82)", drawOptions, cableHopMap);
-  if (wire.colorSegments?.length > 1 || isWdmCable(scene, wire)) pushWire(vertices, scene, wire, offsets, WIRE_BASE_WIDTH, wireColor(wire, options), options, cableHopMap);
+  const duplex = isDuplexFiberWire(scene, wire);
+  if (wire.colorSegments?.length > 1 || duplex || isWdmCable(scene, wire)) {
+    pushWire(vertices, scene, wire, offsets, duplex ? WIRE_STATIC_WIDTH : WIRE_BASE_WIDTH, wireColor(wire, options), options, cableHopMap);
+  }
 }
 
 function pushWireHover(vertices, scene, wire, offsets, options = DEFAULT_RENDER_OPTIONS, cableHopMap = options.cableHopMap) {
@@ -3633,7 +3637,10 @@ function pushWireHover(vertices, scene, wire, offsets, options = DEFAULT_RENDER_
   const width=multibandCableWidth(WIRE_BASE_WIDTH,wire.colorSegments);
   pushWire(vertices, scene, wire, offsets, width + 8, "rgba(255,255,255,.22)", drawOptions, cableHopMap);
   pushWire(vertices, scene, wire, offsets, width + 3, "rgba(50,182,255,.72)", drawOptions, cableHopMap);
-  if (wire.colorSegments?.length > 1 || isWdmCable(scene, wire)) pushWire(vertices, scene, wire, offsets, WIRE_BASE_WIDTH, wireColor(wire, options), options, cableHopMap);
+  const duplex = isDuplexFiberWire(scene, wire);
+  if (wire.colorSegments?.length > 1 || duplex || isWdmCable(scene, wire)) {
+    pushWire(vertices, scene, wire, offsets, duplex ? WIRE_STATIC_WIDTH : WIRE_BASE_WIDTH, wireColor(wire, options), options, cableHopMap);
+  }
 }
 
 function pushWire(vertices, scene, wire, offsets, width, color, options = DEFAULT_RENDER_OPTIONS, cableHopMap = options.cableHopMap) {
@@ -3651,7 +3658,12 @@ function pushWire(vertices, scene, wire, offsets, width, color, options = DEFAUL
     ? basePoints
     : applyCableHopsToPolyline(basePoints, cableHopMap?.get(wire.id));
   if (options.wireColorSegments === false) {
-    for (const path of isWdmCable(scene, wire) ? wdmInkRuns(points) : [points]) pushPolyline(vertices, path, width, color);
+    const strands = opticalWireStrokes(scene, wire, points, WIRE_STATIC_WIDTH);
+    if (strands?.length === 2) {
+      for (const strand of strands) pushOpticalWireStroke(vertices, strand, color, Math.min(1.4, width / 12));
+    } else {
+      for (const path of strands?.[0]?.dashed ? wdmInkRuns(points) : [points]) pushPolyline(vertices, path, width, color);
+    }
     return;
   }
   pushWireColorSegments(vertices, points, width, wire, color, 1, scene);
@@ -3674,7 +3686,6 @@ function pushPolyline(vertices, points, width, color) {
 }
 
 function pushWireColorSegments(vertices, points, width, wire, fallbackColor, opacity = 1, scene = null) {
-  const paths = isWdmCable(scene, wire) ? wdmInkRuns(points) : [points];
   if (wire?.stageboxAssemblyId) {
     pushPolyline(vertices, points, width * 3, colorWithOpacity(wire.color, opacity));
     return;
@@ -3688,13 +3699,20 @@ function pushWireColorSegments(vertices, points, width, wire, fallbackColor, opa
     ? wire.colorSegments.filter(Boolean)
     : [];
   if (colors.length < 2) {
-    for (const path of paths) pushPolyline(vertices, path, width, colorWithOpacity(fallbackColor, opacity));
+    const color = colorWithOpacity(fallbackColor, opacity);
+    const strokes = opticalWireStrokes(scene, wire, points, width);
+    if (strokes) strokes.forEach(stroke => pushOpticalWireStroke(vertices, stroke, color));
+    else pushPolyline(vertices, points, width, color);
     return;
   }
   const bandWidth=multibandCableWidth(width,colors);
-  for (const path of paths) {
-    multibandWirePolygons(path, bandWidth + .6, ["#28323b"]).forEach(polygon => pushBandPolygon(vertices, polygon, opacity));
-    multibandWirePolygons(path, bandWidth, colors).forEach(polygon => pushBandPolygon(vertices, polygon, opacity));
+  multibandWirePolygons(points, bandWidth + .6, ["#28323b"]).forEach(polygon => pushBandPolygon(vertices, polygon, opacity));
+  multibandWirePolygons(points, bandWidth, colors).forEach(polygon => pushBandPolygon(vertices, polygon, opacity));
+}
+
+function pushOpticalWireStroke(vertices, stroke, color, padding = 0) {
+  for (const path of stroke.dashed ? wdmInkRuns(stroke.points) : [stroke.points]) {
+    pushPolyline(vertices, path, stroke.width + padding, color);
   }
 }
 
@@ -3903,8 +3921,8 @@ export function engineOutputPrimitives(scene, contract) {
       pushJumpLinkOverlays(vertices, { jumpLinkOverlays: [{ ...link, points: link.polyline }] }, scene)) })),
     wires: contract.wires.filter(wire => !scene.isWireHiddenByLoom(wire.id)).map(wire => ({ id: wire.id, vertices: mesh(vertices =>
       pushWireColorSegments(vertices, wire.renderPolyline, WIRE_STATIC_WIDTH, wire, wireColor(wire), 1, scene)),
-      ...(isWdmCable(scene, wire) && !(wire.colorSegments?.length > 1)
-        ? { wdmStroke: { points: wire.renderPolyline, width: WIRE_STATIC_WIDTH, color: wireColor(wire) } } : {}) })),
+      ...(!(wire.colorSegments?.length > 1) ? { opticalStrokes: opticalWireStrokes(scene, wire, wire.renderPolyline, WIRE_STATIC_WIDTH),
+        color: wireColor(wire) } : {}) })),
     looms: scene.loomPlans.map(plan => ({ id: plan.loomId, vertices: verticesForLoomPlan(scene, plan) })),
     breakouts: (contract.qsfpBreakouts?.plans || []).map(plan => ({ id: plan.id,
       vertices: mesh(vertices => pushQsfpBreakout(vertices, plan, 1, null, false)) })),
@@ -4027,7 +4045,7 @@ function verticesForLoomPlan(scene, plan, offsets = null) {
     const wire = scene.getWire(breakout.wireId);
     const resolvedColor = loomCableDisplayColor(wire);
     const points = offsets ? loomBreakoutPolyline(scene, breakout, offsets) : breakout.points;
-    if (wire?.colorSegments?.length > 1 || isWdmCable(scene, wire)) {
+    if (wire?.colorSegments?.length > 1 || isDuplexFiberWire(scene, wire) || isWdmCable(scene, wire)) {
       pushWireColorSegments(vertices, points, WIRE_BASE_WIDTH, wire, resolvedColor, 1, scene);
     } else {
       pushPolyline(vertices, points, WIRE_BASE_WIDTH, resolvedColor);

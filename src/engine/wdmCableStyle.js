@@ -1,7 +1,7 @@
 import { engineCompatibilitySummary, engineConnectorCompatibilityType, engineFiberModesCompatible } from "./connectorCompatibility.js";
 import { isTransceiverCage, resolveInstalledModule } from "./transceiverModules.js";
 import { opticalWavelengthMode } from "./customTransceiverOptics.js";
-import { sceneJumpDeviceWire } from "./jumpNodeModel.js";
+import { opticalCableEnds, physicalOpticalCableEnds } from "./opticalCableEndpoints.js";
 
 // World units: identical at 100% in the designer, Viewer and vector export.
 export const WDM_CABLE_DASH = Object.freeze([18, 6, 5, 6]);
@@ -17,21 +17,9 @@ export function wdmDashPattern(points) {
 export function isWdmCable(scene, wire) {
   if (!/^fiber-(lc|sc|st|mpo)$/.test(wire?.cableType || "") || wire.cableAssembly
     || wire.multiCoreIdentity || wire.stageboxAssemblyId) return false;
-  const previewStart = wire.previewFixedHit || wire.sourceHit;
-  const ends = previewStart ? [previewStart, wire.targetHit].filter(Boolean) : ["from", "to"].map(end => {
-    const id = wire[`${end}DeviceId`];
-    return { device: scene?.getDevice?.(id), connector: scene?.getConnector?.(id, wire[`${end}ConnectorId`]) };
-  });
+  const ends = opticalCableEnds(scene, wire);
   if (!ends.every(end => end.connector && end.device)) return false;
-  const physical = ends.flatMap(end => {
-    if (end.device.kind !== "jump") return [end];
-    const paired = scene?.pairedJumpId?.(end.device.id);
-    const peer = paired && sceneJumpDeviceWire(scene, paired);
-    if (!peer?.otherConnector || !peer.otherDevice || peer.wire.loomId
-      || peer.wire.cableType !== wire.cableType
-      || scene?.savedWireStatuses?.get(peer.wire.sourceId || peer.wire.id)?.status === "incompatible") return [];
-    return [{ device: peer.otherDevice, connector: peer.otherConnector }];
-  });
+  const physical = physicalOpticalCableEnds(scene, wire, ends);
   if (!physical.some(({ connector }) => isTransceiverCage(connector)
     && opticalWavelengthMode(resolveInstalledModule(connector).capabilities.optical) === "wdm")) return false;
   if (scene?.savedWireStatuses?.get(wire.sourceId || wire.id)?.status === "incompatible"

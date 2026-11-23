@@ -32,8 +32,9 @@ four wavelengths on one fibre. 10G BX-U/D provides complementary simplex
 and [Cisco SFP+ data sheet](https://www.cisco.com/c/en/in/products/collateral/interfaces-modules/transceiver-modules/data_sheet_c78-455693.html).
 Host eligibility, fibre type, explicit direction and receive ranges still apply.
 
-This phase displays one cable route even for duplex. A resolved WDM declaration
-uses a long/short 18/6/5/6 pattern in world pixels along the same geometry,
+Duplex displays two strands that cross near the destination; simplex displays
+one. Both use a single cable route and record. A resolved WDM declaration
+uses a long/short 18/6/5/6 pattern in world pixels along each visible strand,
 including during drawing and replugging, bends and hops. At most the ink changes: labels, lengths, quantities,
 occupancy, and signal paths are unchanged. Known conflicting links are not
 presented as WDM or played as operating paths. Uncertain facts such as optical
@@ -48,8 +49,8 @@ reject; the installed module must still match its own cage. Integrated DAC/AOC,
 breakout lane rates, and fixed-port validation keep their existing requirements.
 
 The Designer and Technician Viewer (including offline HTML) share the Engine
-renderer, and ordinary WDM paths are emitted to SVG/PDF as a single dashed
-stroke. Play Cable retains the pattern on direct WDM wire steps. Run
+renderer, and SVG/PDF preserve the strand count and dash pattern. Play Cable
+retains the pattern on direct WDM wire steps. Run
 `node --test test/opticalWavelengths.test.mjs` and
 `node scripts/optical-wavelengths-smoke.mjs` against the local preview.
 

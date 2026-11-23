@@ -106,16 +106,23 @@ test("LR4 styles a single physical cable across Viewer and SVG/PDF, never a conf
   assert.equal(isWdmCable(model.scene, wire), true);
   assert.equal(snapshot.wires.length, 1);
   assert.equal(snapshot.wires[0].length, "19m");
-  const [{ wdmStroke }] = engineOutputPrimitives(model.scene, model.contract).wires;
-  assert.deepEqual(wdmStroke.points, snapshot.wires[0].renderPolyline);
-  assert.equal(wdmStroke.color, wire.color);
+  const [primitive] = engineOutputPrimitives(model.scene, model.contract).wires;
+  const route = snapshot.wires[0].renderPolyline, strands = primitive.opticalStrokes;
+  assert.equal(strands.length, 2);
+  assert.notDeepEqual(strands[0].points, strands[1].points);
+  for (const strand of strands) {
+    assert.equal(strand.dashed, true);
+    assert.deepEqual(strand.points[0], route[0]);
+    assert.deepEqual(strand.points.at(-1), route.at(-1));
+  }
+  assert.equal(primitive.color, wire.color);
   const trace = outputCableTrace(model, { type: "wire", id: wire.id });
   assert.equal(trace.length, 1);
-  assert.equal(trace[0].points.length, wdmStroke.points.length);
+  assert.equal(trace[0].points.length, route.length);
   const svg = renderEngineOutputSvg(snapshot).svg;
-  const markup = svg.match(/<g data-wire-id="optical-cable">([\s\S]*?)<\/g>/)[1];
-  assert.equal([...markup.matchAll(/<path /g)].length, 1);
-  assert.match(markup, /stroke-dasharray="18 6 5 6"/);
+  const markup = svg.match(/<g data-wire-id="optical-cable">([\s\S]*?)<\/g><\/g>/)[1];
+  assert.equal([...markup.matchAll(/<path /g)].length, 2);
+  assert.equal([...markup.matchAll(/stroke-dasharray="18 6 5 6"/g)].length, 2);
   assert.deepEqual(buildEngineOutputScene(JSON.parse(JSON.stringify(raw))), snapshot);
 
   const wrong = structuredClone(lr4); wrong.moduleCapabilities.optical.rxNm = [1400, 1450, 1500, 1550];
@@ -128,7 +135,11 @@ test("LR4 styles a single physical cable across Viewer and SVG/PDF, never a conf
   const single = standard(port(), "10gbase-lr");
   const solid = createOutputViewerModel(buildEngineOutputScene(project(single, single)));
   assert.equal(isWdmCable(solid.scene, solid.scene.getWire(wire.id)), false);
-  assert.equal(engineOutputPrimitives(solid.scene, solid.contract).wires[0].wdmStroke, undefined);
+  assert.deepEqual(engineOutputPrimitives(solid.scene, solid.contract).wires[0].opticalStrokes.map(stroke => stroke.dashed), [false, false]);
+
+  const simplex = custom(port(), {arrangement:"simplex", wavelengthMode:"wdm"});
+  const one = createOutputViewerModel(buildEngineOutputScene(project(simplex, simplex)));
+  assert.deepEqual(engineOutputPrimitives(one.scene, one.contract).wires[0].opticalStrokes.map(stroke => stroke.dashed), [true]);
 
   const unknown = custom(port("qsfp-cage"), {lineRate:"100G", txNm:[1295,1300], rxNm:[1295,1300]});
   const unspecified = createOutputViewerModel(buildEngineOutputScene(project(unknown, unknown)));
