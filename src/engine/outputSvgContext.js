@@ -8,7 +8,7 @@ export const svgNumber = value => {
 };
 
 const stateKeys = ["fillStyle", "strokeStyle", "lineWidth", "lineCap", "lineJoin", "globalAlpha",
-  "font", "textAlign", "textBaseline", "textPaintMode", "lineDash", "matrix", "clips"];
+  "font", "textAlign", "textBaseline", "textPaintMode", "lineDash", "lineDashOffset", "matrix", "clips"];
 const multiply = (a, b) => [a[0]*b[0]+a[2]*b[1], a[1]*b[0]+a[3]*b[1],
   a[0]*b[2]+a[2]*b[3], a[1]*b[2]+a[3]*b[3], a[0]*b[4]+a[2]*b[5]+a[4], a[1]*b[4]+a[3]*b[5]+a[5]];
 
@@ -38,7 +38,7 @@ export class OutputSvgContext {
     this.fillStyle = "#000000"; this.strokeStyle = "#000000"; this.lineWidth = 1;
     this.lineCap = "butt"; this.lineJoin = "miter"; this.globalAlpha = 1;
     this.font = "10px sans-serif"; this.textAlign = "left"; this.textBaseline = "alphabetic"; this.textPaintMode = "print";
-    this.lineDash = []; this.matrix = [1,0,0,1,0,0]; this.clips = [];
+    this.lineDash = []; this.lineDashOffset = 0; this.matrix = [1,0,0,1,0,0]; this.clips = [];
   }
   save() { this.stack.push(Object.fromEntries(stateKeys.map(k => [k, Array.isArray(this[k]) ? [...this[k]] : this[k]]))); }
   restore() { const state = this.stack.pop(); if (!state) throw new Error("Unbalanced SVG restore"); Object.assign(this,state); }
@@ -81,7 +81,9 @@ export class OutputSvgContext {
     this.elements.push(value);
   }
   strokeAttributes(role = "stroke") {
-    return `stroke="${this.paint(this.strokeStyle,role)}" stroke-width="${svgNumber(this.lineWidth)}" stroke-linecap="${svgEscape(this.lineCap)}" stroke-linejoin="${svgEscape(this.lineJoin)}"${this.lineDash.length ? ` stroke-dasharray="${this.lineDash.map(svgNumber).join(" ")}"` : ""}`;
+    const dash = this.lineDash.length ? ` stroke-dasharray="${this.lineDash.map(svgNumber).join(" ")}"` : "";
+    const offset = dash && this.lineDashOffset ? ` stroke-dashoffset="${svgNumber(this.lineDashOffset)}"` : "";
+    return `stroke="${this.paint(this.strokeStyle,role)}" stroke-width="${svgNumber(this.lineWidth)}" stroke-linecap="${svgEscape(this.lineCap)}" stroke-linejoin="${svgEscape(this.lineJoin)}"${dash}${offset}`;
   }
   fill() { this.emit(`<path d="${this.path.join(" ")}" fill="${this.paint(this.fillStyle,"fill")}"/>`); }
   stroke() { this.emit(`<path d="${this.path.join(" ")}" fill="none" ${this.strokeAttributes()}/>`); }

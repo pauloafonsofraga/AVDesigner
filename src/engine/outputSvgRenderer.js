@@ -116,6 +116,7 @@ export function renderEngineOutputSvg(snapshot, { images = {}, textMetrics = {},
     ctx.save(); ctx.strokeStyle = wire.color; ctx.lineCap = "butt";
     for (const stroke of wire.opticalStrokes) {
       ctx.lineWidth = stroke.width;
+      ctx.lineDashOffset = stroke.dashOffset || 0;
       ctx.setLineDash(stroke.dashed ? wdmDashPattern(stroke.points) : []); ctx.beginPath();
       stroke.points.forEach((point, i) => i ? ctx.lineTo(point.x, point.y) : ctx.moveTo(point.x, point.y));
       ctx.stroke();

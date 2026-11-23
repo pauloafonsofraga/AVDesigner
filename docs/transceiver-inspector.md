@@ -35,7 +35,9 @@ Host eligibility, fibre type, explicit direction and receive ranges still apply.
 Duplex displays two strands that cross near the destination; simplex displays
 one. Both use a single cable route and record. A resolved WDM declaration
 uses a long/short 18/6/5/6 pattern in world pixels along each visible strand,
-including during drawing and replugging, bends and hops. At most the ink changes: labels, lengths, quantities,
+including during drawing and replugging and around bends and hops.
+The WDM crossover sits farther from the connector and is centred on a long dash.
+Only the ink changes: labels, lengths, quantities,
 occupancy, and signal paths are unchanged. Known conflicting links are not
 presented as WDM or played as operating paths. Uncertain facts such as optical
 power, reach and actual per-lane MPO pairing are not verified. A WDM leg stays

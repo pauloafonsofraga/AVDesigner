@@ -9,6 +9,7 @@ import { createOutputViewerModel, outputCableTrace } from "../src/engine/outputV
 import { renderEngineOutputSvg } from "../src/engine/outputSvgRenderer.js";
 import { engineOutputPrimitives } from "../src/engine/renderer.js";
 import { isWdmCable, WDM_CABLE_DASH, wdmInkRuns } from "../src/engine/wdmCableStyle.js";
+import { opticalWireStrokes } from "../src/engine/duplexFiberGeometry.js";
 
 const port = (type = "sfp-plus-cage", direction = "bidirectional") => ({
   id: "optic", type, physicalType: type, label: "Optical", direction, signalDirection: direction,
@@ -123,6 +124,7 @@ test("LR4 styles a single physical cable across Viewer and SVG/PDF, never a conf
   const markup = svg.match(/<g data-wire-id="optical-cable">([\s\S]*?)<\/g><\/g>/)[1];
   assert.equal([...markup.matchAll(/<path /g)].length, 2);
   assert.equal([...markup.matchAll(/stroke-dasharray="18 6 5 6"/g)].length, 2);
+  assert.equal([...markup.matchAll(/stroke-dashoffset=/g)].length, 2);
   assert.deepEqual(buildEngineOutputScene(JSON.parse(JSON.stringify(raw))), snapshot);
 
   const wrong = structuredClone(lr4); wrong.moduleCapabilities.optical.rxNm = [1400, 1450, 1500, 1550];
@@ -148,4 +150,19 @@ test("LR4 styles a single physical cable across Viewer and SVG/PDF, never a conf
     "multiple recorded numbers are not an explicit WDM declaration");
   const badGrade = createOutputViewerModel(buildEngineOutputScene(project(lr4, lr4, {fiberMode:"om4"})));
   assert.equal(isWdmCable(badGrade.scene,badGrade.scene.getWire(wire.id)),false);
+});
+
+test("both duplex WDM strands cross away from the node, in the long dash at any route length", () => {
+  const sourceHit = { device: { id: "qsfp" }, connector: standard(port("qsfp-cage"), "100gbase-lr4") };
+  const wire = { cableType: "fiber-lc", sourceHit };
+  for (const length of [80, 196, 207, 218, 320, 510]) {
+    const points = [{ x: 0, y: 0 }, { x: length, y: 0 }];
+    const crossing = length - Math.min(length * .4, 39.6);
+    for (const stroke of opticalWireStrokes({}, wire, points, 2.2)) {
+      const point = stroke.points.find(p => Math.abs(p.x - crossing) < 1e-7);
+      assert.ok(point && Math.abs(point.y) < 1e-7, "strand crosses the centreline before the end taper");
+      assert.ok(wdmInkRuns(stroke.points, stroke.dashOffset).some(run =>
+        run[0].x < crossing - 7 && run.at(-1).x > crossing + 7), "crossover is drawn on both sides, not in a gap");
+    }
+  }
 });

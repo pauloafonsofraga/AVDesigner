@@ -5,8 +5,36 @@ import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
 import { buildCableSchedule } from "../src/engine/cableScheduleCore.js";
 import { engineCompatibilitySummary } from "../src/engine/connectorCompatibility.js";
 import { transceiverConfigurationPatch } from "../src/engine/transceiverConfiguration.js";
+import { mpoHarnessLabelsNeedUprightFlip, attachedConnectorLabelPosition } from "../src/engine/attachedConnectorOrientation.js";
+import { buildEngineOutputScene } from "../src/engine/outputSceneSnapshot.js";
+import { renderEngineOutputSvg } from "../src/engine/outputSvgRenderer.js";
 
 const harness = () => createMpoHarnessDevice({ id: "harness-test", grade: "om4", x: 120, y: 40 });
+test("right-trunk harness is mirrored with upright text and stable branch order", () => {
+  const instance = createMpoHarnessDevice({ id: "right-trunk", grade: "om4", x: 120, y: 40, trunkSide: "right" });
+  const { devices: [device] } = normalizeAvDesignerProject({ devices: [instance] });
+  assert.equal(device.rotation, 0);
+  assert.deepEqual(device.connectors.map(port => [port.id, port.side, port.x, port.direction]), [
+    ["mpo-trunk", "right", device.width, "input"], ...[1, 2, 3, 4].map(n => ["lc-" + n, "left", 0, "output"])
+  ]);
+  assert.deepEqual(device.connectors.slice(1).map(port => port.y), [23, 65, 107, 149]);
+  assert.equal(device.visual.adapterMapping.branchCount, 4);
+});
+
+test("older half-turned harnesses keep their wiring and show upright labels in scene and export", () => {
+  const instance = { ...harness(), rotation: 180 }, snapshot = buildEngineOutputScene({ devices: [instance] });
+  const device = snapshot.devices[0];
+  assert.equal(device.rotation, 180, "do not change the old cable anchor positions");
+  assert.equal(mpoHarnessLabelsNeedUprightFlip(device), true);
+  assert.deepEqual(attachedConnectorLabelPosition(device, { x: 310, y: 126 }, "left", 11, 4), { x: 299, y: 130, textAlign: "right" });
+  assert.equal(mpoHarnessLabelsNeedUprightFlip({ ...device, visual: {} }), false, "unrelated adapter rotation is not changed");
+  const svg = renderEngineOutputSvg(snapshot).svg;
+  const title = svg.match(/<g transform="matrix\(([^)]+)\)"[^>]*><text [^>]* y="([^"]+)"[^>]*>MPO-12 to 4 x duplex LC \(OM4\)<\/text>/);
+  const matrix = title?.[1].split(" ").map(Number);
+  assert.deepEqual(matrix?.slice(0, 4), [1, 0, 0, 1]);
+  assert.ok(matrix[5] + Number(title[2]) < instance.y, "the title is above the legacy harness");
+});
+
 test("MPO harness uses the adapter geometry with stable pins and an explicit four-pair map", () => {
   const instance = harness();
   const data = normalizeAvDesignerProject({ devices: [instance] });

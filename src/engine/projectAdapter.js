@@ -1,4 +1,5 @@
 import { projectWireEndpoint } from "./projectWireEndpoint.js";
+import { mpoHarnessDefinition } from "./mpoHarness.js";
 import { resolveProjectorLens } from "./projectorModel.js";
 import { effectiveStageboxChannels, normalizeStageboxSnake, stageboxEndDraft } from "./stageboxSnake.js";
 import { breakoutProjectFields } from "./qsfpBreakoutModel.js";
@@ -689,6 +690,7 @@ function normalizeProjectDevice(instance, index, templates, nodeColorByType, nod
   normalized.matrixRoutes = normalizeMatrixRoutesForDevice(normalized, instance.matrixRoutes);
   if (visual.enableInternalRouting) normalized.internalSignalRoutes = normalizeInternalSignalRoutes(normalized, instance.internalSignalRoutes);
   if (isAdapter) {
+    if (mpoHarnessDefinition(template)) normalized.visual.isMpoHarness = true;
     const mapping = adapterMappingForDevice(normalized);
     normalized.visual.adapterMapping = adapterMappingSummary(mapping);
     normalized.connectors.forEach(connector => {

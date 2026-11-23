@@ -2467,6 +2467,7 @@ function normalizeVisualMetadata(visual = {}) {
     isMatrixRouter: Boolean(visual.isMatrixRouter),
     enableInternalRouting: visual.enableInternalRouting === true,
     isAdapterBreakout: Boolean(visual.isAdapterBreakout),
+    ...(visual.isMpoHarness ? { isMpoHarness: true } : {}),
     adapterClassification: normalizeAdapterClassification(visual.adapterClassification),
     adapterMapping: normalizeAdapterMapping(visual.adapterMapping),
     powerDistro: normalizePowerDistroMetadata(visual.powerDistro),

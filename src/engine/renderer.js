@@ -2,7 +2,7 @@ import { TextureCache } from "./textureCache.js";
 import { deviceHeaderLabel, hasOrdinaryDeviceHeader } from "./deviceDisplayName.js";
 import { adapterRotationBounds, adapterWorldPoint, rotateAdapterPoint } from "./adapterRotation.js";
 import {DEFAULT_LAYER_ID, layerSceneView, layerVisible} from './projectLayers.js';
-import { attachedConnectorLabelPosition, orientAttachedConnectorVertices } from "./attachedConnectorOrientation.js";
+import { attachedConnectorLabelPosition, orientAttachedConnectorVertices, mpoHarnessLabelsNeedUprightFlip } from "./attachedConnectorOrientation.js";
 import { isTransceiverCage, compactTransceiverTooltip } from "./transceiverModules.js";
 import {
   applyCableHopsToPolyline,
@@ -3711,7 +3711,7 @@ function pushWireColorSegments(vertices, points, width, wire, fallbackColor, opa
 }
 
 function pushOpticalWireStroke(vertices, stroke, color, padding = 0) {
-  for (const path of stroke.dashed ? wdmInkRuns(stroke.points) : [stroke.points]) {
+  for (const path of stroke.dashed ? wdmInkRuns(stroke.points, stroke.dashOffset) : [stroke.points]) {
     pushPolyline(vertices, path, stroke.width + padding, color);
   }
 }
@@ -4342,7 +4342,7 @@ function connectorAnnotationPlacementsForFrame(ctx,scene,device,camera) {
 }
 
 function rotateAdapterLabel(ctx, device, x, y) {
-  if (device.kind !== "adapter" || !device.rotation) return;
+  if (device.kind !== "adapter" || !device.rotation || mpoHarnessLabelsNeedUprightFlip(device)) return;
   ctx.translate(x,y);
   ctx.rotate(device.rotation * Math.PI / 180);
   ctx.translate(-x,-y);
@@ -5095,7 +5095,8 @@ function drawDeviceLabel(ctx, device, camera, offsets = null, tone = "normal") {
   }
   if (device.kind === "adapter") {
     const labelSize = Math.max(5, 13 * camera.zoom * toneBoost);
-    const anchor = adapterWorldPoint(device, {x:device.width / 2,y:-5}, offset);
+    const anchor = adapterWorldPoint(device, {x:device.width / 2,
+      y:mpoHarnessLabelsNeedUprightFlip(device) ? device.height + 5 : -5}, offset);
     const labelX = (anchor.x - camera.x) * camera.zoom;
     const labelY = (anchor.y - camera.y) * camera.zoom;
     rotateAdapterLabel(ctx, device, labelX, labelY);

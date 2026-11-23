@@ -93,6 +93,9 @@ length. The project uses normal connection gestures for the attachment legs;
 the schedule counts them together as one harness. The trunk can be disconnected
 without changing the optical module. It does not configure host breakout mode,
 claim operational lane compatibility or add a separate polarity control.
+When the trunk faces right, the layout is mirrored horizontally to keep the
+labels and branch order upright. Older half-turned harnesses keep their
+connector positions and existing attachments, with upright text.
 
 ## References
 

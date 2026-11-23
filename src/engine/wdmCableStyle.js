@@ -31,10 +31,18 @@ export function isWdmCable(scene, wire) {
 
 // Split only the ink, not the route. Carry pattern phase across sample points
 // so a bend or a densely sampled curve does not restart the pattern.
-export function wdmInkRuns(points) {
+export function wdmInkRuns(points, dashOffset = 0) {
   const runs = [];
   const pattern = wdmDashPattern(points);
   let phase = 0, remaining = pattern[0], run = null;
+  const period = pattern.reduce((sum, size) => sum + size, 0);
+  let offset = Number.isFinite(dashOffset) ? ((dashOffset % period) + period) % period : 0;
+  while (offset >= remaining) {
+    offset -= remaining;
+    phase = (phase + 1) % pattern.length;
+    remaining = pattern[phase];
+  }
+  remaining -= offset;
   for (let i = 1; i < points.length; i++) {
     const a = points[i - 1], b = points[i], dx = b.x - a.x, dy = b.y - a.y;
     const length = Math.hypot(dx, dy);

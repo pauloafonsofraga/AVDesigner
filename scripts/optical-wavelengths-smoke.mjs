@@ -107,8 +107,14 @@ try {
   assert.equal(rendered.wdm,true); assert.equal(rendered.count,1); assert.ok(rendered.vertices.length > 36);
   assert.deepEqual(rendered.strands.map(strand=>strand.dashed),[true,true]);
   assert.notDeepEqual(rendered.strands[0].points,rendered.strands[1].points);
-  const xs = rendered.vertices.filter((_,i) => i%6===0);
-  assert.ok(!xs.some(x=>x>rendered.route[0].x+18.5 && x<rendered.route[0].x+23.5),"there is a gap on the existing cable centerline");
+  const ink = [];
+  for (let i = 0; i < rendered.vertices.length; i += 36) {
+    const xs = rendered.vertices.slice(i, i + 36).filter((_, index) => index % 6 === 0);
+    ink.push([Math.min(...xs), Math.max(...xs)]);
+  }
+  const coverage = Array.from({ length: 70 }, (_, i) => rendered.route[0].x + 40 + i)
+    .map(x => ink.some(([from, to]) => x >= from && x <= to));
+  assert.ok(coverage.includes(true) && coverage.includes(false), "the rendered strands retain gaps after adjusting the dash phase");
   await page.mouse.move(950,650);
   await page.screenshot({path:join(directory,"editor-lr4-duplex.png")});
   await page.locator("#zoomIn").click();
@@ -143,8 +149,8 @@ try {
   const pdfTask = getDocument({data:Uint8Array.from(await readFile(pdf)), useSystemFonts:true});
   const pdfDoc = await pdfTask.promise;
   const ops = await (await pdfDoc.getPage(1)).getOperatorList();
-  assert.ok(ops.fnArray.some((op,i) => op===OPS.setDash && JSON.stringify(ops.argsArray[i][0])==="[18,6,5,6]"),
-    "PDF contains a real long/short dashed stroke");
+  assert.ok(ops.fnArray.some((op,i) => op===OPS.setDash && JSON.stringify(ops.argsArray[i][0])==="[18,6,5,6]"
+    && ops.argsArray[i][1] > 0), "PDF retains the dash offset that keeps the crossover visible");
   await pdfTask.destroy();
 
   await load(Buffer.from(JSON.stringify(fixture(false))),"single-wavelength-ports.avd");

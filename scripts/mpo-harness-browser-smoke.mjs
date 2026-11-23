@@ -105,12 +105,19 @@ try {
   await page.getByRole("button", { name: "Attach MPO Breakout" }).click();
   const qsfpAttach = await page.evaluate(() => {
     const bridge = activeEngineBridge();
-    return { count: bridge.mutations.root.devices.filter(d => d.templateOverride?.mpoHarness).length,
-      rotation: bridge.mutations.root.devices.filter(d => d.templateOverride?.mpoHarness).at(-1)?.rotation,
+    const harnesses = bridge.mutations.root.devices.filter(d => d.templateOverride?.mpoHarness);
+    const device = bridge.scene.getDevice(harnesses.at(-1)?.instanceId);
+    return { count: harnesses.length, rotation: device?.rotation,
+      ports: device?.connectors.map(port => [port.id, port.side]),
       error: bridge.errorPanel?.textContent };
   });
   assert.equal(qsfpAttach.count, 2, qsfpAttach.error);
-  assert.equal(qsfpAttach.rotation, 180, "left-facing MPO ports get an outward trunk");
+  assert.equal(qsfpAttach.rotation, 0, "left-facing MPO ports mirror the layout without turning the label");
+  assert.deepEqual(qsfpAttach.ports, [["mpo-trunk", "right"], ...[1, 2, 3, 4].map(n => ["lc-" + n, "left"])]);
+  if (process.env.AVDESIGNER_MPO_SCREENSHOT) {
+    await page.locator("#zoomFit").click();
+    await page.screenshot({ path: process.env.AVDESIGNER_MPO_SCREENSHOT });
+  }
   assert.deepEqual(errors, []);
   console.log("Chrome passed: SC/ST auto-apply, slim MPO fields, standalone and QSFP attachment, independent LC branches, one schedule row, undo/redo and AVD reopen.");
 } finally {

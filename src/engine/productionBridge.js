@@ -7426,7 +7426,7 @@ class ProductionEngineBridge {
     const left = source.point.x < source.device.x + source.device.width / 2;
     const x = left ? source.device.x - LEGACY_ADAPTER_WIDTH - 140 : source.device.x + source.device.width + 140;
     const raw = createMpoHarnessDevice({ id, grade, x: Math.round(x), y: Math.round(source.point.y - 86),
-      layerId: source.device.layerId, rotation: left ? 180 : 0 });
+      layerId: source.device.layerId, trunkSide: left ? "right" : "left" });
     const project = this.mutations.root;
     const index = project.devices.length;
     const placement = this.resolveLibraryDropPlacement([raw], index, { placementMode: "MPO breakout" });

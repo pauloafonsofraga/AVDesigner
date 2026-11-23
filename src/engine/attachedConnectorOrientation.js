@@ -1,4 +1,7 @@
-import { rotateAdapterPoint } from "./adapterRotation.js";
+import { normalizeAdapterRotation, rotateAdapterPoint } from "./adapterRotation.js";
+
+export const mpoHarnessLabelsNeedUprightFlip = device => device?.kind === "adapter"
+  && device.visual?.isMpoHarness === true && normalizeAdapterRotation(device.rotation) === 180;
 
 // Orientation only: anchor positions have already passed through adapterWorldPoint.
 export function attachedConnectorBasis(device) {
@@ -14,6 +17,10 @@ export function attachedConnectorExitDirection(device, side) {
 }
 
 export function attachedConnectorLabelPosition(device, point, side, offsetX, offsetY) {
+  if (mpoHarnessLabelsNeedUprightFlip(device)) {
+    const inward = side === "right" ? 1 : -1;
+    return { x: point.x + inward * offsetX, y: point.y + offsetY, textAlign: inward < 0 ? "right" : "left" };
+  }
   const basis = attachedConnectorBasis(device);
   const inward = side === "right" ? -1 : 1;
   const dx = inward * offsetX;
