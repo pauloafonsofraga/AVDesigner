@@ -23960,6 +23960,39 @@
       }));
     }
 
+    function drawEditorArtworkMeasurements(parent, face) {
+      const session = editorResizeSession;
+      if (editorActiveTab !== "faceplate" || !session || !["custom-face-image", "generated-faceplate"].includes(session.kind) || session.handle === "move") return;
+      if (session.kind === "custom-face-image" && Boolean(session.backplate) !== (editorArtworkSide === "backplate")) return;
+      if (!face || ![face.x, face.y, face.width, face.height].every(Number.isFinite) || face.width <= 0 || face.height <= 0) return;
+      const matrix = parent.getScreenCTM?.();
+      const zoom = Math.max(.0001, matrix ? Math.hypot(matrix.a, matrix.b) : 1);
+      const insetX = Math.min(16 / zoom, face.width / 3), insetY = Math.min(16 / zoom, face.height / 3);
+      const tick = 4 / zoom;
+      const group = createSvg("g", { "data-editor-artwork-measurements": editorArtworkSide,
+        "pointer-events": "none", "aria-hidden": "true" });
+      const label = (x, y, value, vertical = false) => {
+        const text = `${Math.round(value * 10) / 10} px`, width = (text.length * 6.5 + 12) / zoom;
+        const box = createSvg("g", vertical ? { transform: `rotate(-90 ${x} ${y})` } : {});
+        box.appendChild(createSvg("rect", { x: x - width / 2, y: y - 9 / zoom,
+          width, height: 18 / zoom, rx: 3 / zoom, fill: "#101820" }));
+        const caption = createSvg("text", { x, y, "text-anchor": "middle", "dominant-baseline": "central",
+          "font-size": 11 / zoom, "font-family": "Inter, system-ui, sans-serif", "font-weight": 600, fill: "#8edbff" });
+        caption.textContent = text; box.appendChild(caption); group.appendChild(box);
+      };
+      const right = face.x + face.width, bottom = face.y + face.height;
+      const y = face.y + insetY, x = right - insetX;
+      group.appendChild(createSvg("path", { "data-measure-axis": "width", "data-pixels": face.width,
+        d: `M ${face.x} ${y} H ${right} M ${face.x} ${y - tick} V ${y + tick} M ${right} ${y - tick} V ${y + tick}`,
+        fill: "none", stroke: "#8edbff", "stroke-width": 1, "vector-effect": "non-scaling-stroke" }));
+      group.appendChild(createSvg("path", { "data-measure-axis": "height", "data-pixels": face.height,
+        d: `M ${x} ${face.y} V ${bottom} M ${x - tick} ${face.y} H ${x + tick} M ${x - tick} ${bottom} H ${x + tick}`,
+        fill: "none", stroke: "#8edbff", "stroke-width": 1, "vector-effect": "non-scaling-stroke" }));
+      label(face.x + face.width / 2, y, face.width);
+      label(x, face.y + face.height / 2, face.height, true);
+      parent.appendChild(group);
+    }
+
     function drawEditorFaceImageResizeTool(parent, template, face) {
       if (editorActiveTab !== "faceplate" || !template?.faceImage || !face) return;
       const engineHandles = engineRendererRequested();
@@ -23995,6 +24028,7 @@
           ...(engineHandles ? {"vector-effect":"non-scaling-stroke"} : {})
         }));
       });
+      drawEditorArtworkMeasurements(parent, face);
     }
 
     function startEditorFaceImageResize(event) {
@@ -25333,6 +25367,7 @@
       const rect = powerDistroFaceRect(template);
       drawEditorResizeZone(parent, "faceplate", "top", rect.x, rect.y, rect.width, editorResizeSession?.kind === "generated-faceplate" && editorResizeSession?.edge === "top");
       drawEditorResizeZone(parent, "faceplate", "bottom", rect.x, rect.y + rect.height, rect.width, editorResizeSession?.kind === "generated-faceplate" && editorResizeSession?.edge === "bottom");
+      drawEditorArtworkMeasurements(parent, rect);
     }
 
     function editorSvgForEvent(event) {
