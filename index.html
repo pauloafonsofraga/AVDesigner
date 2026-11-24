@@ -11444,22 +11444,23 @@
       if (!api) return "";
       const physical = connector.physicalType || connector.type || connector.id;
       const cage = cageConnectorTypes.has(physical);
-      const authored = owner !== "node";
-      const cageValue = authored ? api.cageDefinitionValue(connector)
-        : api.cageDefinitionValue(connector) === "qsfp28" ? "qsfp28-cage" : physical;
-      const cageChoices = authored ? [...api.CAGE_DEFINITION_CHOICES, ...(cageValue === "qsfp-cage" ? [["qsfp-cage", "QSFP (form unspecified)"]] : [])]
-        : deviceEditorOnlyNodeTypeOrder.map(id => [id, cableTypes[id]?.label || id]);
-      const host = connector.cageCapabilities || {};
-      const restrictions = [["supportedRates", "Allowed line rates (semicolon-separated)"],
-        ["supportedModuleInterfaces", "Allowed module interfaces (lc; sc; st; mpo)"],
-        ["supportedSignalFamilies", "Allowed signal families"], ["supportedMediaTypes", "Allowed media"],
-        ["supportedModuleTypes", "Allowed module IDs"]];
-      const ordinary = (owner === "node" ? nodeBuilderEntries() : orderedDeviceEditorNodeEntries()).filter(([id, node]) => !cageConnectorTypes.has(node.physicalType || id));
-      return `${physical === "fiber-mpo" && owner !== "node" ? '<div data-mpo-editor="' + owner + '"></div>' : ""}<div data-sfp-owner="${owner}">
+      if (owner !== "node") {
+        if (physical === "fiber-mpo") return `<div data-mpo-editor="${owner}"></div>`;
+        if (!api.isTransceiverCage(connector)) return "";
+        const host = connector.cageCapabilities || {};
+        const restrictions = [["supportedRates", "Allowed line rates (semicolon-separated)"],
+          ["supportedModuleInterfaces", "Allowed module interfaces (lc; sc; st; mpo)"],
+          ["supportedSignalFamilies", "Allowed signal families"], ["supportedMediaTypes", "Allowed media"],
+          ["supportedModuleTypes", "Allowed module IDs"]];
+        return `<details class="connector-inspector-section" data-sfp-owner="${owner}"><summary>Host restrictions</summary>${restrictions.map(([key, label]) =>
+          `<label class="field"><span>${label}</span><input type="text" data-sfp-restriction="${key}" value="${escapeAttr(Array.isArray(host[key]) ? host[key].join("; ") : "")}"></label>`).join("")}</details>`;
+      }
+      const cageValue = api.cageDefinitionValue(connector) === "qsfp28" ? "qsfp28-cage" : physical;
+      const cageChoices = deviceEditorOnlyNodeTypeOrder.map(id => [id, cableTypes[id]?.label || id]);
+      const ordinary = nodeBuilderEntries().filter(([id, node]) => !cageConnectorTypes.has(node.physicalType || id));
+      return `<div data-sfp-owner="${owner}">
         <label class="checkbox-row"><input data-sfp-enabled type="checkbox" ${cage ? "checked" : ""}> Is an SFP Cage</label>
         ${cage ? `<label class="field"><span>Cage Family</span><select data-sfp-family>${cageChoices.map(([id, label]) => `<option value="${id}" ${cageValue === id ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}</select></label>` : ""}
-        ${cage && authored ? `<details><summary>Host restrictions</summary>${restrictions.map(([key, label]) =>
-          `<label class="field"><span>${label}</span><input type="text" data-sfp-restriction="${key}" value="${escapeAttr(Array.isArray(host[key]) ? host[key].join("; ") : "")}"></label>`).join("")}</details>` : ""}
         <div data-sfp-disable class="hidden"><label class="field"><span>Ordinary Connector</span><select data-sfp-ordinary><option value="">Select connector type</option>${ordinary.map(([id, node]) => `<option value="${escapeAttr(id)}">${escapeHtml(node.label || id)}</option>`).join("")}</select></label><button type="button" class="tool-button" data-sfp-cancel>Cancel</button></div>
       </div>`;
     }
@@ -17666,14 +17667,13 @@
           <h4 class="connector-inspector-heading">Selected Card Connector</h4>
           ${sharedBusInspectorDetails(card, connector)}
           ${groupedCoaxControls(connector, "card")}
-          ${sfpCapabilityControls(connector, "card")}
           <div class="connector-inspector-title" style="--chip-color:${escapeAttr(colorForConnector(connector))}">
             ${escapeHtml(connector.direction === "input" ? "Input" : "Output")} / ${escapeHtml(typeLabel)}
           </div>
           <div class="compact-field-grid">
             <label class="field">
               <span>Physical Connector</span>
-              <select data-card-physical-type="${connectorIndex}">${connectorTypeSelectOptions(connector.physicalType || connector.type)}</select>
+              <select data-card-physical-type="${connectorIndex}">${connectorTypeSelectOptions(connector.physicalType || connector.type, connector)}</select>
             </label>
             <div class="field">
               <label>Placement</label>
@@ -17708,9 +17708,10 @@
             </div>
           </div>
         </div>
+        ${moduleSection}
+        ${sfpCapabilityControls(connector, "card")}
         ${statusSection}
         ${fieldSection}
-        ${moduleSection}
         ${fiberSection}
         ${colorSection}
         ${matrixSection}
@@ -17775,19 +17776,26 @@
       cardSlotList.setAttribute("aria-hidden", "true");
     }
 
-    function connectorTypeSelectOptions(selectedType = "") {
+    function connectorTypeSelectOptions(selectedType = "", connector = { type: selectedType }) {
       const entries = orderedDeviceEditorNodeEntries();
-      const selected = String(selectedType || "");
-      const hasSelected = selected && entries.some(([key]) => key === selected);
       if (engineRendererRequested()) {
-        const option = ([key, type]) => `<option value="${escapeAttr(key)}" ${key === selected ? "selected" : ""}>${escapeHtml(nodeLibraryDisplayLabel(key, cageConnectorTypes.has(key) ? DEFAULT_CABLE_TYPES[key] : type))}</option>`;
+        const api = engineTransceiverApi();
+        const family = api.cageDefinitionValue(connector);
+        const selected = family === "qsfp28" ? "qsfp28-cage" : family || selectedType;
+        const cages = api.CAGE_DEFINITION_CHOICES.map(([id, label]) => [id === "qsfp28" ? "qsfp28-cage" : id, label + " Cage"]);
+        if (selected === "qsfp-cage") cages.push(["qsfp-cage", "QSFP Cage (form unspecified)"]);
+        const ordinary = entries.filter(([key]) => !cageConnectorTypes.has(key));
+        const option = (key, label) => `<option value="${escapeAttr(key)}" ${key === selected ? "selected" : ""}>${escapeHtml(label)}</option>`;
         return [
           '<option value="">Empty</option>',
-          ...(!hasSelected && selected ? [option([selected, editorNodeType(selected)])] : []),
-          `<optgroup label="SFP / QSFP Cages">${entries.filter(([key]) => cageConnectorTypes.has(key)).map(option).join("")}</optgroup>`,
-          `<optgroup label="Connectors">${entries.filter(([key]) => !cageConnectorTypes.has(key)).map(option).join("")}</optgroup>`
+          ...(selected && ![...cages, ...ordinary].some(([key]) => key === selected) ?
+            [option(selected, nodeLibraryDisplayLabel(selected, editorNodeType(selected)))] : []),
+          `<optgroup label="SFP / QSFP Cages">${cages.map(([key, label]) => option(key, label)).join("")}</optgroup>`,
+          `<optgroup label="Connectors">${ordinary.map(([key, type]) => option(key, nodeLibraryDisplayLabel(key, type))).join("")}</optgroup>`
         ].join("");
       }
+      const selected = String(selectedType || "");
+      const hasSelected = selected && entries.some(([key]) => key === selected);
       return [
         `<option value="">Empty</option>`,
         ...(hasSelected ? [] : selected ? [`<option value="${escapeAttr(selected)}" selected>${escapeHtml(nodeLibraryDisplayLabel(selected, editorNodeType(selected)))}</option>`] : []),
@@ -18514,14 +18522,13 @@
           ${isStageboxEnd ? "" : sharedBusInspectorDetails(installedSelection ? template.cardTypes.find(c=>c.id===installedSelection.slot.installedCardTypeId) : template,
             installedSelection?.sourceConnector || connector)}
           ${groupedCoaxControls(connector, "device")}
-          ${sfpCapabilityControls(connector, "device")}
           <div class="connector-inspector-title" style="--chip-color:${escapeAttr(colorForConnector(connector))}">
             ${escapeHtml(editorConnectorLabelForRelationship(connector) || "Connector")}
           </div>
           <div class="compact-field-grid">
             <label class="field">
               <span>Physical Connector</span>
-              <select id="selectedConnectorPhysicalType">${connectorTypeSelectOptions(connector.physicalType || connector.type)}</select>
+              <select id="selectedConnectorPhysicalType">${connectorTypeSelectOptions(connector.physicalType || connector.type, connector)}</select>
             </label>
             <div class="field">
               <label>Placement</label>
@@ -18556,10 +18563,11 @@
             </div>
           </div>
         </div>
+        ${moduleSection}
+        ${sfpCapabilityControls(connector, "device")}
         ${stageboxAppearanceSection}
         ${statusSection}
         ${fieldSection}
-        ${moduleSection}
         ${fiberSection}
         ${colorSection}
         ${matrixSection}
@@ -18583,7 +18591,7 @@
       const physicalTypeControl = selectedConnectorSettings.querySelector("#selectedConnectorPhysicalType");
       physicalTypeControl?.addEventListener("change", event => {
         const nextType = String(event.target.value || "");
-        if (engineTransceiverApi() && (isCageConnector(connector) || cageConnectorTypes.has(nextType))) {
+        if (engineTransceiverApi() && (isCageConnector(connector) || cageConnectorTypes.has(nextType) || nextType === "qsfp-plus")) {
           try { changeSfpPhysicalType("device", nextType); } catch (error) { alert(error.message); refreshSfpEditor("device"); }
           return;
         }
@@ -37453,7 +37461,7 @@ document.addEventListener("click", function(event) {
         const connectorIndex = Number(typeControl.dataset.cardPhysicalType);
         const connector = card?.connectors?.[connectorIndex];
         if (!template || !card || !connector) return;
-        if (engineTransceiverApi() && (isCageConnector(connector) || cageConnectorTypes.has(typeControl.value))) {
+        if (engineTransceiverApi() && (isCageConnector(connector) || cageConnectorTypes.has(typeControl.value) || typeControl.value === "qsfp-plus")) {
           if (event.type === "input") return;
           try { changeSfpPhysicalType("card", typeControl.value); } catch (error) { alert(error.message); refreshSfpEditor("card"); }
           return;

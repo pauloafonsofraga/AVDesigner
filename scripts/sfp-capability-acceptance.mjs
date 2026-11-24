@@ -94,12 +94,10 @@ try {
   await shot("personal-node-placed");
   check("Actual palette drag places one canonical SFP connector with personal module defaults and stable slot ID");
 
-  await root("device").locator("[data-sfp-enabled]").uncheck();
-  assert.equal((await draft()).connectors.find(c => c.id === connector.id).type, "sfp-plus-cage");
-  await root("device").locator("[data-sfp-cancel]").click();
-  assert.equal(await root("device").locator("[data-sfp-enabled]").isChecked(), true);
-  await root("device").locator("[data-sfp-enabled]").uncheck();
-  await root("device").locator("[data-sfp-ordinary]").selectOption("hdmi");
+  const physical = page.locator("#selectedConnectorPhysicalType");
+  assert.equal(await physical.inputValue(), "sfp-plus-cage");
+  assert.equal(await root("device").locator("[data-sfp-enabled], [data-sfp-family]").count(), 0);
+  await physical.selectOption("hdmi");
   const ordinary = (await draft()).connectors.find(c => c.id === connector.id);
   assert.equal(ordinary.type, "hdmi"); assert.equal(ordinary.installedModuleType, "");
   assert.deepEqual(geometry(ordinary), geometry(placed));
@@ -107,7 +105,7 @@ try {
   await shot("explicit-ordinary-conversion");
   await page.locator("#applyDeviceEditor").click();
   await page.locator("#deviceEditorModal.hidden").waitFor({ state: "attached" });
-  check("Disable waits for explicit ordinary type; Cancel restores cage; confirmed conversion retains all geometry");
+  check("Physical Connector converts a cage to an ordinary connector while retaining all geometry");
   await ready();
   await page.locator("#deviceSearch").fill("Reusable SFP Placement");
   await page.locator('.library-device').filter({ hasText: "Reusable SFP Placement" }).click({ button: "right" });

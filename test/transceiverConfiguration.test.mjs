@@ -82,7 +82,7 @@ test("QSFP forms retain the cage ID and distinguish standard, custom MPO, and in
   assert.deepEqual(meta.laneMapping, [1, 2, 11, 12]);
   assert.equal(effectiveConnectorTypeForEngine(mpo), "fiber-mpo");
   assert.equal(compare(mpo, configured(q28, { method: "standard", profile: "100gbase-sr4" })).valid, true);
-  assert.throws(() => cageDefinitionPatch(configured(q28, { method: "standard", profile: "100gbase-sr4" }), "qsfp-plus"), /Remove the installed module/);
+  assert.throws(() => cageDefinitionPatch(configured(q28, { method: "standard", profile: "100gbase-sr4" }), "qsfp-plus"), /Set Installed interface to Empty/);
   assert.throws(() => configured(q28, { ...s, laneMapping: [1, 13] }), /fibre positions/);
   assert.throws(() => configured(cage(), { ...s, lineRate: "" }), /cage family/);
   const malformed = structuredClone(mpo);

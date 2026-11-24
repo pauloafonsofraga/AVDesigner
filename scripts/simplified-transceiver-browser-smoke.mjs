@@ -119,9 +119,21 @@ try {
   await page.locator("#newDeviceTemplate").click();
   await page.locator('[data-editor-tab="connectors"]').click();
   await page.locator("#addOutputNode").click();
+  const physicalConnector = page.locator("#selectedConnectorPhysicalType");
   const sfpControls = page.locator('[data-sfp-owner="device"]');
-  await sfpControls.locator("[data-sfp-enabled]").check();
-  await sfpControls.locator("[data-sfp-family]").selectOption("qsfp28");
+  const draftPanel = page.locator('[data-transceiver-editor="device"]');
+  const draftField = name => draftPanel.getByLabel(name, { exact: true });
+  await physicalConnector.selectOption("hdmi");
+  assert.equal(await draftPanel.count(), 0);
+  const originalPort = await page.evaluate(() => currentEditorTemplate().connectors.at(-1));
+  for (const [value, lowestRate] of [["sfp-cage", "1G"], ["sfp-plus-cage", "1G"], ["sfp28-cage", "1G"], ["qsfp-plus", "40G"], ["qsfp28-cage", "40G"]]) {
+    await physicalConnector.selectOption(value);
+    assert.equal(await physicalConnector.inputValue(), value);
+    assert.equal(await draftField("Installed interface").inputValue(), "empty");
+    assert.equal(await draftField("Bandwidth").inputValue(), lowestRate);
+    assert.equal(await page.locator("#deviceEditorModal [data-sfp-enabled], #deviceEditorModal [data-sfp-family]").count(), 0);
+    assert.equal(await page.evaluate(() => currentEditorTemplate().connectors.at(-1).id), originalPort.id);
+  }
   await sfpControls.getByText("Host restrictions", { exact: true }).click();
   const rates = sfpControls.locator('[data-sfp-restriction="supportedRates"]');
   await rates.fill("100G; 40G");
@@ -133,8 +145,6 @@ try {
   await interfaces.fill("lc; sc; st"); await interfaces.press("Tab");
   assert.deepEqual(await page.evaluate(() => currentEditorTemplate().connectors.at(-1).cageCapabilities.supportedModuleInterfaces), ["lc", "sc", "st"]);
   assert.equal(await page.locator("#selectedConnectorModule").count(), 0);
-  const draftPanel = page.locator('[data-transceiver-editor="device"]');
-  const draftField = name => draftPanel.getByLabel(name, { exact: true });
   await draftField("Bandwidth").selectOption("100G");
   await draftField("Installed interface").selectOption("lc");
   await draftField("Optical profile").selectOption("100gbase-lr4");
@@ -144,18 +154,38 @@ try {
   assert.equal(draftPort.installedModuleType, "lc-singlemode");
   assert.equal(draftPort.moduleCapabilities.optical.wavelengthMode, "wdm");
   assert.deepEqual(draftPort.moduleCapabilities.optical.txNm, [1295, 1300, 1304, 1309]);
+  assert.deepEqual([draftPort.id, draftPort.x, draftPort.y], [originalPort.id, originalPort.x, originalPort.y]);
 
   await page.evaluate(() => {
     const template = currentEditorTemplate(), card = createCardType(template, "Optical Card");
-    card.connectors.push({ id: "card-optic", direction: "output", type: "sfp-plus-cage", x: 380, y: 50 });
+    card.connectors.push({ id: "card-optic", direction: "output", type: "hdmi", x: 380, y: 50 });
     template.cardTypes = [card]; template.hasSwappableCards = true;
     renderDeviceEditor();
   });
   await page.locator('[data-editor-tab="cards"]').click();
   await page.evaluate(() => { setEditorCardNodeSelection(0); renderCardEditor(); });
+  await page.locator("[data-card-physical-type]").selectOption("sfp-plus-cage");
   const cardPanel = page.locator('[data-transceiver-editor="card"]');
+  assert.equal(await cardPanel.getByLabel("Installed interface", { exact: true }).inputValue(), "empty");
   await cardPanel.getByLabel("Installed interface", { exact: true }).selectOption("st");
   assert.equal(await page.evaluate(() => currentEditorCard().connectors[0].installedModuleType), "st-singlemode");
+  await page.locator('[data-editor-tab="connectors"]').click();
+  const slotId = await page.evaluate(() => {
+    const template = currentEditorTemplate(), slot = createCardSlot(template, "Optical Card Slot");
+    slot.installedCardTypeId = template.cardTypes[0].id;
+    template.cardSlots.push(slot);
+    setEditorInstalledCardConnectorSelection(template, slot.id + "__card-optic");
+    renderSelectedConnectorSettings();
+    renderDeviceEditorPreview();
+    return slot.id;
+  });
+  await draftField("Installed interface").selectOption("empty");
+  await physicalConnector.selectOption("qsfp28-cage");
+  await draftField("Installed interface").selectOption("lc");
+  const installed = await page.evaluate(() => editorSelectedInstalledCardConnector().connector);
+  assert.equal(installed.id, slotId + "__card-optic");
+  assert.equal(installed.type, "qsfp-cage");
+  assert.deepEqual(installed.cageCapabilities.supportedFormFactors, ["qsfp28"]);
   assert.equal(await page.evaluate(() => currentEditorTemplate().connectors.at(-1).installedModuleType), "lc-singlemode");
   const authoredId = await page.evaluate(() => currentEditorTemplate().id);
   await page.locator("#applyDeviceEditor").click();
@@ -163,6 +193,7 @@ try {
   const savedDefault = await page.evaluate(id => localUserSettingsOwner.entry(id).definition, authoredId);
   assert.equal(savedDefault.connectors.at(-1).moduleCapabilities.optical.wavelengthMode, "wdm");
   assert.equal(savedDefault.cardTypes[0].connectors[0].installedModuleType, "st-singlemode");
+  assert.equal(savedDefault.cardSlots.find(slot => slot.id === slotId).connectorOverrides["card-optic"].installedModuleType, installed.installedModuleType);
   assert.deepEqual(failures, []);
   console.log("Chrome passed: physical cage authoring, progressive Inspector, chassis and card defaults saved to the library, filtered profiles, custom MPO validation, occupied cage, SDI, DAC, Undo/Redo and .avd reopen.");
 } finally { await browser.close(); }

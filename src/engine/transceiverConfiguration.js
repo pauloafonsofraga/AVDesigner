@@ -26,7 +26,7 @@ export function cageDefinitionPatch(connector, selection) {
   else if (type !== oldType || type === "qsfp-cage") delete host.supportedFormFactors;
   const patch = connectorPhysicalTypePatch({ ...connector, cageCapabilities: host }, type);
   if (resolveInstalledModule(connector).hasModule && patch.installedModuleType === "") {
-    throw new Error("Remove the installed module from the Canvas Inspector before changing to an incompatible cage family.");
+    throw new Error("Set Installed interface to Empty before changing to an incompatible cage family.");
   }
   return { ...patch, cageCapabilities: host };
 }

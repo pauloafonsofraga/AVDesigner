@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import * as transceivers from "../src/engine/transceiverModules.js";
 import * as compatibility from "../src/engine/connectorCompatibility.js";
+import * as configuration from "../src/engine/transceiverConfiguration.js";
 import { standaloneConnectorDefinitions } from "../src/engine/standaloneConnectors.js";
 
 const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
@@ -49,7 +50,7 @@ function picker({ engine = true, stale = false, missing = false, hidden = false 
     DEFAULT_CABLE_TYPES: catalogue.nodeTypes, cableTypes: catalogue.nodeTypes,
     cageConnectorTypes: new Set(cages), deviceEditorOnlyNodeTypeOrder: cages,
     nodeTypeOrder: nodes.map(node => node.id),
-    window: { WireNexusTransceivers: { ...transceivers, ...compatibility }, WireNexusFactoryCatalogue: catalogue },
+    window: { WireNexusTransceivers: { ...transceivers, ...compatibility, ...configuration }, WireNexusFactoryCatalogue: catalogue },
     escapeAttr: value => String(value).replaceAll('"', "&quot;"), escapeHtml: value => String(value).replaceAll("<", "&lt;")
   });
   for (const name of ["completeEditorNodeDefinitions", "editorNodeDefinitions", "editorNodeType", "orderedDeviceEditorNodeEntries",
@@ -65,11 +66,24 @@ for (const settings of [{}, { stale: true }, { missing: true }, { hidden: true }
     assert.deepEqual(entries.slice(0, 4).map(([id]) => id), cages);
     const options = vm.runInContext('connectorTypeSelectOptions("sfp-plus-cage")', context);
     assert.match(options, /<optgroup label="SFP \/ QSFP Cages">/);
-    for (const id of cages) assert.equal(options.split(`value="${id}"`).length - 1, 1);
+    for (const id of ["sfp-cage", "sfp-plus-cage", "sfp28-cage", "qsfp-plus", "qsfp28-cage"]) {
+      assert.equal(options.split(`value="${id}"`).length - 1, 1);
+    }
+    assert.doesNotMatch(options, /value="qsfp-cage"/);
     assert.match(options, /value="sfp-plus-cage" selected>SFP\+ Cage/);
     assert.deepEqual(nodes, before, "Availability must not rewrite saved node records");
   });
 }
+
+test("Physical Connector identifies explicit QSFP forms and preserves a saved generic cage", () => {
+  const { context } = picker();
+  for (const [form, value, label] of [["qsfp-plus", "qsfp-plus", "QSFP+ Cage"], ["qsfp28", "qsfp28-cage", "QSFP28 Cage"],
+    [null, "qsfp-cage", "QSFP Cage (form unspecified)"]]) {
+    context.connector = { type: "qsfp-cage", ...(form ? { cageCapabilities: { supportedFormFactors: [form] } } : {}) };
+    const options = vm.runInContext('connectorTypeSelectOptions(connector.type, connector)', context);
+    assert.ok(options.includes(`value="${value}" selected>${label}</option>`));
+  }
+});
 
 test("Legacy picker retains its original palette flags, order and ungrouped options", () => {
   const { context } = picker({ engine: false, stale: true });
