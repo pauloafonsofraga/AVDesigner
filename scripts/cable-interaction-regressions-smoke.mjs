@@ -33,6 +33,40 @@ try{
     return{x:r.x+(p.x-b.camera.x)*b.camera.zoom,y:r.y+(p.y-b.camera.y)*b.camera.zoom};
   },{deviceId,connectorId});
   const read=()=>page.evaluate(()=>structuredClone(state.connections));
+  const inspectorType=()=>page.locator('#inspectorBody .details dd').first().textContent({timeout:2000});
+  const node=await point('sink','port-0'), spare=await point('spare-sink','port-0'), beforePress=await read();
+  await page.mouse.click(node.x,node.y);
+  assert.equal(await inspectorType(),'Connector','clicking a connected node opens the Connector Inspector');
+  assert.deepEqual(await page.evaluate(()=>[...activeEngineBridge().scene.selectedConnectorKeys]),['sink:port-0']);
+  assert.deepEqual(await read(),beforePress);
+  const wireBody=await page.evaluate(()=>{
+    const b=activeEngineBridge(),path=b.scene.wireRenderPolyline(b.scene.getWire('cable-0'));
+    const p=b.worldToScreenPoint(path[Math.floor(path.length/2)]),rect=b.canvas.getBoundingClientRect();
+    return {x:p.x+rect.x,y:p.y+rect.y};
+  });
+  await page.mouse.click(wireBody.x,wireBody.y);
+  assert.equal(await inspectorType(),'Wire','clicking the cable body opens the Wire Inspector');
+  await page.mouse.move(node.x,node.y);await page.mouse.down();
+  await page.waitForFunction(()=>activeEngineBridge().canvas.style.cursor==='grabbing',{},{timeout:2000});
+  assert.equal(await page.evaluate(()=>activeEngineBridge().wireCreate?.rewire?.wireId),'cable-0');
+  await page.mouse.up();
+  assert.equal(await inspectorType(),'Connector','release without a drop restores the Connector Inspector');
+  assert.deepEqual(await read(),beforePress);
+  await page.mouse.down();
+  await page.waitForFunction(()=>activeEngineBridge().canvas.style.cursor==='grabbing',null,{timeout:2000});
+  const occupied=await point('sink','port-1');
+  await page.mouse.move(occupied.x,occupied.y,{steps:8});await page.mouse.up();
+  assert.equal(await inspectorType(),'Connector','a rejected drop restores the Connector Inspector');
+  assert.deepEqual(await read(),beforePress);
+  await page.mouse.move(node.x,node.y);
+  await page.mouse.down();
+  await page.waitForFunction(()=>activeEngineBridge().canvas.style.cursor==='grabbing',{},{timeout:2000});
+  await page.mouse.move(spare.x,spare.y,{steps:8});await page.mouse.up();
+  assert.deepEqual(await read(),beforePress.map(w=>w.id==='cable-0'
+    ? {...w,from:{...w.from,anchorId:'right'},to:{...w.to,deviceId:'spare-sink',anchorId:'left'}}:w));
+  await page.evaluate(()=>activeEngineBridge().undoEngineCommand());assert.deepEqual(await read(),beforePress);
+  checks.push('connected node click selects the node, cable click selects the cable, and stationary hold rewires with a grabbing cursor');
+  await load(fixture);
   const metadata=wire=>{const {from,to,...rest}=wire;return rest;};
   const drag=async(from,to)=>{
     await page.keyboard.down('Shift');await page.mouse.move(from.x,from.y);await page.mouse.down();

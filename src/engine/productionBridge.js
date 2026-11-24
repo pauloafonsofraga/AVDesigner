@@ -194,6 +194,7 @@ const TITLE_BLOCK_BASE_WIDTH = 760;
 const TITLE_BLOCK_BASE_HEIGHT = 112;
 const TITLE_BLOCK_MIN_SCALE = 0.34;
 const JUMP_PRESS_HIT_TOLERANCE_PX = 6;
+const WIRE_REWIRE_HOLD_MS = 250;
 
 function isEngineGuideCoordinate(value) {
   return value !== null
@@ -277,6 +278,7 @@ class ProductionEngineBridge {
     this.routePointDrag = null;
     this.wireSegmentDrag = null;
     this.wireCreate = null;
+    this.pendingWireRewire = null;
     this.loomCreationActive = false;
     this.loomCreate = null;
     this.loomPortalPlacement = null;
@@ -408,6 +410,7 @@ class ProductionEngineBridge {
 
   destroy({ restoreProduction = true } = {}) {
     this.started = false;
+    if (this.pendingWireRewire) this.cancelPendingWireRewire();
     this.stopWirePlayback("destroy", { render: false });
     this.cancelPendingJumpPress("destroy", { updateHud: false });
     this.jumpLinkCreate = null;
@@ -1312,7 +1315,8 @@ class ProductionEngineBridge {
     window.addEventListener("keydown", this.boundKeyDown, true);
     window.addEventListener("resize", this.boundResize);
     this.boundJumpBlur = () => {
-      if (!this.pendingJumpPress && !this.jumpLinkCreate && !this.panState) return;
+      if (!this.pendingJumpPress && !this.jumpLinkCreate && !this.panState
+        && !this.pendingWireRewire && this.wireCreate?.rewire?.pointerId == null) return;
       this.cancelActiveInteraction("window-blur");
       this.scheduleRender();
     };
@@ -2263,7 +2267,11 @@ class ProductionEngineBridge {
       this.blockInteraction(event, "pointerdown while loading");
       return;
     }
-    if (this.pendingJumpPress || this.jumpLinkCreate) this.cancelActiveInteraction("interaction-replaced", { updateHud: false });
+    const rewirePointerId = this.pendingWireRewire?.pointerId ?? this.wireCreate?.rewire?.pointerId;
+    if (rewirePointerId != null && rewirePointerId !== event.pointerId) return;
+    if (this.pendingWireRewire || rewirePointerId != null || this.pendingJumpPress || this.jumpLinkCreate) {
+      this.cancelActiveInteraction("interaction-replaced", { updateHud: false });
+    }
     const point = this.eventPoint(event);
     if (event.button === 1 || event.buttons === 4) {
       event.preventDefault();
@@ -2520,10 +2528,11 @@ class ProductionEngineBridge {
         return;
       }
       if (connectedEndpoint) {
-        this.clearHoverState("wire-rewire-start", { render: false });
-        this.beginWireRewire(connectorHit.connector, connectedEndpoint, world);
+        this.clearHoverState("connector-select", { render: false });
+        this.scene.selectConnectorOnly(connectorHit.connector.device.id, connectorHit.connector.connector.id);
+        this.beginPendingWireRewire(connectorHit.connector, connectedEndpoint, point, world, event.pointerId);
         this.updateSelectionHud();
-        this.updateInteractionHud("wire-rewire", connectorHit);
+        this.updateInteractionHud("connector-select", connectorHit);
         this.scheduleRender();
         return;
       }
@@ -2708,7 +2717,7 @@ class ProductionEngineBridge {
     }
     event.preventDefault();
     event.stopPropagation();
-    if (this.dragSession || this.pendingDrag || this.pendingJumpPress || this.jumpLinkCreate || this.panState || this.routePointDrag || this.wireSegmentDrag || this.wireCreate || this.resizeSession || this.marqueeState || this.qsfpBreakoutGesture) {
+    if (this.dragSession || this.pendingDrag || this.pendingWireRewire || this.pendingJumpPress || this.jumpLinkCreate || this.panState || this.routePointDrag || this.wireSegmentDrag || this.wireCreate || this.resizeSession || this.marqueeState || this.qsfpBreakoutGesture) {
       this.cancelActiveInteraction("context-menu", { updateHud: false });
     }
     this.scene.selectedBreakout = null;
@@ -2748,8 +2757,9 @@ class ProductionEngineBridge {
 
   handlePointerMove(event) {
     if (!this.ready) return;
-    const jumpPointerId = this.pendingJumpPress?.pointerId ?? this.jumpLinkCreate?.pointerId;
-    if (jumpPointerId != null && jumpPointerId !== event.pointerId) return;
+    const pointerId = this.pendingJumpPress?.pointerId ?? this.jumpLinkCreate?.pointerId
+      ?? this.pendingWireRewire?.pointerId ?? this.wireCreate?.rewire?.pointerId;
+    if (pointerId != null && pointerId !== event.pointerId) return;
     const pointerStart = performance.now();
     const point = this.eventPoint(event);
     if (this.qsfpBreakoutGesture && !this.panState) {
@@ -2990,6 +3000,11 @@ class ProductionEngineBridge {
       this.scheduleRender();
       return;
     }
+    if (this.pendingWireRewire) {
+      const start = this.pendingWireRewire.start;
+      if (Math.hypot(point.x - start.x, point.y - start.y) < this.dragThresholdPx) return;
+      if (!this.activatePendingWireRewire(screenToWorld(this.camera, point))) return;
+    }
     if (this.wireCreate) {
       const world = screenToWorld(this.camera, point);
       const gateway = !this.wireCreate.loomId
@@ -3067,8 +3082,10 @@ class ProductionEngineBridge {
   }
 
   handlePointerUp(event) {
-    const jumpPointerId = this.pendingJumpPress?.pointerId ?? this.jumpLinkCreate?.pointerId;
-    if (jumpPointerId != null && jumpPointerId !== event.pointerId) return;
+    const pointerId = this.pendingJumpPress?.pointerId ?? this.jumpLinkCreate?.pointerId
+      ?? this.pendingWireRewire?.pointerId ?? this.wireCreate?.rewire?.pointerId;
+    if (pointerId != null && pointerId !== event.pointerId) return;
+    if (this.pendingWireRewire) this.cancelPendingWireRewire();
     if (!this.ready) {
       this.blockInteraction(event, "pointerup while loading");
       this.releasePointerCapture(event.pointerId);
@@ -3185,6 +3202,7 @@ class ProductionEngineBridge {
     if (this.pendingJumpPress) this.completePendingJumpPress(point, event);
     if (this.jumpLinkCreate) this.completeJumpLinkCreate();
     if (this.wireCreate?.gatewayHover && !this.wireCreate.loomId) {
+      if (this.wireCreate.rewire) delete this.wireCreate.rewire.pointerId;
       this.enterWireLoomGateway(this.wireCreate.gatewayHover);
     } else if (this.wireCreate) this.completeWireCreate();
     if (this.marqueeState) this.completeMarquee();
@@ -3198,8 +3216,9 @@ class ProductionEngineBridge {
   }
 
   handlePointerCancel(event) {
-    const jumpPointerId = this.pendingJumpPress?.pointerId ?? this.jumpLinkCreate?.pointerId;
-    if (jumpPointerId != null && jumpPointerId !== event.pointerId) return;
+    const pointerId = this.pendingJumpPress?.pointerId ?? this.jumpLinkCreate?.pointerId
+      ?? this.pendingWireRewire?.pointerId ?? this.wireCreate?.rewire?.pointerId;
+    if (pointerId != null && pointerId !== event.pointerId) return;
     const point = this.eventPoint(event);
     if (!this.panState) this.dispatchCanvasToolPointerEvent("pointercancel", event, point);
     this.cancelActiveInteraction("pointer-cancel");
@@ -3217,10 +3236,12 @@ class ProductionEngineBridge {
     if (this.qsfpBreakoutGesture?.pointerId != null && this.qsfpBreakoutGesture.pointerId === event.pointerId) {
       this.cancelQsfpBreakoutGesture(); this.updateSelectionHud(); return;
     }
-    if ((this.wireCreate?.manual && !this.wireCreate.rewire) || this.wireCreate?.loomId) return;
-    const jumpPointerId = this.pendingJumpPress?.pointerId ?? this.jumpLinkCreate?.pointerId;
-    if (jumpPointerId != null && event?.pointerId != null && jumpPointerId !== event.pointerId) return;
-    if (!this.rotationDrag && !this.dragSession && !this.pendingDrag && !this.pendingJumpPress && !this.jumpLinkCreate && !this.panState && !this.loomHeadDrag && !this.routePointDrag && !this.wireSegmentDrag && !this.wireCreate && !this.resizeSession && !this.commentBoxDrag && !this.marqueeState) return;
+    if ((this.wireCreate?.manual && !this.wireCreate.rewire)
+      || (this.wireCreate?.loomId && this.wireCreate.rewire?.pointerId == null)) return;
+    const pointerId = this.pendingJumpPress?.pointerId ?? this.jumpLinkCreate?.pointerId
+      ?? this.pendingWireRewire?.pointerId ?? this.wireCreate?.rewire?.pointerId;
+    if (pointerId != null && event?.pointerId != null && pointerId !== event.pointerId) return;
+    if (!this.rotationDrag && !this.dragSession && !this.pendingDrag && !this.pendingWireRewire && !this.pendingJumpPress && !this.jumpLinkCreate && !this.panState && !this.loomHeadDrag && !this.routePointDrag && !this.wireSegmentDrag && !this.wireCreate && !this.resizeSession && !this.commentBoxDrag && !this.marqueeState) return;
     this.cancelActiveInteraction("lost-pointer-capture");
     this.scheduleRender();
   }
@@ -3365,7 +3386,7 @@ class ProductionEngineBridge {
       return;
     }
     if (this.dispatchCanvasToolKeyEvent("Escape", event)) return;
-    if (this.loomHeadDrag || this.wireCreate || this.jumpLinkCreate || this.pendingJumpPress || this.resizeSession || this.routePointDrag || this.wireSegmentDrag || this.marqueeState || this.dragSession || this.pendingDrag || this.panState) {
+    if (this.loomHeadDrag || this.wireCreate || this.pendingWireRewire || this.jumpLinkCreate || this.pendingJumpPress || this.resizeSession || this.routePointDrag || this.wireSegmentDrag || this.marqueeState || this.dragSession || this.pendingDrag || this.panState) {
       consumeEngineShortcut(event);
       this.cancelActiveInteraction("cancelled");
       this.scheduleRender();
@@ -4287,7 +4308,36 @@ class ProductionEngineBridge {
     this.updateCanvasCursor();
   }
 
-  beginWireRewire(detachedHit, endpoint, worldPoint) {
+  beginPendingWireRewire(hit, endpoint, start, world, pointerId) {
+    const pending = { hit, wireId: endpoint.wireId, end: endpoint.end, start, pointerId, timer: null };
+    this.pendingWireRewire = pending;
+    pending.timer = setTimeout(() => {
+      if (this.pendingWireRewire === pending) this.activatePendingWireRewire(world);
+    }, WIRE_REWIRE_HOLD_MS);
+  }
+
+  cancelPendingWireRewire() {
+    const pending = this.pendingWireRewire;
+    if (pending) clearTimeout(pending.timer);
+    this.pendingWireRewire = null;
+    return pending;
+  }
+
+  activatePendingWireRewire(world) {
+    const pending = this.cancelPendingWireRewire();
+    if (!pending || !this.ready || this.wireCreate) return false;
+    const { hit, wireId, end, pointerId } = pending;
+    const endpoint = this.scene.wireEndpointAtConnector(hit.device.id, hit.connector.id);
+    if (endpoint?.wireId !== wireId || endpoint.end !== end) return false;
+    if (!this.beginWireRewire(hit, endpoint, world, pointerId)) return false;
+    this.clearHoverState("wire-rewire-start", { render: false });
+    this.updateSelectionHud();
+    this.updateInteractionHud("wire-rewire", { connector: hit });
+    this.scheduleRender();
+    return true;
+  }
+
+  beginWireRewire(detachedHit, endpoint, worldPoint, pointerId) {
     const wire = endpoint?.wire;
     if (!wire) return false;
     const fixedEnd = endpoint.otherEnd;
@@ -4323,6 +4373,7 @@ class ProductionEngineBridge {
       routePoints: (initialRoutePoints || []).map(point => ({ ...point })),
       ...this.wirePreviewAppearance(detachedHit, wire),
       rewire: {
+        pointerId,
         wireId: wire.id,
         detachedSide: endpoint.end,
         detachedHit,
@@ -5345,6 +5396,7 @@ class ProductionEngineBridge {
   }
 
   cancelActiveInteraction(reason = "cancelled", { updateHud = true } = {}) {
+    if (this.pendingWireRewire) this.cancelPendingWireRewire();
     this.cancelQsfpBreakoutGesture?.();
     this.multiCorePlacement = null;
     this.multiCoreRoutePlacement = null;
@@ -5384,8 +5436,10 @@ class ProductionEngineBridge {
     this.dragSession = null;
     this.panState = null;
     if (this.wireCreate?.rewire) {
+      const restoreConnectorInspector = this.wireCreate.rewire.pointerId != null;
       this.recordRewireDiagnostic("cancel", { rejectionReason: reason });
       this.finishWireInteraction({ restoreSelection: true, reason });
+      if (restoreConnectorInspector && this.ready) this.updateSelectionHud();
     } else {
       this.wireCreate = null;
     }
@@ -10762,6 +10816,9 @@ class ProductionEngineBridge {
     } else if (this.resizeSession) {
       cursor = resizeCursorForHandle(this.resizeSession.handle);
       cursorState = "resizing";
+    } else if (this.wireCreate?.rewire?.pointerId != null) {
+      cursor = "grabbing";
+      cursorState = "wire-rewire";
     } else if (this.panState || this.dragSession || this.loomHeadDrag || this.commentBoxDrag || this.routePointDrag || this.wireSegmentDrag) {
       cursor = "grabbing";
       cursorState = this.panState ? "panning" : "dragging";

@@ -60,6 +60,29 @@ test('lost capture cancels a manual replug but does not cancel a multi-click dra
   b.handleLostPointerCapture({pointerId:1});assert.equal(cancels,1);assert.equal(b.wireCreate,null);
   b.wireCreate={manual:true};b.handleLostPointerCapture({pointerId:1});assert.equal(cancels,1);
 });
+test('only the owning press can arm a replug, and release or capture loss clears the hold timer',()=>{
+  let runHold, cancelled=0, activated=0;
+  const b=vm.runInNewContext(`({${['beginPendingWireRewire','cancelPendingWireRewire','activatePendingWireRewire',
+    'handlePointerUp','handleLostPointerCapture'].map(method).join(',')}})`,{
+    WIRE_REWIRE_HOLD_MS:250,setTimeout(fn){runHold=fn;return 1;},clearTimeout(){cancelled++;}
+  });
+  const hit={device:{id:'device'},connector:{id:'port'}}, endpoint={wireId:'wire',end:'to'}, point={x:0,y:0};
+  Object.assign(b,{ready:true,scene:{wireEndpointAtConnector:()=>endpoint},eventPoint:()=>point,
+    dispatchCanvasToolPointerEvent:()=>false,releasePointerCapture(){},scheduleRender(){},
+    beginWireRewire(_hit,_endpoint,_world,pointerId){assert.equal(pointerId,1);activated++;return true;},
+    clearHoverState(){},updateSelectionHud(){},updateInteractionHud(){},
+    cancelActiveInteraction(){this.cancelPendingWireRewire();}});
+  b.beginPendingWireRewire(hit,endpoint,point,point,1);
+  b.handlePointerUp({pointerId:2});assert.equal(cancelled,0);
+  b.handlePointerUp({pointerId:1});runHold();assert.equal(activated,0);
+  b.beginPendingWireRewire(hit,endpoint,point,point,1);
+  b.handleLostPointerCapture({pointerId:1});runHold();assert.equal(activated,0);
+  b.beginPendingWireRewire(hit,endpoint,point,point,1);
+  runHold();assert.equal(activated,1);assert.equal(cancelled,3);
+  b.beginPendingWireRewire(hit,endpoint,point,point,1);
+  b.scene.wireEndpointAtConnector=()=>({...endpoint,wireId:'replacement'});
+  runHold();assert.equal(activated,1,'a stale press must not detach a replacement wire');
+});
 test('editor Play Cable traverses the same visible Jump link in either starting leg without changing topology',()=>{
   const project=outputPdfJumpFixture(),before=structuredClone(project),scene=new SceneGraph();scene.setData(normalizeAvDesignerProject(project));
   const b=vm.runInNewContext(`({${['wirePlaybackPlanForWire','sceneWireForPlaybackId','connectorForPlaybackEndpoint','playbackPointsForWire'].map(method).join(',')}})`,
