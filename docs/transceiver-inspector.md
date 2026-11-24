@@ -30,9 +30,10 @@ commit immediately; text edits commit on Enter or when leaving the field.
 Invalid edits keep the previous module. SDI continues to take its TX/RX role
 from the device.
 
-SC/ST are selectable on SFP-family cages without declared interface restrictions.
-That configuration remains Unverified unless the host declares support. Explicit
-host restrictions still apply. An unoccupied MPO port can also attach a
+SC/ST are selectable on SFP and QSFP-family cages without declared interface
+restrictions. That configuration remains Unverified unless the host declares
+support. Existing host restrictions still apply but are not edited in the Device
+Editor. An unoccupied MPO port can also attach a
 [detachable MPO breakout](./mpo-physical-metadata.md).
 
 In module capabilities, `optical.arrangement`, `optical.signalDirection` and
@@ -84,9 +85,10 @@ The first Canvas Inspector choice is now **Bandwidth**, replacing the optical
 Preset selector and the second Line rate field. It contains speed values only,
 with no None/Unspecified choice. Fibre category remains a separate optical
 property. Host/port restrictions and named-module-only hosts still apply.
-Without declared host rates, the UI starts at 1G for SFP-family cages and 40G
-for QSFP-family cages. Explicit host declarations can provide lower rates or
-restrict the minimum to 100G. These UI choices do not certify host support.
+Without declared host rates, the UI starts at 1G for SFP-family cages, 40G for
+QSFP+ and unspecified legacy QSFP cages, and 100G for QSFP28. An explicit
+host declaration can provide lower rates, for example for a dual-rate port.
+These UI choices do not certify host support.
 
 Opening a cage does not install a module or change the project. An edited optical
 configuration receives the selected rate on Apply; existing named profiles and
@@ -162,12 +164,10 @@ physical interface metadata. Selecting nothing or only opening the Inspector
 never rewrites installed profiles, historical IDs or MPO properties.
 
 LC and MPO retain their existing cage eligibility. SC/ST use the existing
-`fiber-sc` and `fiber-st` connector definitions. New SC/ST installation requires
-an explicit `cageCapabilities.supportedModuleInterfaces: ["sc", "st"]` or a
-matching generic module ID in `supportedModuleTypes`; a cage's shape alone does
-not authorize them. The Device Editor's Host restrictions exposes this list.
-Existing recognized SC/ST modules with undeclared host support remain unverified.
-No manufacturer-specific SC/ST module or host claim is added.
+`fiber-sc` and `fiber-st` connector definitions. They may be configured on
+undeclared cages without claiming verified host support. Saved allowlists such
+as `cageCapabilities.supportedModuleInterfaces` and `supportedModuleTypes`
+still apply. No manufacturer-specific SC/ST module or host claim is added.
 
 Single-mode may declare OS2; multimode may declare OM3, OM4 or OM5.
 Fibre grade remains unspecified unless authored. LC/SC/ST support simplex and

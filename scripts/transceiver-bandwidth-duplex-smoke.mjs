@@ -67,8 +67,8 @@ try {
   assert.equal(placed.installedModuleType,"");
   await page.locator("#applyDeviceEditor").click();
   await page.locator("#deviceEditorModal.hidden").waitFor({state:"attached"});
-  await select(added);assert.ok((await rates()).every(rate=>["40G","50G","100G"].includes(rate)));
-  assert.equal(await field("Bandwidth").inputValue(),"40G");
+  await select(added);assert.deepEqual(await rates(),["100G"]);
+  assert.equal(await field("Bandwidth").inputValue(),"100G");
   const endpoints=await page.evaluate(()=>{
     const b=activeEngineBridge(),r=b.canvas.getBoundingClientRect();
     return ["source","sink"].map(id=>{const d=b.scene.getDevice(id),c=b.scene.getConnector(id,"port-0"),p=b.worldToScreenPoint(b.scene.connectorWorldPoint(d,c));return{x:p.x+r.x,y:p.y+r.y};});

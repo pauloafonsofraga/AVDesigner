@@ -60,7 +60,7 @@ export function transceiverBandwidthChoices(connector, signalFamily = "ethernet"
   if (signalFamily === "sdi" || [connector.supportedRates, connector.cageCapabilities?.supportedRates]
     .some(values => Array.isArray(values) && values.length)) return rates;
   const form = CAGE_FORM_FACTORS[cageDefinitionValue(connector)] || cageDefinitionValue(connector);
-  const minimum = form.startsWith("qsfp") ? 40e9 : 1e9;
+  const minimum = form === "qsfp28" ? 100e9 : form.startsWith("qsfp") ? 40e9 : 1e9;
   return rates.filter(rate => Number(transceiverRateKey(rate).split(":")[1]) >= minimum);
 }
 

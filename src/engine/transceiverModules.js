@@ -261,7 +261,7 @@ export function transceiverModuleValidation(connector, capabilities = installedM
   const uncommonInterface = ["fiber-sc", "fiber-st"].includes(profile?.activeType) ? profile.activeType.slice(6) : "";
   const declaredInterface = uncommonInterface && (list(host.supportedModuleInterfaces).some(value => key(value) === uncommonInterface)
     || list(host.supportedModuleTypes).some(value => key(value) === key(profile.value)));
-  if (uncommonInterface && !declaredInterface && (form === "qsfp" || Array.isArray(host.supportedModuleInterfaces))
+  if (uncommonInterface && !declaredInterface && Array.isArray(host.supportedModuleInterfaces)
     && resolveInstalledModule(connector).profile?.value !== profile.value) {
     return reject("This cage does not declare support for the selected SC/ST interface.");
   }

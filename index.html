@@ -11443,18 +11443,10 @@
       const api = engineTransceiverApi();
       if (!api) return "";
       const physical = connector.physicalType || connector.type || connector.id;
-      const cage = cageConnectorTypes.has(physical);
       if (owner !== "node") {
-        if (physical === "fiber-mpo") return `<div data-mpo-editor="${owner}"></div>`;
-        if (!api.isTransceiverCage(connector)) return "";
-        const host = connector.cageCapabilities || {};
-        const restrictions = [["supportedRates", "Allowed line rates (semicolon-separated)"],
-          ["supportedModuleInterfaces", "Allowed module interfaces (lc; sc; st; mpo)"],
-          ["supportedSignalFamilies", "Allowed signal families"], ["supportedMediaTypes", "Allowed media"],
-          ["supportedModuleTypes", "Allowed module IDs"]];
-        return `<details class="connector-inspector-section" data-sfp-owner="${owner}"><summary>Host restrictions</summary>${restrictions.map(([key, label]) =>
-          `<label class="field"><span>${label}</span><input type="text" data-sfp-restriction="${key}" value="${escapeAttr(Array.isArray(host[key]) ? host[key].join("; ") : "")}"></label>`).join("")}</details>`;
+        return physical === "fiber-mpo" ? `<div data-mpo-editor="${owner}"></div>` : "";
       }
+      const cage = cageConnectorTypes.has(physical);
       const cageValue = api.cageDefinitionValue(connector) === "qsfp28" ? "qsfp28-cage" : physical;
       const cageChoices = deviceEditorOnlyNodeTypeOrder.map(id => [id, cableTypes[id]?.label || id]);
       const ordinary = nodeBuilderEntries().filter(([id, node]) => !cageConnectorTypes.has(node.physicalType || id));
@@ -36294,13 +36286,6 @@ document.addEventListener("click", function(event) {
           else root.querySelector("[data-sfp-disable]").classList.remove("hidden");
         } else if (event.target.matches("[data-sfp-family], [data-sfp-ordinary]")) {
           if (event.target.value) changeSfpPhysicalType(owner, event.target.value);
-        } else if (event.target.matches("[data-sfp-restriction]")) {
-          const selection = sfpEditorSelection(owner), key = event.target.dataset.sfpRestriction;
-          const values = [...new Set(event.target.value.split(";").map(value => value.trim()).filter(Boolean))];
-          const host = { ...selection.connector.cageCapabilities };
-          if (values.length) host[key] = values; else delete host[key];
-          commitEditorConnectorConfiguration(selection.template, selection.connector.id, { cageCapabilities: host }, selection.options);
-          mountEditorTransceiverControls(owner);
         }
       } catch (error) { alert(error.message); refreshSfpEditor(owner); }
     });

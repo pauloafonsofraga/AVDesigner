@@ -70,14 +70,6 @@ test("QSFP forms retain the cage ID and distinguish standard, custom MPO, and in
   const legacy = cage("qsfp-cage");
   const q28 = { ...legacy, ...cageDefinitionPatch(legacy, "qsfp28") };
   assert.equal(cageDefinitionValue(q28), "qsfp28");
-  for (const iface of ["sc", "st"]) {
-    const config = { method: "custom", interface: iface, lineRate: "100G" };
-    assert.deepEqual(transceiverConfigurationChoices(q28).fiberFamilies[iface], []);
-    assert.throws(() => configured(q28, config), /declare support/);
-    const declared = { ...q28, cageCapabilities: { ...q28.cageCapabilities, supportedModuleInterfaces: [iface] } };
-    assert.ok(transceiverConfigurationChoices(declared).fiberFamilies[iface].length);
-    assert.equal(effectiveConnectorTypeForEngine(configured(declared, config)), "fiber-" + iface);
-  }
   assert.equal(q28.type, "qsfp-cage");
   assert.equal(q28.id, legacy.id);
   assert.deepEqual(q28.anchors, legacy.anchors);
@@ -105,6 +97,28 @@ test("QSFP forms retain the cage ID and distinguish standard, custom MPO, and in
   const author = { ...q28, cageCapabilities: { ...q28.cageCapabilities, breakoutModes: ["qsfp28-4x25g"] } };
   const normalized = { devices: [{ instanceId: "d", templateOverride: { id: "d", width: 260, height: 200, connectors: [author] } }] };
   assert.deepEqual(qsfpBreakoutHostModes(normalized, { deviceId: "d", connectorId: author.id }), ["qsfp28-4x25g"]);
+});
+
+test("SC and ST are selectable on generic QSFP, QSFP+ and QSFP28 without claiming hardware verification", () => {
+  for (const [form, lineRate] of [[null, "40G"], ["qsfp-plus", "40G"], ["qsfp28", "100G"]]) {
+    const host = form ? { supportedFormFactors: [form] } : {};
+    const port = cage("qsfp-cage", "bidirectional", host);
+    for (const iface of ["sc", "st"]) {
+      const config = { method: "custom", interface: iface, lineRate };
+      assert.ok(transceiverConfigurationChoices(port).fiberFamilies[iface].length);
+      const saved = JSON.parse(JSON.stringify(configured(port, config)));
+      const validation = transceiverModuleValidation(saved);
+      assert.equal(validation.valid, true);
+      assert.match(validation.warnings.join(" "), /SC\/ST host interface support is unverified/);
+      assert.equal(effectiveConnectorTypeForEngine(saved), "fiber-" + iface);
+      const restricted = { ...port, cageCapabilities: { ...host, supportedModuleInterfaces: ["lc"] } };
+      assert.deepEqual(transceiverConfigurationChoices(restricted).fiberFamilies[iface], []);
+      assert.throws(() => configured(restricted, config), /declare support/);
+      const declared = { ...port, cageCapabilities: { ...host, supportedModuleInterfaces: [iface] } };
+      assert.ok(transceiverConfigurationChoices(declared).fiberFamilies[iface].length);
+      assert.equal(effectiveConnectorTypeForEngine(configured(declared, config)), "fiber-" + iface);
+    }
+  }
 });
 
 test("custom SDI inherits an explicit role and existing TX/RX profiles remain untouched", () => {

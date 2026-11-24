@@ -19,6 +19,9 @@ test("bandwidth choices have a nonempty cage default, no optical presets and res
     assert.ok(rates.every(rate => /^\d+(\.\d+)?[MG]$/.test(rate)));
     assert.deepEqual(c,before);
   }
+  assert.deepEqual(transceiverBandwidthChoices({ type:"qsfp-cage", cageCapabilities:{ supportedFormFactors:["qsfp-plus"] } }),["40G"]);
+  assert.deepEqual(transceiverBandwidthChoices({ type:"qsfp-cage", cageCapabilities:{ supportedFormFactors:["qsfp28"] } }),["100G"]);
+  assert.deepEqual(transceiverBandwidthChoices({ type:"qsfp-cage", cageCapabilities:{ supportedFormFactors:["qsfp28"],supportedRates:["40 Gb/s","100 Gb/s"] } }),["40G","100G"]);
   assert.deepEqual(transceiverBandwidthChoices({ type:"qsfp-cage", cageCapabilities:{ supportedFormFactors:["qsfp28"],supportedRates:["100 Gb/s"] } }),["100G"]);
   assert.deepEqual(transceiverBandwidthChoices({ type:"sfp-plus-cage", cageCapabilities:{ supportedRates:["1G","10G"] }, supportedRates:["10G"] }),["10G"]);
   assert.deepEqual(transceiverBandwidthChoices({ type:"sfp-cage", supportedRates:["100G"] }),[]);

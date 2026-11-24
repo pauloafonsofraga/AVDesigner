@@ -73,6 +73,11 @@ try {
   assert.equal((await status("port-0")).module, "10gbase-sr");
 
   await select("port-1");
+  assert.deepEqual(await field("Bandwidth").locator("option").evaluateAll(options => options.map(o => o.value)), ["100G"]);
+  for (const iface of ["sc", "st"]) {
+    await field("Installed interface").selectOption(iface);
+    assert.equal((await status("port-1")).module, iface + "-singlemode");
+  }
   await field("Installed interface").selectOption("mpo");
   await field("Fibre category").selectOption("multimode");
   await field("Fibre grade").selectOption("om5");
@@ -128,13 +133,12 @@ try {
   await page.locator('[data-editor-tab="connectors"]').click();
   await page.locator("#addOutputNode").click();
   const physicalConnector = page.locator("#selectedConnectorPhysicalType");
-  const sfpControls = page.locator('[data-sfp-owner="device"]');
   const draftPanel = page.locator('[data-transceiver-editor="device"]');
   const draftField = name => draftPanel.getByLabel(name, { exact: true });
   await physicalConnector.selectOption("hdmi");
   assert.equal(await draftPanel.count(), 0);
   const originalPort = await page.evaluate(() => currentEditorTemplate().connectors.at(-1));
-  for (const [value, lowestRate] of [["sfp-cage", "1G"], ["sfp-plus-cage", "1G"], ["sfp28-cage", "1G"], ["qsfp-plus", "40G"], ["qsfp28-cage", "40G"]]) {
+  for (const [value, lowestRate] of [["sfp-cage", "1G"], ["sfp-plus-cage", "1G"], ["sfp28-cage", "1G"], ["qsfp-plus", "40G"], ["qsfp28-cage", "100G"]]) {
     await physicalConnector.selectOption(value);
     assert.equal(await physicalConnector.inputValue(), value);
     assert.equal(await draftField("Installed interface").inputValue(), "empty");
@@ -142,20 +146,14 @@ try {
     assert.equal(await page.locator("#deviceEditorModal [data-sfp-enabled], #deviceEditorModal [data-sfp-family]").count(), 0);
     assert.equal(await page.evaluate(() => currentEditorTemplate().connectors.at(-1).id), originalPort.id);
   }
-  await sfpControls.getByText("Host restrictions", { exact: true }).click();
-  const rates = sfpControls.locator('[data-sfp-restriction="supportedRates"]');
-  await rates.fill("100G; 40G");
-  await rates.press("Tab");
+  assert.equal(await page.getByText("Host restrictions", { exact: true }).count(), 0);
   const authored = await page.evaluate(() => currentEditorTemplate().connectors.at(-1));
   assert.equal(authored.type, "qsfp-cage");
-  assert.deepEqual(authored.cageCapabilities, { supportedFormFactors: ["qsfp28"], supportedRates: ["100G", "40G"] });
-  const interfaces = sfpControls.locator('[data-sfp-restriction="supportedModuleInterfaces"]');
-  const installedInterfaceOptions = () => draftField("Installed interface").locator("option").evaluateAll(options => options.map(option => option.value));
-  assert(!(await installedInterfaceOptions()).some(option => ["sc", "st"].includes(option)));
-  await interfaces.fill("lc; sc; st"); await interfaces.press("Tab");
-  const declaredInterfaces = await installedInterfaceOptions();
-  assert(["sc", "st"].every(option => declaredInterfaces.includes(option)));
-  assert.deepEqual(await page.evaluate(() => currentEditorTemplate().connectors.at(-1).cageCapabilities.supportedModuleInterfaces), ["lc", "sc", "st"]);
+  assert.deepEqual(authored.cageCapabilities, { supportedFormFactors: ["qsfp28"] });
+  for (const iface of ["sc", "st"]) {
+    await draftField("Installed interface").selectOption(iface);
+    assert.equal(await page.evaluate(() => currentEditorTemplate().connectors.at(-1).installedModuleType), iface + "-singlemode");
+  }
   assert.equal(await page.locator("#selectedConnectorModule").count(), 0);
   await draftField("Bandwidth").selectOption("100G");
   await page.evaluate(() => window.__transceiverPreviewLabels.clear());
