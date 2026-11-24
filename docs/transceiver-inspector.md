@@ -86,8 +86,10 @@ Preset selector and the second Line rate field. It contains speed values only,
 with no None/Unspecified choice. Fibre category remains a separate optical
 property. Host/port restrictions and named-module-only hosts still apply.
 Without declared host rates, the UI starts at 1G for SFP-family cages, 40G for
-QSFP+ and unspecified legacy QSFP cages, and 100G for QSFP28. An explicit
-host declaration can provide lower rates, for example for a dual-rate port.
+QSFP+ and unspecified legacy QSFP cages, and 100G for QSFP28. Generic QSFP
+does not offer new 100G choices without a saved capability declaration;
+existing installations remain editable. An explicit host declaration can
+provide lower rates, for example for a dual-rate port.
 These UI choices do not certify host support.
 
 Opening a cage does not install a module or change the project. An edited optical

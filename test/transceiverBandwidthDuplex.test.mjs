@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
-import { transceiverBandwidthChoices, transceiverConfigurationPatch } from "../src/engine/transceiverConfiguration.js";
+import { transceiverBandwidthChoices, transceiverConfigurationChoices, transceiverConfigurationPatch } from "../src/engine/transceiverConfiguration.js";
 import { transceiverDraft, transceiverDraftPatch } from "../src/engine/transceiverDraft.js";
 import { nodeDefinitionConnectorPatch } from "../src/engine/transceiverModules.js";
 import { isDuplexFiberWire, duplexFiberPaths } from "../src/engine/duplexFiberGeometry.js";
@@ -26,6 +26,28 @@ test("bandwidth choices have a nonempty cage default, no optical presets and res
   assert.deepEqual(transceiverBandwidthChoices({ type:"sfp-plus-cage", cageCapabilities:{ supportedRates:["1G","10G"] }, supportedRates:["10G"] }),["10G"]);
   assert.deepEqual(transceiverBandwidthChoices({ type:"sfp-cage", supportedRates:["100G"] }),[]);
   assert.deepEqual(transceiverBandwidthChoices({ type:"sfp-plus-cage",cageCapabilities:{supportedModuleTypes:["10gbase-sr"]} }),["10G"]);
+});
+
+test("generic QSFP does not offer new 100G choices, but saved and declared 100G is preserved", () => {
+  const generic = { type: "qsfp-cage" };
+  const options = port => {
+    const { standard, assemblies } = transceiverConfigurationChoices(port);
+    return [...standard, ...assemblies].map(p => p.value);
+  };
+  assert.deepEqual(transceiverBandwidthChoices(generic), ["40G", "50G"]);
+  assert.ok(options(generic).includes("40gbase-lr4"));
+  for (const profile of ["100gbase-lr4", "100gbase-sr4", "dac-qsfp28", "aoc-qsfp28"]) {
+    assert.ok(!options(generic).includes(profile), profile);
+  }
+  const declared = { ...generic, supportedRates: ["100 Gb/s"] };
+  assert.deepEqual(transceiverBandwidthChoices(declared), ["100G"]);
+  assert.ok(options(declared).includes("100gbase-lr4"));
+  const declaredModule = { ...generic, cageCapabilities: { supportedModuleTypes: ["100gbase-lr4", "lc-singlemode"] } };
+  assert.ok(transceiverBandwidthChoices(declaredModule).includes("100G"));
+  assert.ok(options(declaredModule).includes("100gbase-lr4"));
+  const saved = { ...generic, ...transceiverConfigurationPatch(generic, { method: "standard", profile: "100gbase-lr4" }) };
+  assert.ok(options(saved).includes("100gbase-lr4"));
+  assert.deepEqual(transceiverDraft(saved).supportedRates, ["100G"]);
 });
 
 test("RJ45 transceiver bandwidth is persisted without changing its physical cage or generic identity", () => {

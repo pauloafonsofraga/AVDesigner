@@ -336,9 +336,24 @@ export function transceiverModuleValidation(connector, capabilities = installedM
   return { valid: true, reason: "", warnings };
 }
 
-export function transceiverModuleOptionsForConnector(connector) {
-  return TRANSCEIVER_MODULE_OPTIONS.map(item => transceiverModuleOption(item.value, connector))
+export function hasUndeclaredQsfpRate(connector) {
+  const host = connector?.cageCapabilities;
+  return cageType(connector) === "qsfp-cage"
+    && !list(host?.supportedFormFactors).some(form => form === "qsfp-plus" || form === "qsfp28")
+    && ![connector.supportedRates, host?.supportedRates].some(rates => list(rates).length);
+}
+
+export function transceiverModuleOptionsForConnector(connector, { authoring = false } = {}) {
+  const options = TRANSCEIVER_MODULE_OPTIONS.map(item => transceiverModuleOption(item.value, connector))
     .filter(item => !item.value || transceiverModuleValidation(connector, item.capabilities, item).valid);
+  if (!authoring || !hasUndeclaredQsfpRate(connector)) return options;
+  const installed = resolveInstalledModule(connector).profile?.value;
+  const declared = list(connector.cageCapabilities?.supportedModuleTypes);
+  return options.filter(item => {
+    const rates = list(item.capabilities.supportedRates);
+    return item.value === installed || intersection(declared, [item.value])
+      || !rates.length || !rates.every(rate => hasRate(["100G"], rate));
+  });
 }
 
 export function transceiverModulePatch(connector, value) {

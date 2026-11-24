@@ -170,6 +170,16 @@ test("actual shared dropdown preserves all rate, direction and cage restrictions
   }
 });
 
+test("Node Builder hides 100G modules on generic QSFP and retains existing installations", () => {
+  const { context } = picker();
+  context.connector = { type: "qsfp-cage" };
+  const render = () => vm.runInContext('transceiverModuleSelectHtml("nodeBuilderModule", connector)', context);
+  assert.match(render(), /value="40gbase-lr4"/);
+  assert.doesNotMatch(render(), /value="(?:100gbase-lr4|dac-qsfp28|aoc-qsfp28)"/);
+  context.connector.installedModuleType = "100gbase-lr4";
+  assert.match(render(), /value="100gbase-lr4" selected/);
+});
+
 test("VX 2+ factory Ethernet-style nodes are empty QSFP cages, not SFP SDI hosts", () => {
   const device = catalogue.devices.find(d => d.name === "VX 2+");
   const nodes = device.connectors.filter(c => transceivers.isTransceiverCage(c));

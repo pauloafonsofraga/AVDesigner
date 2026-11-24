@@ -1,6 +1,6 @@
 import { CAGE_FORM_FACTORS, isIntegratedCableType, resolveInstalledModule, transceiverConnectorRole,
   transceiverModuleOption, transceiverModuleOptionsForConnector, transceiverModulePatch, transceiverModuleValidation,
-  connectorPhysicalTypePatch, isTransceiverCage, transceiverCageType, transceiverRateKey } from "./transceiverModules.js";
+  connectorPhysicalTypePatch, hasUndeclaredQsfpRate, isTransceiverCage, transceiverCageType, transceiverRateKey } from "./transceiverModules.js";
 import { CUSTOM_OPTICS, customOpticalIssue, opticalWavelengthMode } from "./customTransceiverOptics.js";
 import { validateMpoPhysical } from "./mpoPhysical.js";
 
@@ -51,14 +51,17 @@ export function transceiverLineRateChoices(connector, { signalFamily = "ethernet
 // An undeclared host remains unverified; a UI default does not install a module.
 export function transceiverBandwidthChoices(connector, signalFamily = "ethernet") {
   let rates = transceiverLineRateChoices(connector, { signalFamily, profile: "", moduleRates: [] });
+  let declared100G = false;
   if (connector.cageCapabilities?.supportedModuleTypes?.length) {
     const profiles = transceiverModuleOptionsForConnector(connector).filter(p => p.value && p.capabilities.signalFamily === signalFamily);
+    declared100G = profiles.some(p => p.capabilities.supportedRates?.some(rate => transceiverRateKey(rate) === transceiverRateKey("100G")));
     if (profiles.length && profiles.every(p => p.capabilities.supportedRates?.length)) {
       rates = rates.filter(rate => profiles.some(p => p.capabilities.supportedRates.some(value => transceiverRateKey(value) === transceiverRateKey(rate))));
     }
   }
   if (signalFamily === "sdi" || [connector.supportedRates, connector.cageCapabilities?.supportedRates]
     .some(values => Array.isArray(values) && values.length)) return rates;
+  if (!declared100G && hasUndeclaredQsfpRate(connector)) rates = rates.filter(rate => rate !== "100G");
   const form = CAGE_FORM_FACTORS[cageDefinitionValue(connector)] || cageDefinitionValue(connector);
   const minimum = form === "qsfp28" ? 100e9 : form.startsWith("qsfp") ? 40e9 : 1e9;
   return rates.filter(rate => Number(transceiverRateKey(rate).split(":")[1]) >= minimum);
@@ -83,7 +86,7 @@ function lineRate(value, signalFamily, connector) {
 
 export function transceiverConfigurationChoices(connector) {
   const role = transceiverConnectorRole(connector);
-  const choices = transceiverModuleOptionsForConnector(connector);
+  const choices = transceiverModuleOptionsForConnector(connector, { authoring: true });
   const directionalAllowed = profile => profile.capabilities.signalFamily !== "sdi" || profile.capabilities.direction === role;
   const probe = (iface, fiberFamily, signalFamily = "ethernet") => {
     try { transceiverConfigurationPatch(connector, { method: "custom", interface: iface, fiberFamily, signalFamily }); return true; }

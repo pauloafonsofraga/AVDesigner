@@ -30,7 +30,8 @@ try {
   for (const device of project.devices) {
     const [standard, custom, occupied, sdi] = device.templateOverride.connectors;
     Object.assign(standard, { type: "sfp-plus-cage", cageCapabilities: { supportedModuleTypes: ["10gbase-sr"] } });
-    Object.assign(custom, { type: "qsfp-cage", cageCapabilities: { supportedFormFactors: ["qsfp28"] } });
+    custom.type = "qsfp-cage";
+    if (device.instanceId === "source") custom.cageCapabilities = { supportedFormFactors: ["qsfp28"] };
     Object.assign(sdi, { type: "sfp-plus-cage" });
     Object.assign(occupied, { type: "sfp-plus-cage" });
     Object.assign(occupied, transceiverModulePatch(occupied, "aoc-sfp-plus"));
@@ -72,6 +73,16 @@ try {
   await page.locator("#redoAction").click();
   assert.equal((await status("port-0")).module, "10gbase-sr");
 
+  await select("port-1", "sink");
+  const optionValues = name => field(name).locator("option").evaluateAll(options => options.map(o => o.value));
+  assert.deepEqual(await optionValues("Bandwidth"), ["40G", "50G"]);
+  await field("Installed interface").selectOption("lc");
+  assert(!(await optionValues("Optical profile")).includes("100gbase-lr4"));
+  for (const kind of ["dac", "aoc"]) {
+    await field("Installed interface").selectOption(kind);
+    assert(!(await optionValues("Cable assembly")).includes(kind + "-qsfp28"));
+  }
+  await field("Installed interface").selectOption("empty");
   await select("port-1");
   assert.deepEqual(await field("Bandwidth").locator("option").evaluateAll(options => options.map(o => o.value)), ["100G"]);
   for (const iface of ["sc", "st"]) {

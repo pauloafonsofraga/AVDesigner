@@ -33552,7 +33552,8 @@
       const rawValue = details?.rawValue || connector?.installedModuleType || details?.effectiveType || "";
       const value = transceiverModuleSelectionValue(connector);
       const presentation = api ? api.transceiverModulePresentation(connector) : "";
-      const options = transceiverModuleOptionsForConnector(connector).slice();
+      const options = (api?.transceiverModuleOptionsForConnector(connector, { authoring: true })
+        || transceiverModuleOptionsForConnector(connector)).slice();
       if (api && !options.some(option => option.value === value)) {
         options.unshift({ value, label: details?.name || rawValue, disabled: true });
       }
