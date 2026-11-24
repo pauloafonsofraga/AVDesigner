@@ -49,7 +49,7 @@ test("converted cage checks SDI direction, warns on rate mismatch and rejects HD
   assert.equal(mixedRate.compatibilityStatus, "unverified");
   assert.match(mixedRate.warnings.join(" "), /no declared line rate in common/);
   assert.equal(compare({ ...original(), direction: "output", signalDirection: "output" }, rx).valid, false);
-  assert.deepEqual(compatibility.engineConnectorCanvasLabelLines(rx), ["Installed Module", "SFP SDI 12G RX"]);
+  assert.deepEqual(compatibility.engineConnectorCanvasLabelLines(rx), ["SFP+ Cage"]);
 });
 test("converted LC and DAC cages keep existing media and assembly constraints", () => {
   const cage = convert(original(), "sfp28-cage");

@@ -163,6 +163,7 @@ function cageType(connector) {
   return storedCage ? type : "";
 }
 export const isTransceiverCage = connector => Boolean(cageType(connector));
+export { cageType as transceiverCageType };
 export const installedModuleValue = connector => resolveInstalledModule(connector).rawValue;
 
 export function transceiverModuleOption(value, connector) {

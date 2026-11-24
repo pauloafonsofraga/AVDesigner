@@ -70,6 +70,14 @@ test("QSFP forms retain the cage ID and distinguish standard, custom MPO, and in
   const legacy = cage("qsfp-cage");
   const q28 = { ...legacy, ...cageDefinitionPatch(legacy, "qsfp28") };
   assert.equal(cageDefinitionValue(q28), "qsfp28");
+  for (const iface of ["sc", "st"]) {
+    const config = { method: "custom", interface: iface, lineRate: "100G" };
+    assert.deepEqual(transceiverConfigurationChoices(q28).fiberFamilies[iface], []);
+    assert.throws(() => configured(q28, config), /declare support/);
+    const declared = { ...q28, cageCapabilities: { ...q28.cageCapabilities, supportedModuleInterfaces: [iface] } };
+    assert.ok(transceiverConfigurationChoices(declared).fiberFamilies[iface].length);
+    assert.equal(effectiveConnectorTypeForEngine(configured(declared, config)), "fiber-" + iface);
+  }
   assert.equal(q28.type, "qsfp-cage");
   assert.equal(q28.id, legacy.id);
   assert.deepEqual(q28.anchors, legacy.anchors);

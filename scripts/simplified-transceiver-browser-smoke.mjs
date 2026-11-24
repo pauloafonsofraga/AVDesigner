@@ -13,6 +13,14 @@ try {
   page.setDefaultTimeout(10000);
   const failures = [];
   page.on("pageerror", error => failures.push(error.message));
+  await page.addInitScript(() => {
+    const fill = CanvasRenderingContext2D.prototype.fillText;
+    window.__transceiverPreviewLabels = new Set();
+    CanvasRenderingContext2D.prototype.fillText = function(text, ...args) {
+      if (this.canvas.classList.contains("engine-preview-labels")) window.__transceiverPreviewLabels.add(text);
+      return fill.call(this, text, ...args);
+    };
+  });
   await page.route("**/*", route => new URL(route.request().url()).origin === base ? route.continue() : route.abort());
   await page.route("**/account-config.json", route => route.fulfill({ json: { configured: false } }));
   await page.goto(base);
@@ -142,12 +150,19 @@ try {
   assert.equal(authored.type, "qsfp-cage");
   assert.deepEqual(authored.cageCapabilities, { supportedFormFactors: ["qsfp28"], supportedRates: ["100G", "40G"] });
   const interfaces = sfpControls.locator('[data-sfp-restriction="supportedModuleInterfaces"]');
+  const installedInterfaceOptions = () => draftField("Installed interface").locator("option").evaluateAll(options => options.map(option => option.value));
+  assert(!(await installedInterfaceOptions()).some(option => ["sc", "st"].includes(option)));
   await interfaces.fill("lc; sc; st"); await interfaces.press("Tab");
+  const declaredInterfaces = await installedInterfaceOptions();
+  assert(["sc", "st"].every(option => declaredInterfaces.includes(option)));
   assert.deepEqual(await page.evaluate(() => currentEditorTemplate().connectors.at(-1).cageCapabilities.supportedModuleInterfaces), ["lc", "sc", "st"]);
   assert.equal(await page.locator("#selectedConnectorModule").count(), 0);
   await draftField("Bandwidth").selectOption("100G");
+  await page.evaluate(() => window.__transceiverPreviewLabels.clear());
   await draftField("Installed interface").selectOption("lc");
   await draftField("Optical profile").selectOption("100gbase-lr4");
+  await page.waitForFunction(() => window.__transceiverPreviewLabels.has("QSFP28 Cage"));
+  assert.equal(await page.evaluate(() => window.__transceiverPreviewLabels.has("Installed Module")), false);
   assert.equal(await page.evaluate(() => currentEditorTemplate().connectors.at(-1).installedModuleType), "100gbase-lr4");
   await draftField("Fibre grade").selectOption("os2");
   const draftPort = await page.evaluate(() => currentEditorTemplate().connectors.at(-1));

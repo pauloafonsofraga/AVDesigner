@@ -1,6 +1,6 @@
 import { CAGE_FORM_FACTORS, isIntegratedCableType, resolveInstalledModule, transceiverConnectorRole,
   transceiverModuleOption, transceiverModuleOptionsForConnector, transceiverModulePatch, transceiverModuleValidation,
-  connectorPhysicalTypePatch, isTransceiverCage, transceiverRateKey } from "./transceiverModules.js";
+  connectorPhysicalTypePatch, isTransceiverCage, transceiverCageType, transceiverRateKey } from "./transceiverModules.js";
 import { CUSTOM_OPTICS, customOpticalIssue, opticalWavelengthMode } from "./customTransceiverOptics.js";
 import { validateMpoPhysical } from "./mpoPhysical.js";
 
@@ -11,7 +11,7 @@ export const CAGE_DEFINITION_CHOICES = Object.freeze([
   ["qsfp-plus", "QSFP+"], ["qsfp28", "QSFP28"]
 ]);
 export const cageDefinitionValue = connector => {
-  const type = connector.physicalType || connector.type;
+  const type = transceiverCageType(connector) || connector.physicalType || connector.type;
   const forms = connector.cageCapabilities?.supportedFormFactors;
   return type === "qsfp-cage" && forms?.length === 1 && ["qsfp-plus", "qsfp28"].includes(forms[0]) ? forms[0] : type;
 };

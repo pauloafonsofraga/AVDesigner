@@ -24295,20 +24295,8 @@
               ? [...new Set(sharedBus.members.map(member => connectorTypeLabel(member, editorNodeType(member.type))))].join(" / ")
               : connector.empty ? "Drop node" : connectorTypeLabel(connector, editorNodeType(connector.type));
             const labelResolver = engineTransceiverApi()?.engineConnectorCanvasLabelLines;
-            const members = sharedBus?.members || [connector];
-            if (labelResolver && !connector.empty && members.some(isCageConnector)) {
-              const details = members.map(labelResolver);
-              const installed = details.some(lines => lines.length > 1);
-              const lines = [
-                ...(installed && editorPreviewZoom >= 0.5 ? details.find(lines => lines.length > 1).slice(0, 1) : []),
-                [...new Set(details.map(lines => lines.at(-1)))].join(" / ")
-              ];
-              label.textContent = "";
-              lines.forEach((text, line) => {
-                const span = createSvg("tspan", { x: label.getAttribute("x"), dy: line ? 10.6 : 0 });
-                span.textContent = text;
-                label.appendChild(span);
-              });
+            if (labelResolver && !sharedBus && !connector.empty && isCageConnector(connector)) {
+              label.textContent = labelResolver(connector)[0];
             }
             if (engineRendererRequested() && sharedBus) {
               const labels=requireDeviceEditorPlacementModule().sharedBusTypeLabels(sharedBus.members);

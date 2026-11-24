@@ -7,13 +7,14 @@ import {
 import { isGeneratedScopedNodeId } from "./nodeCompatibilityIdentity.js";
 import {multibandSignal, multibandColors} from "./multibandSignals.js";
 import { mpoLinkValidation, mpoPhysicalForConnector, mpoFiberFamily } from "./mpoPhysical.js";
+import { cageDefinitionValue, CAGE_DEFINITION_CHOICES } from "./transceiverConfiguration.js";
 
 function mpoCheck(a, b) {
   return mpoLinkValidation(a, b, resolveInstalledModule(a).capabilities, resolveInstalledModule(b).capabilities,
     isTransceiverCage(a), isTransceiverCage(b));
 }
 import {
-  transceiverModuleOption, resolveInstalledModule, transceiverConnectionValidation, isIntegratedCableType, integratedCableProfile,
+  resolveInstalledModule, transceiverConnectionValidation, isIntegratedCableType, integratedCableProfile,
   effectiveTransceiverDirection, isTransceiverCage, opticalEthernetDirection
 } from "./transceiverModules.js";
 const ENGINE_CONNECTOR_COMPATIBILITY_ALIASES = new Map([
@@ -625,9 +626,13 @@ export function engineConnectorTypeDisplayName(connectorOrType, fallback = "") {
 // Built-in plug captions use catalog identities; custom node types use their
 // saved node-library labels so they remain recognizable in every Engine view.
 export function engineConnectorPlugTypeLabel(connector) {
+  if (isEngineCageConnector(connector)) {
+    const family = cageDefinitionValue(connector);
+    const name = CAGE_DEFINITION_CHOICES.find(([key]) => key === family)?.[1];
+    return name ? name + " Cage" : typeDisplayName(family);
+  }
   const type = effectiveConnectorTypeForEngine(connector) || connectorType(connector);
-  if (!isEngineCageConnector(connector)
-    && (connector?.typeLabel || connector?.compatibilityType || isGeneratedScopedNodeId(type))) {
+  if (connector?.typeLabel || connector?.compatibilityType || isGeneratedScopedNodeId(type)) {
     return engineConnectorUserFacingTypeLabel(connector);
   }
   if (CONNECTOR_LABELS.has(type)) return engineConnectorTypeDisplayName(type);
@@ -643,22 +648,8 @@ export function engineConnectorPlugTypeLabel(connector) {
   return engineConnectorTypeDisplayName("misc");
 }
 
-// Display-only detail: never write module captions into authored connector fields.
 export function engineConnectorCanvasLabelLines(connector) {
-  if (!isEngineCageConnector(connector)) return [engineConnectorPlugTypeLabel(connector)];
-  const module = installedModuleDetailsForEngine(connector);
-  if (!module.rawValue && !module.activeType) return [typeDisplayName(connectorType(connector))];
-  const profile = transceiverModuleOption(module.rawValue, connector);
-  let label;
-  if (profile?.capabilities.signalFamily === "sdi" && !profile.capabilities.optical) {
-    const rate = (profile.capabilities.supportedRates || []).map(value => value.replace(/-SDI$/i, "")).join("/");
-    label = ["SFP SDI", rate, profile.capabilities.direction === "input" ? "RX" : "TX"].filter(Boolean).join(" ");
-  } else if (profile?.value) {
-    label = profile.label.replace(/ \(integrated cable end\)$/, "");
-  } else {
-    label = module.name || (module.effectiveType ? moduleLabel(module) : "Unknown module");
-  }
-  return ["Installed Module", label];
+  return [engineConnectorPlugTypeLabel(connector)];
 }
 
 export function engineConnectorLabelSource(connector) {

@@ -1,10 +1,7 @@
-import {engineConnectorCanvasLabelLines,engineConnectorPlugTypeLabel} from './connectorCompatibility.js';
+import {engineConnectorPlugTypeLabel} from './connectorCompatibility.js';
 
 export function sharedBusTypeLabels(members=[]) {
-  const labels=members.map(c=>{
-    const lines=engineConnectorCanvasLabelLines(c);
-    return String(lines.length>1?lines.at(-1):engineConnectorPlugTypeLabel(c)).trim();
-  }).filter(Boolean);
+  const labels=members.map(c=>String(engineConnectorPlugTypeLabel(c)).trim()).filter(Boolean);
   return [...new Map(labels.map(label=>[label.toLowerCase(),label])).values()];
 }
 

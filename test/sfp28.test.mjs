@@ -46,7 +46,8 @@ test("SFP28 modules retain SFP+ effective types, colours, fibre rules and remova
     assert.equal(effectiveConnectorTypeForEngine(connector), expected);
     assert.equal(engineConnectorColor(connector), engineConnectorColor(existing));
     assert.equal(engineConnectorFiberMode(connector), engineConnectorFiberMode(existing));
-    assert.equal(engineConnectorPlugTypeLabel(connector), engineConnectorPlugTypeLabel(existing));
+    assert.equal(engineConnectorPlugTypeLabel(connector), "SFP28 Cage");
+    assert.equal(engineConnectorPlugTypeLabel(existing), "SFP+ Cage");
     assert.equal(connectorIncludedInMatrixForEngine(connector), connectorIncludedInMatrixForEngine(existing));
     const compatible = compare(connector, existing);
     assert.equal(compatible.valid, true);

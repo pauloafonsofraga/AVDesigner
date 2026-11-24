@@ -117,7 +117,7 @@ test("optical SDI directions and nominal rates are independent of endpoint order
   for (const [rate, type] of [["3g", "sfp-cage"], ["12g", "sfp-plus-cage"]]) {
     const tx = install(`optical-${rate}-sdi-tx`, type), rx = install(`optical-${rate}-sdi-rx`, type);
     assert.equal(tx.moduleCapabilities.optical.interface, "simplex-lc");
-    assert.deepEqual(engineConnectorCanvasLabelLines(tx), ["Installed Module", `${rate.toUpperCase()}-SDI Optical LC TX`]);
+    assert.deepEqual(engineConnectorCanvasLabelLines(tx), [type === "sfp-cage" ? "SFP Cage" : "SFP+ Cage"]);
     for (const [from, to] of [[tx, rx], [rx, tx]]) {
       const result = compare(from, to);
       assert.equal(result.compatibilityStatus, "compatible");
