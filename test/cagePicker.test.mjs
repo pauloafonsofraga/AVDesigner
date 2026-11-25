@@ -10,6 +10,7 @@ import { standaloneConnectorDefinitions } from "../src/engine/standaloneConnecto
 const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const catalogue = JSON.parse(readFileSync(new URL("../data/factory-catalogue.json", import.meta.url)));
 const cages = Object.keys(transceivers.CAGE_FORM_FACTORS);
+const placementCages = cages.map(id => id === "qsfp-cage" ? "qsfp-plus" : id);
 const plain = value => JSON.parse(JSON.stringify(value));
 const functionSource = name => {
   const start = html.indexOf(`    function ${name}(`);
@@ -63,7 +64,13 @@ for (const settings of [{}, { stale: true }, { missing: true }, { hidden: true }
   test(`actual Engine picker exposes each canonical cage once: ${JSON.stringify(settings)}`, () => {
     const { context, nodes, before } = picker(settings);
     const entries = plain(vm.runInContext("orderedDeviceEditorNodeEntries()", context));
-    assert.deepEqual(entries.slice(0, 4).map(([id]) => id), cages);
+    assert.deepEqual(entries.slice(0, 4).map(([id]) => id), placementCages);
+    const qsfp = entries.find(([id]) => id === "qsfp-plus")[1];
+    assert.equal(qsfp.label, "QSFP+ Cage");
+    assert.equal(qsfp.physicalType, "qsfp-cage", "the palette alias is not a new physical key");
+    const authored = transceivers.nodeDefinitionConnectorPatch(qsfp);
+    assert.equal(configuration.cageDefinitionValue(authored), "qsfp-plus");
+    assert.deepEqual(configuration.transceiverBandwidthChoices(authored), ["40G"]);
     const options = vm.runInContext('connectorTypeSelectOptions("sfp-plus-cage")', context);
     assert.match(options, /<optgroup label="SFP \/ QSFP Cages">/);
     for (const id of ["sfp-cage", "sfp-plus-cage", "sfp28-cage", "qsfp-plus", "qsfp28-cage"]) {
@@ -105,7 +112,7 @@ test("Engine placement offers cages rather than integrated cable-end shortcuts, 
     assert.equal(vm.runInContext("editorNodeType(selected).id", context), id, "historical definitions remain resolvable");
     assert.ok(vm.runInContext("connectorTypeSelectOptions(selected)", context).includes(`value="${id}" selected`), "existing selections stay editable");
   }
-  for (const id of [...cages, "fiber-lc", "fiber-sc", "fiber-st", "fiber-mpo"]) {
+  for (const id of [...placementCages, "fiber-lc", "fiber-sc", "fiber-st", "fiber-mpo"]) {
     assert.equal(entries.filter(([key]) => key === id).length, 1, `${id} remains available`);
   }
   assert.deepEqual(nodes, before, "visibility must not rewrite saved palette flags, capabilities or module identities");

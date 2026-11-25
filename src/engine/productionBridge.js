@@ -7466,6 +7466,15 @@ class ProductionEngineBridge {
     const harness = section.querySelector('[aria-label="Harness"]');
     const button = section.querySelector("button");
     button.disabled = !available();
+    if (button.disabled) {
+      grade.disabled = harness.disabled = true;
+      const hint = document.createElement("p");
+      hint.className = "field-hint";
+      hint.textContent = !layerEditable(device) ? "Unlock the device layer to attach a harness."
+        : this.ready ? "Disconnect the existing cable or breakout before attaching a harness."
+          : "The project must finish loading before a harness can be attached.";
+      section.append(hint);
+    }
     button.onclick = () => {
       if (available()) this.attachMpoHarness(deviceId, connectorId, grade.value, harness.value);
     };

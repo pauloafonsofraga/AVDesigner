@@ -39,7 +39,7 @@ try {
   }, [id, cid]);
   const inspect = async (id, cid = "port") => {
     const p = await point(id, cid);
-    await page.mouse.click(p.x, p.y, { button: "right" });
+    await page.mouse.click(p.x, p.y);
     await page.waitForFunction(key => activeEngineBridge().scene.selectedConnectorKeys.has(key), id + ":" + cid);
   };
   const module = id => page.evaluate(id => activeEngineBridge().scene.getConnector(id, "port").installedModuleType, id);
@@ -54,6 +54,15 @@ try {
   await page.locator("#redoAction").click(); assert.equal(await module("generic-sfp"), "st-singlemode");
   await inspect("source");
   const fixed = page.locator("[data-fixed-mpo]");
+  const attach = page.getByRole("button", { name: "Attach MPO Breakout" });
+  await page.locator("#inspectorBody").evaluate(element => { element.scrollTop = 0; });
+  await attach.waitFor({state: "visible"});
+  const top = await attach.boundingBox(), area = await page.locator("#inspectorBody").boundingBox();
+  assert(top.y + top.height <= area.y + area.height, "Attach is visible without scrolling");
+  const fixedMpoFormat = fixed.getByLabel("MPO Format");
+  assert(await fixedMpoFormat.isVisible(), "Format is shown while advanced properties are collapsed");
+  await fixedMpoFormat.selectOption("mpo-12");
+  await fixed.getByRole("button", { name: "Apply MPO Properties" }).click();
   await fixed.getByText("MPO physical properties", { exact: true }).click();
   assert.equal(await fixed.getByLabel("MPO termination").count(), 0);
   assert.equal(await fixed.getByLabel(/numbering reference/i).count(), 0);
@@ -68,6 +77,9 @@ try {
   const created = await saved(), id = created.harness.instanceId;
   assert.equal(created.wires.length, 1);
   assert.equal(created.wires[0].to.connectorId, "mpo-trunk");
+  await inspect("source");
+  assert(await attach.isDisabled());
+  assert(await page.getByText("Disconnect the existing cable or breakout before attaching a harness.").isVisible());
   await page.locator("#undoAction").click(); assert.equal((await saved()).harness, undefined);
   await page.locator("#redoAction").click(); assert.equal((await saved()).harness.instanceId, id);
   await lengths.fill("5 m"); await lengths.blur();
@@ -102,7 +114,8 @@ try {
   await inspect("qsfp-host");
   await panel.getByLabel("Installed interface").selectOption("mpo");
   await panel.getByLabel("Fibre category", { exact: true }).selectOption("multimode");
-  await page.getByRole("button", { name: "Attach MPO Breakout" }).click();
+  assert(await panel.getByLabel("MPO Format").isVisible());
+  await attach.click();
   const qsfpAttach = await page.evaluate(() => {
     const bridge = activeEngineBridge();
     const harnesses = bridge.mutations.root.devices.filter(d => d.templateOverride?.mpoHarness);

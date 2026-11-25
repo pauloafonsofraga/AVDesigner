@@ -6,9 +6,8 @@ export function mountMpoPhysicalFields(root, initial, { onChange = () => {}, pre
   const current = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const el = (tag, text) => { const n = document.createElement(tag); if (text) n.textContent = text; return n; };
   const details = el(expanded ? "div" : "details"), summary = el(expanded ? "h5" : "summary", "MPO physical properties");
-  details.append(summary); root.append(details);
-  const controls = {};
-  function field(key, label, options) {
+  details.append(summary);
+  function field(key, label, options, container = details) {
     const wrap = el("div"), title = el("label", label), control = el(options ? "select" : "input");
     wrap.className = "field"; title.htmlFor = control.id = prefix + "-" + key;
     if (options) for (const [id, text] of [["", "Unspecified"], ...options]) {
@@ -16,7 +15,7 @@ export function mountMpoPhysicalFields(root, initial, { onChange = () => {}, pre
     }
     control.value = Array.isArray(current[key]) ? current[key].join(", ") : current[key] ?? "";
     if (!options) control.maxLength = 240;
-    wrap.append(title, control); details.append(wrap); controls[key] = control;
+    wrap.append(title, control); container.append(wrap);
     control.addEventListener("change", () => {
       if (key.startsWith("_")) return;
       value = { ...(value && typeof value === "object" && !Array.isArray(value) ? value : {}), schemaVersion: 1 };
@@ -29,7 +28,8 @@ export function mountMpoPhysicalFields(root, initial, { onChange = () => {}, pre
     });
     return control;
   }
-  field("format", "MPO format", [["mpo-12", "MPO-12 (1 x 12)"]]);
+  field("format", "MPO Format", [["mpo-12", "MPO-12 (1 x 12)"]], root);
+  root.append(details);
   field("fiberCategory", "MPO fibre category", [["os2", "OS2"], ["om3", "OM3"], ["om4", "OM4"]]);
   field("pinConfiguration", "Guide pins", [["pinned", "Pinned (male)"], ["unpinned", "Unpinned (female)"]]);
   field("polish", "Ferrule polish", [["upc", "UPC"], ["apc", "APC"]]);

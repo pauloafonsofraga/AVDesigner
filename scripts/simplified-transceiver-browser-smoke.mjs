@@ -99,8 +99,8 @@ try {
     const details = panel.locator("details");
     if (!(await details.getAttribute("open") !== null)) await details.locator("summary").click();
   };
-  await openMpo();
-  await field("MPO format").selectOption("mpo-12");
+  assert(await field("MPO Format").isVisible());
+  await field("MPO Format").selectOption("mpo-12");
   await openMpo();
   await field("Populated fibre positions").fill("1, 2, 13");
   await field("Populated fibre positions").press("Tab");
@@ -159,6 +159,14 @@ try {
   const physicalConnector = page.locator("#selectedConnectorPhysicalType");
   const draftPanel = page.locator('[data-transceiver-editor="device"]');
   const draftField = name => draftPanel.getByLabel(name, { exact: true });
+  const originalSlot = await page.evaluate(() => currentEditorTemplate().connectors.at(-1).id);
+  await page.locator("#nodePaletteSearch").fill("qsfp");
+  const paletteQsfp = page.locator('#nodePalette [data-node-type="qsfp-plus"]');
+  assert.equal((await paletteQsfp.innerText()).trim(), "QSFP+ Cage");
+  await paletteQsfp.dragTo(page.locator(`#deviceEditorPreviewHost [data-editor-node-id="${originalSlot}"] .editor-slot-shape`).first());
+  await page.waitForFunction(() => document.getElementById("selectedConnectorPhysicalType")?.value === "qsfp-plus");
+  assert.equal(await physicalConnector.locator("option:checked").textContent(), "QSFP+ Cage");
+  assert.equal(await draftField("Bandwidth").inputValue(), "40G");
   await physicalConnector.selectOption("hdmi");
   assert.equal(await draftPanel.count(), 0);
   const originalPort = await page.evaluate(() => currentEditorTemplate().connectors.at(-1));

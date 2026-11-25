@@ -6700,6 +6700,10 @@
     function editorNodeType(id) {
       const scoped = editorDependencyContext().nodes.find(node => node.id === id);
       if (scoped) return scoped;
+      if (id === "qsfp-plus" && engineRendererRequested()) {
+        return { ...DEFAULT_CABLE_TYPES["qsfp-cage"], id, label: "QSFP+ Cage", physicalType: "qsfp-cage",
+          cageCapabilities: { supportedFormFactors: ["qsfp-plus"] } };
+      }
       const builtIn = DEFAULT_CABLE_TYPES[id];
       return builtIn?.palette === false ? { ...builtIn, id } : undefined;
     }
@@ -12478,7 +12482,9 @@
       const assemblyShortcut = ([id, node]) => engineTransceiverApi()?.isIntegratedCableType?.(id)
         || (id === "new-node-2" && node.label === "DAC");
       return engine
-        ? [...entries.filter(([key]) => cageConnectorTypes.has(key)), ...entries.filter(([key]) => !cageConnectorTypes.has(key)).filter(entry => !assemblyShortcut(entry))]
+        ? [...entries.filter(([key]) => cageConnectorTypes.has(key)).map(entry =>
+            entry[0] === "qsfp-cage" ? ["qsfp-plus", editorNodeType("qsfp-plus")] : entry),
+          ...entries.filter(entry => entry[0] !== "qsfp-plus" && !cageConnectorTypes.has(entry[0]) && !assemblyShortcut(entry))]
         : entries;
     }
 
@@ -17776,7 +17782,7 @@
         const selected = family === "qsfp28" ? "qsfp28-cage" : family || selectedType;
         const cages = api.CAGE_DEFINITION_CHOICES.map(([id, label]) => [id === "qsfp28" ? "qsfp28-cage" : id, label + " Cage"]);
         if (selected === "qsfp-cage") cages.push(["qsfp-cage", "QSFP Cage (form unspecified)"]);
-        const ordinary = entries.filter(([key]) => !cageConnectorTypes.has(key));
+        const ordinary = entries.filter(([key]) => !cageConnectorTypes.has(key) && !cages.some(([id]) => id === key));
         const option = (key, label) => `<option value="${escapeAttr(key)}" ${key === selected ? "selected" : ""}>${escapeHtml(label)}</option>`;
         return [
           '<option value="">Empty</option>',
@@ -26715,8 +26721,9 @@
 
     function connectorTypeLabel(connector, node = cableTypes[connector.type]) {
       if (isCageConnector(connector)) {
-        const cageLabel = nodeLibraryDisplayLabel(connector.type, node);
         const api = engineTransceiverApi();
+        const configuredFamily = api?.CAGE_DEFINITION_CHOICES.find(([key]) => key === api.cageDefinitionValue(connector))?.[1];
+        const cageLabel = configuredFamily ? configuredFamily + " Cage" : nodeLibraryDisplayLabel(connector.type, node);
         if (api) {
           if (api.isEngineDeadCageConnector(connector)) return `${cageLabel} Empty`;
           const details = api.installedModuleDetailsForEngine(connector);
@@ -33739,6 +33746,7 @@
           <dt>Signal</dt><dd>${escapeHtml(activeType ? connectorTypeLabel(connector) : "No transceiver installed")}</dd>
           <dt>Direction</dt><dd>${escapeHtml(connector.direction)}</dd>
         </dl>
+        <div data-mpo-breakout-port hidden></div>
         ${busDetails}
         ${canvasConnectorFieldSectionMarkup(connector)}
         ${api && device && activeType === "fiber-mpo" && !isCageConnector(connector) ? '<div data-fixed-mpo></div>' : ""}
@@ -33749,6 +33757,9 @@
         ${activeEngineBridge() && connectorHasCable(deviceId, connectorId) ? '<button class="tool-button" id="connectorSignalChain" type="button">Signal Chain</button>' : ""}
       `;
       document.getElementById("connectorSignalChain")?.addEventListener("click", () => openSignalChainForConnector(deviceId, connectorId));
+      const mpoBreakout = inspectorBody.querySelector("[data-mpo-breakout-port]");
+      bridge?.renderMpoHarnessPortInspector(mpoBreakout, deviceId, connectorId);
+      mpoBreakout.hidden = !mpoBreakout.hasChildNodes();
       if (inspectorBody.querySelector("[data-fixed-mpo]")) {
         api.mountFixedMpoInspector(inspectorBody.querySelector("[data-fixed-mpo]"), connector.mpoPhysical, {
           disabled: connectorHasCable(deviceId, connectorId) || device?.layerLocked || device?.layerHidden,
@@ -33774,7 +33785,6 @@
         });
       }
       activeEngineBridge()?.renderQsfpBreakoutPortInspector(inspectorBody, deviceId, connectorId);
-      bridge?.renderMpoHarnessPortInspector(inspectorBody, deviceId, connectorId);
       bindCanvasConnectorFieldInputs(deviceId, connectorId);
       const moduleControl = !configureModule && document.getElementById("connectorModule");
       if (moduleControl) {
@@ -37733,7 +37743,7 @@ document.addEventListener("click", function(event) {
         : !candidate.valid && !editorPaletteDragSession.candidate ? candidate.reason
         : !connector ? "missing-slot"
         : !connector.empty ? "filled-slot"
-        : !cableTypes[connectorType] ? "invalid-type"
+        : !editorNodeType(connectorType) ? "invalid-type"
         : connector.direction !== candidate.direction ? "changed-side"
         : currentEditorTemplate().isPowerDistro && !powerPlugCanExistOnSide(connectorType, connector.direction) ? "invalid-side" : "";
       if (reason) {

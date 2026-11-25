@@ -83,7 +83,7 @@ try {
   await panel.getByLabel("Installed interface", { exact: true }).selectOption("mpo");
   await panel.getByLabel("Fibre category", { exact: true }).selectOption("multimode");
   await panel.getByLabel("Fibre grade", { exact: true }).selectOption("om4");
-  await panel.getByLabel("MPO format", { exact: true }).selectOption("mpo-12");
+  await panel.getByLabel("MPO Format", { exact: true }).selectOption("mpo-12");
   await panel.getByLabel("MPO fibre category", { exact: true }).selectOption("os2");
   await panel.getByLabel("Guide pins", { exact: true }).selectOption("pinned");
   await panel.getByLabel("Cable mapping preset", { exact: true }).selectOption("B");
