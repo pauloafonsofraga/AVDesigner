@@ -32,7 +32,7 @@ try {
     Object.assign(standard, { type: "sfp-plus-cage", cageCapabilities: { supportedModuleTypes: ["10gbase-sr"] } });
     custom.type = "qsfp-cage";
     if (device.instanceId === "source") custom.cageCapabilities = { supportedFormFactors: ["qsfp28"] };
-    Object.assign(sdi, { type: "sfp-plus-cage" });
+    Object.assign(sdi, { type: device.instanceId === "sink" ? "sfp28-cage" : "sfp-plus-cage" });
     Object.assign(occupied, { type: "sfp-plus-cage" });
     Object.assign(occupied, transceiverModulePatch(occupied, "aoc-sfp-plus"));
   }
@@ -92,22 +92,24 @@ try {
   await field("Installed interface").selectOption("mpo");
   await field("Fibre category").selectOption("multimode");
   await field("Fibre grade").selectOption("om5");
-  await field("Wavelength configuration").selectOption("single-wavelength");
+  await field("Wavelength Mode").selectOption("single-wavelength");
+  assert.equal(await panel.getByLabel(/(TX|RX|Lane).*wavelength|MPO polarity|Cable mapping preset/).count(), 0);
   await field("Bandwidth").selectOption("100G");
-  await field("MPO fibre count").selectOption("12");
-  await field("MPO polarity").selectOption("B");
-  await field("Lane fibre positions (comma-separated)").fill("1, 2, 13");
-  await field("Lane fibre positions (comma-separated)").press("Enter");
-  assert.match(await panel.getByRole("alert").innerText(), /within the declared fibre count/);
-  await field("Lane fibre positions (comma-separated)").fill("1, 2, 11, 12");
-  await field("Lane fibre positions (comma-separated)").press("Enter");
-  await field("TX wavelengths (nm, comma-separated)").fill("850");
-  await field("TX wavelengths (nm, comma-separated)").press("Enter");
-  await field("RX wavelengths (nm, comma-separated)").fill("850");
-  await field("RX wavelengths (nm, comma-separated)").press("Enter");
+  const openMpo = async () => {
+    const details = panel.locator("details");
+    if (!(await details.getAttribute("open") !== null)) await details.locator("summary").click();
+  };
+  await openMpo();
+  await field("MPO format").selectOption("mpo-12");
+  await openMpo();
+  await field("Populated fibre positions").fill("1, 2, 13");
+  await field("Populated fibre positions").press("Tab");
+  assert.match(await panel.getByRole("alert").innerText(), /unique positions 1-12/);
+  await field("Populated fibre positions").fill("1, 2, 3, 4, 9, 10, 11, 12");
+  await field("Populated fibre positions").press("Tab");
   result = await status("port-1");
-  assert.equal(result.caps.optical.mpoPolarity, "B");
-  assert.deepEqual(result.caps.optical.laneMapping, [1, 2, 11, 12]);
+  assert.equal(result.caps.mpoPhysical.positionCount, 12);
+  assert.deepEqual(result.caps.mpoPhysical.populatedPositions, [1, 2, 3, 4, 9, 10, 11, 12]);
   assert.equal(result.caps.optical.fiberGrade, "om5");
   assert.equal(await page.evaluate(() => connectorHasCable("source", "port-2")), true);
   await select("port-2", "source", "right");
@@ -126,8 +128,19 @@ try {
   await select("port-3");
   await field("Installed interface").selectOption("dac");
   assert.equal(await field("Fibre category").count(), 0);
+  assert.equal(await field("Bandwidth").inputValue(), "__choose__");
+  assert.equal((await status("port-3")).module, "lc-singlemode");
+  await field("Bandwidth").selectOption("10G");
   assert.equal(await field("Cable assembly").inputValue(), "dac-sfp-plus");
   assert.equal((await status("port-3")).module, "dac-sfp-plus");
+  await select("port-3", "sink");
+  await field("Installed interface").selectOption("empty");
+  await field("Bandwidth").selectOption("25G");
+  await field("Installed interface").selectOption("aoc");
+  assert.equal((await status("port-3", "sink")).module, "aoc-sfp28");
+  assert.equal(await field("Bandwidth").inputValue(), "25G");
+  await page.locator("#undoAction").click();
+  await page.locator("#undoAction").click();
 
   await page.evaluate(() => { window.showSaveFilePicker = undefined; });
   const saving = page.waitForEvent("download");

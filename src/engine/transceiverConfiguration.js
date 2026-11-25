@@ -1,7 +1,7 @@
 import { CAGE_FORM_FACTORS, isIntegratedCableType, resolveInstalledModule, transceiverConnectorRole,
   transceiverModuleOption, transceiverModuleOptionsForConnector, transceiverModulePatch, transceiverModuleValidation,
   connectorPhysicalTypePatch, hasUndeclaredQsfpRate, isTransceiverCage, transceiverCageType, transceiverRateKey } from "./transceiverModules.js";
-import { CUSTOM_OPTICS, customOpticalIssue, opticalWavelengthMode } from "./customTransceiverOptics.js";
+import { CUSTOM_OPTICS, LEGACY_WAVELENGTH_FIELDS, customOpticalIssue, opticalWavelengthMode } from "./customTransceiverOptics.js";
 import { validateMpoPhysical } from "./mpoPhysical.js";
 
 // Existing QSFP cages retain their physical key; an authored form restricts
@@ -130,28 +130,33 @@ export function transceiverConfigurationPatch(connector, config) {
   if (config?.method !== "custom" || !["lc", "sc", "st", "mpo"].includes(config.interface)) throw new Error("Choose an external interface.");
   const iface = config.interface;
   const signalFamily = config.signalFamily ?? "ethernet";
+  if (signalFamily === "sdi" && transceiverCageType(connector) === "qsfp-cage"
+    && !connector.cageCapabilities?.supportedSignalFamilies?.includes("sdi")) {
+    throw new Error("This QSFP host does not declare Optical SDI support.");
+  }
   const role = transceiverConnectorRole(connector);
-  const signalDirection = config.signalDirection ?? (signalFamily === "sdi" ? "inherited" : "bidirectional");
-  const direction = signalFamily === "sdi" || signalDirection === "unidirectional" ? role
-    : signalDirection === "inherited" ? role || "bidirectional" : "bidirectional";
+  const signalDirection = signalFamily === "sdi" ? "inherited" : "bidirectional";
+  const direction = signalFamily === "sdi" ? role : "bidirectional";
   const fiberFamily = config.fiberFamily ?? "single-mode";
   const fiberGrade = config.fiberGrade ?? "";
   const arrangement = config.arrangement ?? (iface === "mpo" ? "parallel" : signalFamily === "sdi" ? "simplex" : "duplex");
   const value = iface === "mpo" ? fiberFamily === "multimode" ? "mpo-multimode" : "mpo-fiber"
     : iface + (fiberFamily === "multimode" ? "-multimode" : "-singlemode");
   const profile = transceiverModuleOption(value, connector);
-  const optical = { configuration: CUSTOM_OPTICS, interface: iface === "mpo" ? "mpo" : `${arrangement}-${iface}`,
-    fiberFamily, fiberGrade, arrangement, signalDirection, wavelengthMode: opticalWavelengthMode(config),
-    ...(config.technology ? { technology: config.technology } : {}), txNm: config.txNm ?? [], rxNm: config.rxNm ?? [],
-    ...(config.rxRangeNm !== undefined ? { rxRangeNm: config.rxRangeNm } : {}),
-    ...(config.laneWavelengths?.length || config.laneWavelengths != null && !Array.isArray(config.laneWavelengths)
-      ? { laneWavelengths: config.laneWavelengths } : {}),
-    fiberCount: config.fiberCount ?? null, mpoPolarity: config.mpoPolarity ?? "", laneMapping: config.laneMapping ?? [] };
-  const issue = customOpticalIssue(optical, signalFamily, direction);
-  if (issue) throw new Error(issue);
   if (!profile) throw new Error("This cage does not support the selected external interface.");
   const installed = resolveInstalledModule(connector);
   const previous = installed.effectiveType === profile.activeType ? installed.capabilities : {};
+  const priorOptic = previous.signalFamily === signalFamily ? previous.optical || {} : {};
+  // Historical engineering details remain opaque data on the same interface.
+  const legacy = Object.fromEntries([...LEGACY_WAVELENGTH_FIELDS,
+    ...(iface === "mpo" ? ["fiberCount", "mpoPolarity", "laneMapping"] : [])]
+    .filter(key => config[key] !== undefined || priorOptic[key] !== undefined)
+    .map(key => [key, config[key] !== undefined ? config[key] : priorOptic[key]]));
+  const optical = { configuration: CUSTOM_OPTICS, interface: iface === "mpo" ? "mpo" : `${arrangement}-${iface}`,
+    fiberFamily, fiberGrade, arrangement, signalDirection, wavelengthMode: opticalWavelengthMode(config),
+    ...(config.technology ? { technology: config.technology } : {}), ...legacy };
+  const issue = customOpticalIssue(optical, signalFamily, direction);
+  if (issue) throw new Error(issue);
   const inherited = Object.fromEntries(["manufacturer", "model", "platforms", "physicalConstraints"]
     .filter(key => previous[key] !== undefined).map(key => [key, previous[key]]));
   if (config.mpoPhysical != null && iface !== "mpo") throw new Error("MPO physical properties require an MPO interface.");

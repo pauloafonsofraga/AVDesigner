@@ -114,6 +114,21 @@ try {
   assert.equal(qsfpAttach.count, 2, qsfpAttach.error);
   assert.equal(qsfpAttach.rotation, 0, "left-facing MPO ports mirror the layout without turning the label");
   assert.deepEqual(qsfpAttach.ports, [["mpo-trunk", "right"], ...[1, 2, 3, 4].map(n => ["lc-" + n, "left"])]);
+  await page.locator("#undoAction").click();
+  await inspect("qsfp-host");
+  await page.getByLabel("Harness", { exact: true }).selectOption("sc-simplex");
+  await page.getByRole("button", { name: "Attach MPO Breakout" }).click();
+  const simplex = await page.evaluate(() => {
+    const bridge = activeEngineBridge();
+    const raw = bridge.mutations.root.devices.filter(d => d.templateOverride?.mpoHarness).at(-1);
+    const projected = bridge.scene.getDevice(raw.instanceId);
+    return { raw: raw.templateOverride.mpoHarness, mapped: projected.visual.adapterMapping.branchCount,
+      ports: projected.connectors.slice(1).map(p => [p.type, p.fiberCapability?.arrangement]) };
+  });
+  assert.deepEqual(simplex.raw.branches.flatMap(branch => branch.mpoPositions), [1, 2, 3, 4, 9, 10, 11, 12]);
+  assert.equal(simplex.mapped, 8);
+  assert.deepEqual(simplex.ports, Array.from({length:8}, () => ["fiber-sc", "simplex"]));
+  assert.equal((await schedule()).length, 2, "each passive harness is one schedule item");
   if (process.env.AVDESIGNER_MPO_SCREENSHOT) {
     await page.locator("#zoomFit").click();
     await page.screenshot({ path: process.env.AVDESIGNER_MPO_SCREENSHOT });

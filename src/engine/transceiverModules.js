@@ -258,12 +258,16 @@ export function transceiverModuleValidation(connector, capabilities = installedM
     : form === "sfp28" ? ["sfp", "sfp-plus", "sfp28"] : form === "sfp-plus" ? ["sfp", "sfp-plus"]
       : form === "qsfp" ? ["qsfp", "qsfp-plus", "qsfp28"] : [form];
   const reject = reason => ({ valid: false, reason, warnings: [] });
-  const uncommonInterface = ["fiber-sc", "fiber-st"].includes(profile?.activeType) ? profile.activeType.slice(6) : "";
-  const declaredInterface = uncommonInterface && (list(host.supportedModuleInterfaces).some(value => key(value) === uncommonInterface)
-    || list(host.supportedModuleTypes).some(value => key(value) === key(profile.value)));
-  if (uncommonInterface && !declaredInterface && Array.isArray(host.supportedModuleInterfaces)
-    && resolveInstalledModule(connector).profile?.value !== profile.value) {
-    return reject("This cage does not declare support for the selected SC/ST interface.");
+  const active = profile?.activeType || resolveInstalledModule(connector).effectiveType;
+  const iface = capabilities.cableAssembly ? (capabilities.mediaType === "active-optical" ? "aoc"
+    : capabilities.mediaType === "direct-attach-copper" ? "dac" : "")
+    : /^fiber-(lc|sc|st|mpo)$/.test(active) ? active.slice(6)
+      : ["cat6a", "rj45"].includes(active) ? "rj45" : ["sdi", "bnc"].includes(active) ? "bnc" : "";
+  const interfaceKey = value => ({ fiberlc: "lc", fibersc: "sc", fiberst: "st", fibermpo: "mpo",
+    sdi: "bnc", cat6a: "rj45", activeoptical: "aoc", directattachcopper: "dac" })[key(value)] || key(value);
+  const declaredInterface = !!iface && list(host.supportedModuleInterfaces).some(value => interfaceKey(value) === iface);
+  if (profile?.value !== "" && iface && Array.isArray(host.supportedModuleInterfaces) && !declaredInterface) {
+    return reject(`This cage does not declare support for the selected ${iface.toUpperCase()} interface.`);
   }
   if (profile?.value) {
     for (const field of ["formFactor", "direction", "signalFamily", "mediaType", "cableAssembly"]) {
@@ -312,7 +316,10 @@ export function transceiverModuleValidation(connector, capabilities = installedM
   if (["input", "output"].includes(nodeDirection) && ["input", "output"].includes(capabilities.direction)
     && nodeDirection !== capabilities.direction) return reject("Module direction conflicts with the node direction.");
   const warnings = [];
-  if (uncommonInterface && !declaredInterface) warnings.push("SC/ST host interface support is unverified.");
+  if (["sc", "st"].includes(iface) && !declaredInterface
+    && !list(host.supportedModuleTypes).some(value => key(value) === key(profile?.value))) {
+    warnings.push("SC/ST host interface support is unverified.");
+  }
   if (capabilities.optical?.configuration === CUSTOM_OPTICS) {
     if (profile?.capabilities.optical || !["fiber-lc", "fiber-sc", "fiber-st", "fiber-mpo"].includes(profile?.activeType)
       || (profile.activeType === "fiber-mpo") !== (capabilities.optical.interface === "mpo")
@@ -412,14 +419,10 @@ export function transceiverModulePresentation(connector = {}) {
     ? { valid: false, reason: "Installed module identity and effective connector disagree." }
     : transceiverModuleValidation(connector, caps, profile);
   const optical = caps.optical;
-  const nm = values => Array.isArray(values) && values.length ? values.join("/") + " nm" : "";
   return [label, list(caps.supportedRates).join(", "), caps.direction, optical?.interface, optical?.fiberFamily,
-    ...(optical?.configuration === CUSTOM_OPTICS ? [optical.arrangement, String(optical.fiberGrade || "").toUpperCase(),
-      optical.technology || "Optical technology unspecified", optical.fiberCount && `${optical.fiberCount} fibres`,
-      optical.mpoPolarity && `MPO polarity ${optical.mpoPolarity}`,
-      Array.isArray(optical.laneMapping) && optical.laneMapping.length && `Lane positions ${optical.laneMapping.join(", ")}`] : []),
+    String(optical?.fiberGrade || "").toUpperCase(),
     ...(profile?.activeType === "fiber-mpo" && caps.mpoPhysical != null ? [mpoPhysicalPresentation(caps.mpoPhysical)] : []),
-    nm(optical?.txNm) && `TX ${nm(optical.txNm)}`, nm(optical?.rxNm) && `RX ${nm(optical.rxNm)}`, caps.manufacturer, caps.model,
+    caps.manufacturer, caps.model,
     caps.physicalConstraints && (typeof caps.physicalConstraints === "string" ? caps.physicalConstraints : JSON.stringify(caps.physicalConstraints)),
     !check.valid ? check.reason : [...check.warnings, ...identity.warnings].join(" ")].filter(Boolean).join(" | ");
 }

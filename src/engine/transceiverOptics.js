@@ -1,4 +1,5 @@
-import { CUSTOM_OPTICS, opticalWavelengthMode, sharesOpticalFibre } from "./customTransceiverOptics.js";
+import { CUSTOM_OPTICS, sharesOpticalFibre } from "./customTransceiverOptics.js";
+import { MPO_REFERENCE } from "./mpoPhysical.js";
 
 const sfp = ["sfp-cage", "sfp-plus-cage", "sfp28-cage"];
 const sfpPlus = ["sfp-plus-cage", "sfp28-cage"];
@@ -16,11 +17,17 @@ function profile(value, label, cages, formFactor, rate, signalFamily, direction,
 }
 
 function ethernet(technology, cages, formFactor, rate, fiberFamily, wavelengths, iface = "duplex-lc") {
-  return profile(technology.toLowerCase(), technology, cages, formFactor, rate, "ethernet", "bidirectional",
+  const result = profile(technology.toLowerCase(), technology, cages, formFactor, rate, "ethernet", "bidirectional",
     { technology, fiberFamily, interface: iface, txNm: wavelengths, rxNm: wavelengths,
       wavelengthMode: iface !== "mpo-12" && wavelengths.length > 1 ? "wdm" : "single-wavelength",
-      ...(iface === "mpo-12" ? { fiberCount: 12, laneWavelengths: Object.freeze(Array.from({ length: 4 }, (_, i) =>
+      ...(iface === "mpo-12" ? { fiberCount: 8, laneWavelengths: Object.freeze(Array.from({ length: 4 }, (_, i) =>
         Object.freeze({ lane: i + 1, txNm: wavelengths, rxNm: wavelengths }))) } : {}) });
+  if (iface === "mpo-12") {
+    const positions = Object.freeze([1, 2, 3, 4, 9, 10, 11, 12]);
+    result.capabilities.mpoPhysical = Object.freeze({ schemaVersion: 1, format: "mpo-12", positionCount: 12,
+      reference: MPO_REFERENCE, populatedPositions: positions, activePositions: positions });
+  }
+  return result;
 }
 
 function bidi(side, tx, rx) {
@@ -55,26 +62,17 @@ export const opticalTransceiverProfiles = [
 
 const normalized = value => typeof value === "string" ? value.toLowerCase().replace(/[^a-z0-9]+/g, "") : "";
 const technologyWithoutRate = value => normalized(typeof value === "string" ? value.replace(/^\s*\d+g?base[- ]*/i, "base-") : value);
-const validNm = value => typeof value === "number" && Number.isFinite(value) && value > 0;
-const wavelengths = values => Array.isArray(values) ? values.filter(validNm) : [];
-const receiveRanges = ranges => Array.isArray(ranges) ? ranges.filter(range =>
-  Array.isArray(range) && range.length === 2 && range.every(validNm) && range[0] <= range[1]) : [];
 
 export function opticalLinkCheck(a, b) {
   const optics = [a.optical || {}, b.optical || {}];
   const custom = optics.some(optic => optic.configuration === CUSTOM_OPTICS);
   const warnings = [];
   const reject = (rule, reason) => ({ valid: false, rule, reason, warnings: [] });
-  const modes = optics.map(opticalWavelengthMode);
-  if (modes.every(Boolean) && modes[0] !== modes[1]) {
-    return reject("module-optical-technology", "Declared wavelength configurations do not match.");
-  }
-  if (!modes.every(Boolean)) warnings.push("Wavelength configuration is unverified.");
-  const sharedFibre = optics.map((optic, i) => sharesOpticalFibre(optic, [a, b][i].direction));
   for (const [field, rule, message] of [
     ["fiberFamily", "fiber-mode-mismatch", "Optical modules require different fibre families."],
     ["technology", "module-optical-technology", "Named optical technologies do not match."],
-    ["interface", "module-optical-interface", "Optical interfaces do not match."]
+    ["interface", "module-optical-interface", "Optical interfaces do not match."],
+    ["arrangement", "module-optical-interface", "Fibre arrangements do not match."]
   ]) {
     const [left, right] = optics.map(optical => {
       if (field === "technology") return optical.configuration === CUSTOM_OPTICS ? "" : technologyWithoutRate(optical.technology);
@@ -82,33 +80,18 @@ export function opticalLinkCheck(a, b) {
       return normalized(optical[field]);
     });
     if (left && right && left !== right) return reject(rule, message);
-    if (field === "technology" ? (!left || !right) && !modes.every(Boolean) : !left || !right) {
+    if (!left || !right) {
       warnings.push("Optical technology, interface or fibre family is unverified.");
     }
   }
   if (custom && optics.some(optic => /^mpo(?:-|$)/i.test(optic.interface))) {
     warnings.push("MPO polarity and end-to-end lane pairing are unverified.");
   }
-  const directionKnown = [a, b].every(cap => ["input", "output", "bidirectional"].includes(cap.direction));
-  if (!directionKnown) {
+  if (optics.some((optic, i) => sharesOpticalFibre(optic, [a, b][i].direction))) {
+    warnings.push("Shared-fibre BiDi interoperability is unverified.");
+  }
+  if (![a, b].every(cap => ["input", "output", "bidirectional"].includes(cap.direction))) {
     warnings.push("Optical endpoint direction is unverified.");
-  } else {
-    for (const [i, from, to] of [[0, a, b], [1, b, a]]) {
-      if (from.direction === "input" || to.direction === "output") continue;
-      const tx = wavelengths(optics[i].txNm);
-      const rx = optics[1 - i];
-      const ranges = receiveRanges(rx.rxRangeNm), nominal = wavelengths(rx.rxNm);
-      if (tx.length && ranges.length && !tx.every(nm => ranges.some(([min, max]) => nm >= min && nm <= max))) {
-        return reject("module-optical-wavelength", "Transmitter wavelength is outside the receiver's declared range.");
-      }
-      if ((modes.includes("wdm") || sharedFibre.some(Boolean)) && tx.length && nominal.length
-        && !ranges.length && !tx.every(nm => nominal.includes(nm))) {
-        return reject("module-optical-wavelength", "Declared transmit and receive wavelengths do not pair.");
-      }
-      if (!tx.length || (!ranges.length && !tx.every(nm => nominal.includes(nm)))) {
-        warnings.push("Optical wavelength pairing is unverified.");
-      }
-    }
   }
   return { valid: true, warnings: [...new Set(warnings)] };
 }

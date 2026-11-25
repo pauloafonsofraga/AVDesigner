@@ -83,7 +83,7 @@ test("picker keeps generic modules and honours physical families and explicit ho
   assert.deepEqual(options(restricted), ["", "10gbase-lr"]);
 });
 
-test("rate differences warn; known conflicts reject fibre, signal family, optical technology and wavelength", () => {
+test("rate differences warn, known physical and signal conflicts reject, historical wavelength numbers do not gate links", () => {
   const sr = install("10gbase-sr"), lr = install("10gbase-lr");
   const differentRate = compare(sr, install("25gbase-sr", "sfp28-cage"));
   assert.equal(differentRate.valid, true);
@@ -100,12 +100,13 @@ test("rate differences warn; known conflicts reject fibre, signal family, optica
 
   const tx = install("optical-3g-sdi-tx"), rx = install("optical-3g-sdi-rx");
   tx.moduleCapabilities.optical.txNm = [1550];
-  assert.equal(compare(tx, rx).compatibilityStatus, "unverified", "a nominal receiver wavelength is not its acceptance range");
+  const physicalVerdict = compare(tx, rx).compatibilityStatus;
+  assert.notEqual(physicalVerdict, "incompatible");
   rx.moduleCapabilities.optical.rxRangeNm = [[1260, 1360]];
-  assert.equal(compare(tx, rx).rule, "module-optical-wavelength");
-  assert.equal(compare(rx, tx).compatibilityStatus, "incompatible");
+  assert.equal(compare(tx, rx).compatibilityStatus, physicalVerdict);
+  assert.equal(compare(rx, tx).compatibilityStatus, physicalVerdict);
   rx.moduleCapabilities.optical.rxRangeNm = [[1530, 1565]];
-  assert.equal(compare(tx, rx).compatibilityStatus, "compatible");
+  assert.equal(compare(tx, rx).compatibilityStatus, physicalVerdict);
   const bare = compare(sr, { type: "fiber-lc", direction: "io" });
   assert.equal(bare.valid, true);
   assert.equal(bare.compatibilityStatus, "unverified");
@@ -184,7 +185,8 @@ test("installing, changing and clearing named optics is metadata-only; alias-onl
   }
   const alias = { ...port, installedModuleName: "10GBASE-SR" };
   assert.equal(engineConnectorFiberMode(alias), "om4");
-  assert.match(transceiverModulePresentation(alias), /duplex-lc.*multimode.*850 nm/);
+  assert.match(transceiverModulePresentation(alias), /duplex-lc.*multimode/);
+  assert.doesNotMatch(transceiverModulePresentation(alias), /850 nm/);
   const ordinary = compare({ type: "hdmi", direction: "output", installedModuleName: "10GBASE-SR" }, { type: "hdmi", direction: "input" });
   assert.equal(ordinary.valid, true);
   assert.equal(ordinary.compatibilityStatus, undefined);

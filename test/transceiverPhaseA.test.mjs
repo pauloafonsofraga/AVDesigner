@@ -18,7 +18,7 @@ const compare = (a,b) => engineCompatibilitySummary({ device: { id: "a" }, conne
 test("presets populate editable characteristics; any property edit clears their identity", () => {
   const c = cage();
   const draft = draftFromPreset(c, "10gbase-sr");
-  assert.deepEqual([draft.interface, draft.fiberFamily, draft.arrangement, draft.wavelengthMode, draft.txNm], ["lc", "multimode", "duplex", "single-wavelength", "850"]);
+  assert.deepEqual([draft.interface, draft.fiberFamily, draft.arrangement, draft.wavelengthMode], ["lc", "multimode", "duplex", "single-wavelength"]);
   assert.equal(transceiverDraftPatch(c, draft).installedModuleType, "10gbase-sr");
   const edited = editTransceiverDraft(draft, "fiberGrade", "om3");
   const patch = transceiverDraftPatch(c, edited);
@@ -40,7 +40,7 @@ test("SC/ST is unverified on undeclared hosts and respects explicit restrictions
     assert.match(compare(module, module).warnings.join(" "), /SC\/ST host interface support is unverified/);
     const restricted = cage("sfp-plus-cage", { supportedModuleInterfaces: ["lc"] });
     assert.equal(transceiverConfigurationChoices(restricted).fiberFamilies[iface].length, 0);
-    assert.throws(() => transceiverConfigurationPatch(restricted, config), /does not declare support for the selected SC\/ST interface/);
+    assert.throws(() => transceiverConfigurationPatch(restricted, config), /does not declare support for the selected (SC|ST) interface/);
     const c = cage("sfp-cage", { supportedModuleInterfaces: [iface.toUpperCase()] });
     const patch = transceiverConfigurationPatch(c, config), installed = { ...c, ...patch };
     assert.equal(resolveInstalledModule(installed).effectiveType, "fiber-" + iface);

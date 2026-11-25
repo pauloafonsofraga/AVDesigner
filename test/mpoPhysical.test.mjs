@@ -78,7 +78,10 @@ test("custom module metadata belongs to the installed optic and survives standar
   const bad = { ...config, mpoPhysical: physical({ fiberCategory: "os2" }) };
   assert.throws(() => transceiverConfigurationPatch(cage, bad), /fibre category/);
   const installed = { ...cage, ...patch };
-  assert.equal(transceiverModulePatch(installed, "100gbase-sr4").moduleCapabilities.mpoPhysical, undefined);
+  const presetPhysical = transceiverModulePatch(installed, "100gbase-sr4").moduleCapabilities.mpoPhysical;
+  assert.equal(presetPhysical.positionCount, 12);
+  assert.deepEqual(presetPhysical.activePositions, [1, 2, 3, 4, 9, 10, 11, 12]);
+  assert.equal(presetPhysical.pinConfiguration, undefined, "preset must not inherit the previous custom optic's pinning");
   assert.equal(transceiverModulePatch(installed, "").moduleCapabilities, null);
 });
 

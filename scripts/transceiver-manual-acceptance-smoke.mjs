@@ -52,10 +52,6 @@ try {
   }, { deviceId, connectorId });
   const panel = page.locator("[data-transceiver-config]"), field = name => panel.getByLabel(name, { exact: true });
   const options = name => field(name).locator("option").evaluateAll(nodes => nodes.map(n => n.value));
-  const commitText = async (label, value) => {
-    const control = field(label);
-    await control.fill(value); await control.press("Enter");
-  };
   const originalLab = await dragFactory("generic-qsfp-breakout-lab", 620, 260);
   const configLab = await dragFactory("generic-transceiver-configuration-lab", 1080, 440);
   await page.locator("#zoomFit").click();
@@ -63,18 +59,16 @@ try {
   const untouchedBreakout = await port(originalLab, "qsfp28");
   assert.equal(await field("Configuration").count(), 0);
   assert.equal(await panel.locator("details").count(), 0);
-  assert.equal((await options("Installed interface")).includes("sc"), false);
+  assert.equal((await options("Installed interface")).includes("sc"), true);
   assert.deepEqual(await page.evaluate(id => {
     const d = activeEngineBridge().scene.getDevice(id), c = d.connectors.find(c => c.id === "qsfp28-2");
     return [d.connectors.length, c.x, c.y];
   }, originalLab), [11, 380, 260]);
   assert.equal(await field("Bandwidth").inputValue(),"100G");
   await field("Installed interface").selectOption("lc");
-  await field("Wavelength configuration").selectOption("wdm");
-  await commitText("TX wavelengths (nm, comma-separated)", "1295, 1300, 1304, 1309");
-  await commitText("RX wavelengths (nm, comma-separated)", "1295, 1300, 1304, 1309");
-  assert.equal(await field("Wavelength configuration").inputValue(), "wdm");
-  assert.equal(await field("TX wavelengths (nm, comma-separated)").inputValue(), "1295, 1300, 1304, 1309");
+  await field("Wavelength Mode").selectOption("wdm");
+  assert.equal(await field("Wavelength Mode").inputValue(), "wdm");
+  assert.equal(await panel.getByLabel(/(TX|RX).*wavelength/).count(), 0);
   assert.equal((await port(originalLab, "qsfp28-2")).module, "lc-singlemode");
   await field("Fibre grade").selectOption("os2");
   assert.equal(await field("Preset (optional)").count(), 0);
@@ -84,8 +78,9 @@ try {
   await page.locator("#undoAction").click(); assert.equal((await port(originalLab, "qsfp28-2")).caps.optical.fiberGrade, "");
   await page.locator("#redoAction").click(); assert.deepEqual(await port(originalLab, "qsfp28-2"), custom);
   await select(originalLab, "qsfp28-2");
-  await field("Wavelength configuration").selectOption("single-wavelength");
-  assert.match(await panel.getByRole("alert").innerText(), /at most one wavelength/);
+  await field("Wavelength Mode").selectOption("single-wavelength");
+  assert.equal((await port(originalLab, "qsfp28-2")).caps.optical.wavelengthMode, "single-wavelength");
+  await page.locator("#undoAction").click();
   assert.deepEqual(await port(originalLab, "qsfp28-2"), custom);
   assert.deepEqual(await port(originalLab, "qsfp28"), untouchedBreakout);
 
@@ -101,22 +96,15 @@ try {
   }
   await select(configLab, "qsfp28-test");
   await field("Bandwidth").selectOption("100G");
-  await field("Wavelength configuration").selectOption("wdm");
-  await commitText("RX wavelengths (nm, comma-separated)", "1295, 1300, 1304, 1309");
+  await field("Wavelength Mode").selectOption("wdm");
   assert.deepEqual(await options("Bandwidth"), ["40G", "100G"]);
-  await field("TX wavelengths (nm, comma-separated)").fill("1296, 1300, 1304, 1309");
-  assert.deepEqual(await options("Bandwidth"), ["40G", "100G"]);
-  assert.equal(await field("TX wavelengths (nm, comma-separated)").evaluate(n => n === document.activeElement), true);
-  await field("TX wavelengths (nm, comma-separated)").press("Enter");
   await field("Bandwidth").selectOption("40G");
   assert.equal((await port(configLab, "qsfp28-test")).module, "lc-singlemode");
   await select(configLab, "sfp-plus-test");
   for (const iface of ["sc", "st"]) {
     await field("Installed interface").selectOption(iface);
     await field("Fibre grade").selectOption("os2");
-    await field("Wavelength configuration").selectOption("single-wavelength");
-    await commitText("TX wavelengths (nm, comma-separated)", "1310");
-    await commitText("RX wavelengths (nm, comma-separated)", "1310");
+    await field("Wavelength Mode").selectOption("single-wavelength");
     await field("Bandwidth").selectOption("1G");
     assert.equal((await port(configLab, "sfp-plus-test")).caps.optical.interface, "duplex-" + iface);
     await select(configLab, "sfp-plus-test");

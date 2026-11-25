@@ -58,8 +58,8 @@ test("custom LC supports duplex, BiDi and WDM without changing node identity or 
   const a = custom(cage(), { ...bidi, txNm: [1270], rxNm: [1330] });
   const b = custom(cage(), { ...bidi, txNm: [1330], rxNm: [1270] });
   assert.ok(compare(a, b).valid);
-  assert.equal(compare(a, a).rule, "module-optical-wavelength");
-  assert.throws(() => custom(cage(), { ...bidi, txNm: [1270], rxNm: [1270] }), /BiDi/);
+  assert.equal(compare(a, a).compatibilityStatus, "unverified");
+  assert.ok(compare(custom(cage(), { ...bidi, txNm: [1270], rxNm: [1270] }), b).valid);
   assert.throws(() => custom(cage(), { ...bidi, arrangement: "duplex" }), /technology/);
   assert.throws(() => custom(cage(), { ...base, lineRate: "100G" }), /range/);
   const wdm = custom(cage(), { technology: "wdm", txNm: [1271, 1291], rxNm: [1271, 1291] });
@@ -121,6 +121,21 @@ test("SC and ST are selectable on generic QSFP, QSFP+ and QSFP28 without claimin
   }
 });
 
+test("declared module interfaces gate the picker and all installation paths", () => {
+  const host = cage("qsfp-cage", "bidirectional", { supportedFormFactors: ["qsfp28"], supportedModuleInterfaces: ["fiber-lc"] });
+  const choices = transceiverConfigurationChoices(host);
+  assert.deepEqual(choices.standard.map(profile => profile.value), ["100gbase-lr4"]);
+  assert.deepEqual(choices.fiberFamilies.mpo, []);
+  assert.deepEqual(choices.assemblies, []);
+  for (const cfg of [{ method: "standard", profile: "100gbase-sr4" },
+    { method: "custom", interface: "mpo" }, { method: "custom", interface: "dac", profile: "dac-qsfp28" },
+    { method: "custom", interface: "aoc", profile: "aoc-qsfp28" }]) {
+    assert.throws(() => configured(host, cfg), /selected .* interface/);
+  }
+  const sdi = cage("qsfp-cage", "output");
+  assert.throws(() => configured(sdi, { method: "custom", interface: "sc", signalFamily: "sdi" }), /declare Optical SDI support/);
+});
+
 test("custom SDI inherits an explicit role and existing TX/RX profiles remain untouched", () => {
   const shared = { signalFamily: "sdi", technology: "single-wavelength", lineRate: "12G" };
   const tx = custom(cage("sfp-plus-cage", "output"), { ...shared, txNm: [1310] });
@@ -131,7 +146,7 @@ test("custom SDI inherits an explicit role and existing TX/RX profiles remain un
   assert.equal(compare(tx, rx).valid, true);
   assert.equal(compare(tx, tx).valid, false);
   assert.throws(() => custom(cage(), shared), /connector role/);
-  assert.throws(() => custom(cage("sfp-plus-cage", "input"), { ...shared, txNm: [1310] }), /role/);
+  assert.equal(custom(cage("sfp-plus-cage", "input"), { ...shared, txNm: [1310] }).moduleCapabilities.direction, "input");
   const legacy = { ...cage(), ...transceiverModulePatch(cage(), "optical-3g-sdi-tx") };
   assert.equal(resolveInstalledModule(legacy).profile.value, "optical-3g-sdi-tx");
   assert.equal(effectiveTransceiverDirection(legacy), "output");

@@ -1,5 +1,27 @@
 # Editable Transceiver Inspector (Phase A)
 
+## Simplified optical configuration
+
+The Inspector now gives optical modules only a descriptive **Wavelength Mode**:
+Single Wavelength, Multiple Wavelengths, or Unspecified. Historical numerical
+fields are retained when reopening projects, and compatible edits retain them
+as opaque metadata. The Engine doesn't validate or match numerical wavelengths.
+Multiple Wavelengths draws one long-dash/gap/short-dash/gap route; ordinary
+solid duplex fibre retains its existing two-strand representation.
+
+Existing interface allowlists apply to all known module interfaces and integrated
+assemblies. On selecting DAC, AOC or BNC, the Inspector retains the selected rate
+if a matching module exists, otherwise it waits for an explicit choice. Ethernet
+modules are bidirectional; Optical SDI inherits the device's input/output role.
+
+MPO-12 position numbers are independent of populated fibre count. Passive
+harness presets use positions 1-4 and 9-12 for four duplex LC branches or eight
+simplex LC, SC or ST branches. Each harness uses the legacy Adapter layout and
+one Cable Schedule row. Arbitrary custom harness mapping and lane-specific
+signal traversal are not introduced here.
+
+The remaining sections describe earlier implementations.
+
 ## Device and card defaults
 
 Select a cage in Device Editor / Connectors or on a card in Cards to use the

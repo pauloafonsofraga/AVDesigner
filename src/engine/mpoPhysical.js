@@ -77,6 +77,40 @@ export function validateMpoPhysical(value) {
   ]);
 }
 
+// Branches allocate physical positions, not wavelength or logical Ethernet lanes.
+export function validateMpoBranchMapping({ positionCount, populatedPositions, activePositions, branches } = {}) {
+  if (!Number.isSafeInteger(positionCount) || positionCount < 1 || positionCount > 256
+    || !Array.isArray(branches) || !branches.length || branches.length > positionCount) {
+    return reject("An MPO branch map needs a physical position count and branches.");
+  }
+  const inRange = p => Number.isSafeInteger(p) && p >= 1 && p <= positionCount;
+  for (const positions of [populatedPositions, activePositions]) {
+    if (positions !== undefined && (!Array.isArray(positions) || !positions.every(inRange)
+      || new Set(positions).size !== positions.length)) return reject("MPO positions must be unique and within the ferrule.");
+  }
+  if (populatedPositions && activePositions?.some(p => !populatedPositions.includes(p))) {
+    return reject("Active MPO fibres must be populated.");
+  }
+  const assigned = new Set(), destinations = new Set();
+  for (const branch of branches) {
+    const { connectorId, mpoPositions, arrangement } = branch || {};
+    if (typeof connectorId !== "string" || !connectorId || destinations.has(connectorId)) return reject("MPO branch IDs must be unique.");
+    const strands = arrangement === "simplex" ? 1 : arrangement === "duplex" ? 2 : 0;
+    if (!strands || !Array.isArray(mpoPositions) || mpoPositions.length !== strands) {
+      return reject("Each MPO branch needs one position for simplex or two for duplex.");
+    }
+    for (const p of mpoPositions) {
+      if (!inRange(p) || populatedPositions && !populatedPositions.includes(p) || activePositions && !activePositions.includes(p)) {
+        return reject("MPO branch references an unavailable fibre position.");
+      }
+      if (assigned.has(p)) return reject("MPO fibre position is already assigned to a branch.");
+      assigned.add(p);
+    }
+    destinations.add(connectorId);
+  }
+  return verdict(populatedPositions === undefined ? ["Populated MPO positions are unspecified."] : []);
+}
+
 // Pin matching is a face-to-face check. Two equipment sockets joined by an
 // unspecified patch lead are not directly mated to one another.
 export function mpoMatingValidation(left, right) {
@@ -97,11 +131,11 @@ export function mpoMatingValidation(left, right) {
     warnings.push("Mixed multimode grades: performance is unverified.");
   }
   const orientation = a.matingOrientation || b.matingOrientation;
-  if (orientation) for (const [source, target] of [[a, b], [b, a]]) {
-    if (source.activePositions && target.populatedPositions && source.activePositions.some(position =>
-      !target.populatedPositions.includes(orientation === "key-up-to-key-up" ? 13 - position : position))) {
-      return reject("An active MPO fibre mates to an unpopulated position.");
-    }
+  const orientations = orientation ? [orientation] : ["key-up-to-key-down", ...([a,b].some(p => p.polish === "apc") ? [] : ["key-up-to-key-up"])];
+  if (!orientations.some(mating => [[a, b], [b, a]].every(([source, target]) =>
+    !source.activePositions || !target.populatedPositions || source.activePositions.every(position =>
+      target.populatedPositions.includes(mating === "key-up-to-key-up" ? 13 - position : position))))) {
+    return reject("An active MPO fibre mates to an unpopulated position.");
   }
   if ([a, b].some(p => !p.format || !p.positionCount || !p.reference || !p.pinConfiguration || !p.keying
     || !p.polish || !p.matingOrientation || !p.fiberCategory)) warnings.push("MPO mating properties are incomplete.");
@@ -123,8 +157,14 @@ export function mpoConnectorCheck(connector, physical, capabilities = {}) {
     return reject("MPO fibre category contradicts the declared connector or transceiver fibre family.");
   }
   const optical = capabilities.optical || {};
-  if (physical.positionCount && optical.fiberCount && optical.fiberCount > physical.positionCount) {
+  const positionCount = physical.positionCount ?? (physical.format === "mpo-12" ? 12 : undefined);
+  if (positionCount && optical.fiberCount && optical.fiberCount > positionCount) {
     return reject("MPO ferrule position count contradicts the custom optical fibre count.");
+  }
+  if (Array.isArray(optical.laneMapping) && optical.laneMapping.some(position =>
+    (positionCount && position > positionCount) || [physical.populatedPositions, physical.activePositions].some(positions =>
+      positions && !positions.includes(position)))) {
+    return reject("The saved MPO map references an unavailable fibre position.");
   }
   if (physical.positionMapping?.polarity && optical.mpoPolarity && physical.positionMapping.polarity !== optical.mpoPolarity) {
     return reject("MPO cable-map polarity contradicts the custom optical metadata.");

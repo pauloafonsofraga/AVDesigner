@@ -11,7 +11,7 @@ import {groupedCoaxMetadata, groupedCoaxLabel, multibandColors} from "./multiban
 import {CABLE_NUMBER_PREFIXES, parseCableNumber, formatCableNumber} from "./cableNumbering.js";
 import { connectionStatusText } from "./savedCableStatus.js";
 import { projectWireEndpoint } from "./projectWireEndpoint.js";
-import { MPO_HARNESS_LABEL, mpoHarnessDefinition } from "./mpoHarness.js";
+import { mpoHarnessPreset, mpoHarnessDefinition, validateMpoHarnessMapping } from "./mpoHarness.js";
 import { uniquelyIdentifiedQsfpBreakouts, qsfpBreakoutChannels, qsfpBreakoutMode, qsfpBreakoutModeLabel, qsfpBreakoutLinkId,
   qsfpBreakoutCableLabel, qsfpBreakoutLengthLabel, qsfpBreakoutChannelStatus } from "./qsfpBreakoutModel.js";
 export { multiCorePathMarkup } from "./multiCoreReportPresentation.js";
@@ -149,10 +149,11 @@ export function groupedCables(project, getConnector) {
   const visited = new Set(), groups = [];
   const harnesses = new Map((project.devices || []).flatMap(instance => {
     const deviceId = instance?.instanceId || instance?.id;
-    const definition = deviceId && mpoHarnessDefinition(instance.templateOverride || instance.template || instance);
+    const template = instance?.templateOverride || instance?.template || instance;
+    const definition = deviceId && mpoHarnessDefinition(template);
     if (!definition) return [];
     const trunk = { deviceId, connectorId: definition.trunkId };
-    return [[deviceId, { instance, definition, trunk, legs: new Map(), wires: [] }]];
+    return [[deviceId, { instance, definition, trunk, mapCheck: validateMpoHarnessMapping(template, definition), legs: new Map(), wires: [] }]];
   }));
   for (const wire of wires) {
     const id = String(wire.id || "");
@@ -394,21 +395,24 @@ export function buildCableSchedule(input, options = {}) {
       cableCustomColor: String(value("customColor"))
     };
     if (!group.harness) return row;
-    const { instance, definition, legs, trunk } = group.harness;
+    const { instance, definition, legs, trunk, mapCheck } = group.harness;
+    const preset = mpoHarnessPreset(definition.preset);
     const branches = definition.branches.map((branch, i) => ({
-      name: "LC " + (i + 1),
+      name: preset.plug.toUpperCase() + " " + (i + 1),
       destinations: (legs.get(branch.connectorId) || []).map(ref => endpointDisplay(project, ref, options.getConnector, nodeColors, nodeDefinitions))
     }));
     return { ...row,
+      ...(!mapCheck.valid ? { connectionStatus: { status: "incompatible", label: "Incompatible", messages: [mapCheck.reason] } } : {}),
       cableNumber: row.cableNumber || instance.instanceId || instance.id,
-      connector: "MPO-12 to duplex LC",
+      connector: "MPO-12 to " + preset.arrangement + " " + preset.plug.toUpperCase(),
       cableTypeId: "fiber-mpo",
-      cable: MPO_HARNESS_LABEL + " (" + definition.grade.toUpperCase() + ")",
+      cable: preset.label + " (" + definition.grade.toUpperCase() + ")",
       length: cableLengthDisplayLabel(instance.mpoHarnessLength),
       loomId: "", loom: "",
       destinationDevice: [...new Set(branches.flatMap(branch => branch.destinations.map(end => end.device)))].join("; "),
       destinationPort: "",
       notes: [
+        ...(!mapCheck.valid ? [mapCheck.reason] : mapCheck.warnings),
         ...(!legs.has(trunk.connectorId) ? ["MPO trunk disconnected."] : []),
         ...branches.map(branch => branch.name + ": " + (branch.destinations.map(end => end.device + " / " + end.port).join("; ") || "Unconnected")),
         "End-to-end optical operation unverified.", row.notes

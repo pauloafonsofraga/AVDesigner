@@ -1,7 +1,7 @@
 import { MPO_REFERENCE, mpoPositionMappingPreset } from "./mpoPhysical.js";
 
 // A local form draft: mounting or expanding it never writes missing properties.
-export function mountMpoPhysicalFields(root, initial, { onChange = () => {}, prefix = "mpo", expanded = false } = {}) {
+export function mountMpoPhysicalFields(root, initial, { onChange = () => {}, prefix = "mpo", expanded = false, cableMapping = true } = {}) {
   let value = initial == null ? undefined : structuredClone(initial);
   const current = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const el = (tag, text) => { const n = document.createElement(tag); if (text) n.textContent = text; return n; };
@@ -39,6 +39,7 @@ export function mountMpoPhysicalFields(root, initial, { onChange = () => {}, pre
     ["key-up-to-key-down", "Key-up to key-down"], ["key-up-to-key-up", "Key-up to key-up"]]);
   field("populatedPositions", "Populated fibre positions");
   field("activePositions", "Active fibre positions");
+  if (!cableMapping) return { read: () => value };
   const mapping = current.positionMapping;
   const preset = field("_mapping", "Cable mapping preset", [["A", "Type A"], ["B", "Type B"], ["C", "Type C"], ["custom", "Custom map"]]);
   preset.value = mapping ? mapping.polarity || "custom" : "";

@@ -50,7 +50,7 @@ try {
     if (await field("Installed interface").inputValue() !== "lc") await field("Installed interface").selectOption("lc");
     await field("Optical profile").selectOption(profile);
     assert.equal(await field("Fibre arrangement").inputValue(),"duplex");
-    assert.equal(await field("Wavelength configuration").inputValue(),profile.endsWith("lr4") ? "wdm" : "single-wavelength");
+    assert.equal(await field("Wavelength Mode").inputValue(),profile.endsWith("lr4") ? "wdm" : "single-wavelength");
     await waitModule(id, profile);
   };
   const connect = async ({wdm=false}={}) => {
@@ -96,8 +96,10 @@ try {
   await configure("host-0","100gbase-lr4");
   await select("host-0"); await field("Fibre grade").selectOption("os2");
   assert.equal(await field("Optical profile").inputValue(),"");
-  assert.equal(await field("TX wavelengths (nm, comma-separated)").inputValue(),"1295, 1300, 1304, 1309");
+  assert.equal(await field("TX wavelengths (nm, comma-separated)").count(),0);
   await waitModule("host-0","lc-singlemode");
+  assert.deepEqual(await page.evaluate(() => activeEngineBridge().scene.getConnector("host-0","optic").moduleCapabilities.optical.txNm),
+    [1295,1300,1304,1309]);
   await page.locator("#undoAction").click(); assert.equal(await moduleType("host-0"),"100gbase-lr4");
   await page.locator("#redoAction").click(); assert.equal(await moduleType("host-0"),"lc-singlemode");
   await page.locator("#undoAction").click();
@@ -105,8 +107,8 @@ try {
   const id = await connect({wdm:true});
   const rendered = await readRender(id);
   assert.equal(rendered.wdm,true); assert.equal(rendered.count,1); assert.ok(rendered.vertices.length > 36);
-  assert.deepEqual(rendered.strands.map(strand=>strand.dashed),[true,true]);
-  assert.notDeepEqual(rendered.strands[0].points,rendered.strands[1].points);
+  assert.deepEqual(rendered.strands.map(strand=>strand.dashed),[true]);
+  assert.deepEqual(rendered.strands[0].points,rendered.route);
   const ink = [];
   for (let i = 0; i < rendered.vertices.length; i += 36) {
     const xs = rendered.vertices.slice(i, i + 36).filter((_, index) => index % 6 === 0);
@@ -114,7 +116,7 @@ try {
   }
   const coverage = Array.from({ length: 70 }, (_, i) => rendered.route[0].x + 40 + i)
     .map(x => ink.some(([from, to]) => x >= from && x <= to));
-  assert.ok(coverage.includes(true) && coverage.includes(false), "the rendered strands retain gaps after adjusting the dash phase");
+  assert.ok(coverage.includes(true) && coverage.includes(false), "the route retains visible dash gaps");
   await page.mouse.move(950,650);
   await page.screenshot({path:join(directory,"editor-lr4-duplex.png")});
   await page.locator("#zoomIn").click();
@@ -149,21 +151,16 @@ try {
   const pdfTask = getDocument({data:Uint8Array.from(await readFile(pdf)), useSystemFonts:true});
   const pdfDoc = await pdfTask.promise;
   const ops = await (await pdfDoc.getPage(1)).getOperatorList();
-  assert.ok(ops.fnArray.some((op,i) => op===OPS.setDash && JSON.stringify(ops.argsArray[i][0])==="[18,6,5,6]"
-    && ops.argsArray[i][1] > 0), "PDF retains the dash offset that keeps the crossover visible");
+  assert.equal(ops.fnArray.filter((op,i) => op===OPS.setDash && JSON.stringify(ops.argsArray[i][0])==="[18,6,5,6]").length,
+    1, "PDF emits a single patterned stroke");
   await pdfTask.destroy();
 
   await load(Buffer.from(JSON.stringify(fixture(false))),"single-wavelength-ports.avd");
   for (const host of ["host-0","host-1"]) {
     await select(host); await field("Installed interface").selectOption("lc");
     await field("Fibre arrangement").selectOption("simplex");
-    assert.equal(await field("Signal direction").inputValue(),"bidirectional");
-    await field("Wavelength configuration").selectOption("wdm");
-    const [tx,rx] = host==="host-0" ? ["1270, 1290","1310, 1330"] : ["1310, 1330","1270, 1290"];
-    for (const [label, value] of [["TX", tx], ["RX", rx]]) {
-      const input = field(label + " wavelengths (nm, comma-separated)");
-      await input.fill(value); await input.press("Enter");
-    }
+    assert.equal(await field("Signal direction").count(),0);
+    await field("Wavelength Mode").selectOption("wdm");
     await waitModule(host,"lc-singlemode");
   }
   assert.deepEqual((await readRender(await connect())).strands.map(strand=>strand.dashed),[true],"simplex BiDi WDM remains one strand");
@@ -201,13 +198,13 @@ try {
   await page.mouse.up();
   await page.waitForFunction(() => state.connections.length === 1);
   const firstLeg = await page.evaluate(() => state.connections[0].id);
-  assert.deepEqual((await readRender(firstLeg)).strands.map(strand=>strand.dashed),[true,true]);
+  assert.deepEqual((await readRender(firstLeg)).strands.map(strand=>strand.dashed),[true]);
   const j2 = await point("jump-b",await jumpConnector("jump-b")), end = await point("host-1");
   await page.mouse.move(end.x,end.y); await page.mouse.down();
   await page.mouse.move(j2.x,j2.y,{steps:16}); await page.mouse.up();
   await page.waitForFunction(() => state.connections.length === 2);
   const secondLeg = await page.evaluate(() => state.connections[1].id);
-  assert.deepEqual((await readRender(secondLeg)).strands.map(strand=>strand.dashed),[true,true]);
+  assert.deepEqual((await readRender(secondLeg)).strands.map(strand=>strand.dashed),[true]);
   await page.screenshot({path:join(directory,"wdm-after-jump-connection.png")});
   assert.deepEqual(errors,[]);
   console.log(JSON.stringify({passed:true,directory,checks:["LR4 and custom profile auto-apply","WDM before and after snapping and commit","WDM on both legs of a Jump pair","preserved route/zoom","Inspector BiDi + WDM","undo/redo and AVD reopen","Play Cable and Signal Chain","offline HTML viewer","native WDM PDF stroke","solid single wavelength","10G/25G SR connect with a rate warning on reopen"]},null,2));

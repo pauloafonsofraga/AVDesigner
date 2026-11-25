@@ -15,7 +15,7 @@ import { multiCoreCanvasMethods } from "./multiCoreCanvas.js";
 import { transceiverModulePatch, integratedCableAssemblyForConnectors, isIntegratedCableType, integratedCableReplugValidation } from "./transceiverModules.js";
 import { transceiverConfigurationPatch } from "./transceiverConfiguration.js";
 import { mpoConnectorCheck, mpoPhysicalForConnector } from "./mpoPhysical.js";
-import { createMpoHarnessDevice, MPO_HARNESS_GRADES, MPO_HARNESS_LABEL, MPO_HARNESS_TRUNK } from "./mpoHarness.js";
+import { createMpoHarnessDevice, MPO_HARNESS_GRADES, MPO_HARNESS_PRESETS, MPO_HARNESS_TRUNK, mpoHarnessPreset } from "./mpoHarness.js";
 import { LEGACY_ADAPTER_WIDTH } from "./adapterMapping.js";
 import { hasQsfpBreakoutData, qsfpBreakoutWarningMessages } from "./qsfpBreakoutValidation.js";
 import { collectSavedTransceiverStatuses, connectionStatusText } from "./savedCableStatus.js";
@@ -7457,29 +7457,31 @@ class ProductionEngineBridge {
     const section = document.createElement("section");
     section.className = "connector-inspector-section";
     section.innerHTML = `<h4 class="connector-inspector-heading">MPO Breakout</h4>
-      <label class="field">Harness<select aria-label="Harness"><option>${MPO_HARNESS_LABEL}</option></select></label>
+      <label class="field">Harness<select aria-label="Harness">${MPO_HARNESS_PRESETS.map(preset =>
+        `<option value="${preset.id}">${preset.label}</option>`).join("")}</select></label>
       <label class="field">Harness fibre grade<select data-mpo-harness-grade>${grades.map(grade =>
         `<option value="${grade}">${grade.toUpperCase()}</option>`).join("")}</select></label>
       <button type="button" class="tool-button">Attach MPO Breakout</button>`;
     const grade = section.querySelector("[data-mpo-harness-grade]");
+    const harness = section.querySelector('[aria-label="Harness"]');
     const button = section.querySelector("button");
     button.disabled = !available();
     button.onclick = () => {
-      if (available()) this.attachMpoHarness(deviceId, connectorId, grade.value);
+      if (available()) this.attachMpoHarness(deviceId, connectorId, grade.value, harness.value);
     };
     panel.append(section);
   }
 
-  attachMpoHarness(deviceId, connectorId, grade) {
+  attachMpoHarness(deviceId, connectorId, grade, preset) {
     const source = hitForSceneWireEndpoint(this.scene, { fromDeviceId: deviceId, fromConnectorId: connectorId }, "from");
     if (!source || !this.ready || !layerEditable(source.device)
       || engineConnectorCompatibilityType(source.connector) !== "fiber-mpo" || connectorId === MPO_HARNESS_TRUNK
-      || !MPO_HARNESS_GRADES.includes(grade) || this.scene.connectorWireIds(deviceId, connectorId).size
+      || !MPO_HARNESS_GRADES.includes(grade) || !mpoHarnessPreset(preset) || this.scene.connectorWireIds(deviceId, connectorId).size
       || breakoutPortReserved(this.mutations.root, source.device.sourceId || deviceId, connectorId)) return false;
     const id = `mpo-harness-${crypto.randomUUID()}`;
     const left = source.point.x < source.device.x + source.device.width / 2;
     const x = left ? source.device.x - LEGACY_ADAPTER_WIDTH - 140 : source.device.x + source.device.width + 140;
-    const raw = createMpoHarnessDevice({ id, grade, x: Math.round(x), y: Math.round(source.point.y - 86),
+    const raw = createMpoHarnessDevice({ id, grade, preset, x: Math.round(x), y: Math.round(source.point.y - 86),
       layerId: source.device.layerId, trunkSide: left ? "right" : "left" });
     const project = this.mutations.root;
     const index = project.devices.length;

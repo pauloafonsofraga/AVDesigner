@@ -8,8 +8,34 @@ import { transceiverConfigurationPatch } from "../src/engine/transceiverConfigur
 import { mpoHarnessLabelsNeedUprightFlip, attachedConnectorLabelPosition } from "../src/engine/attachedConnectorOrientation.js";
 import { buildEngineOutputScene } from "../src/engine/outputSceneSnapshot.js";
 import { renderEngineOutputSvg } from "../src/engine/outputSvgRenderer.js";
+import { validateMpoBranchMapping } from "../src/engine/mpoPhysical.js";
 
 const harness = () => createMpoHarnessDevice({ id: "harness-test", grade: "om4", x: 120, y: 40 });
+test("MPO-12 allocates eight populated positions to duplex or individual simplex branches", () => {
+  const populated = [1, 2, 3, 4, 9, 10, 11, 12];
+  for (const preset of ["lc-duplex", "lc-simplex", "sc-simplex", "st-simplex"]) {
+    const instance = createMpoHarnessDevice({ id: "mapped", grade: "os2", preset, x: 20, y: 40 });
+    const template = instance.templateOverride, { branches } = mpoHarnessDefinition(template);
+    const input = { positionCount: 12, populatedPositions: populated,
+      branches: branches.map(branch => ({ ...branch, arrangement: preset.split("-")[1] })) };
+    assert.deepEqual(template.connectors[0].mpoPhysical.populatedPositions, populated);
+    assert.equal(validateMpoBranchMapping(input).valid, true);
+    assert.equal(validateMpoBranchMapping({ ...input, populatedPositions: [1, 2, 3, 4] }).valid, false);
+    const duplicate = structuredClone(input);
+    duplicate.branches[1].mpoPositions[0] = duplicate.branches[0].mpoPositions[0];
+    assert.match(validateMpoBranchMapping(duplicate).reason, /already assigned/);
+    const saved = JSON.parse(JSON.stringify({ devices: [instance], connections: [] }));
+    const [normalized] = normalizeAvDesignerProject(saved).devices;
+    assert.equal(normalized.visual.adapterMapping.branchCount, branches.length);
+    assert.equal(normalized.visual.isMpoHarness, true);
+    assert.equal(buildCableSchedule(saved, { assignNumbers: "readOnly" }).length, 1);
+  }
+  const optic = { type: "qsfp-cage", direction: "output" };
+  const config = { method: "custom", interface: "mpo", fiberCount: 8, laneMapping: populated,
+    mpoPhysical: { schemaVersion: 1, format: "mpo-12", positionCount: 12, populatedPositions: populated } };
+  assert.deepEqual(transceiverConfigurationPatch(optic, config).moduleCapabilities.optical.laneMapping, populated);
+  assert.throws(() => transceiverConfigurationPatch(optic, { ...config, laneMapping: [5] }), /unavailable/);
+});
 test("right-trunk harness is mirrored with upright text and stable branch order", () => {
   const instance = createMpoHarnessDevice({ id: "right-trunk", grade: "om4", x: 120, y: 40, trunkSide: "right" });
   const { devices: [device] } = normalizeAvDesignerProject({ devices: [instance] });
@@ -74,4 +100,15 @@ test("the harness and all its attachment legs report one physical length even af
   assert.equal(extra.length, 0);
   assert.equal(detached.length, "5 m");
   assert.match(detached.notes, /MPO trunk disconnected/);
+});
+
+test("a malformed saved harness map is reported without losing its physical schedule row", () => {
+  const instance = harness();
+  instance.templateOverride.mpoHarness.branches[1].mpoPositions[0] = 1;
+  const branchMap = structuredClone(instance.templateOverride.mpoHarness.branches);
+  const rows = buildCableSchedule({ devices: [instance], connections: [] }, { assignNumbers: "readOnly" });
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].connectionStatus.status, "incompatible");
+  assert.match(rows[0].notes, /already assigned/);
+  assert.deepEqual(instance.templateOverride.mpoHarness.branches, branchMap);
 });

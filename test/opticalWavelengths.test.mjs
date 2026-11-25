@@ -10,6 +10,7 @@ import { renderEngineOutputSvg } from "../src/engine/outputSvgRenderer.js";
 import { engineOutputPrimitives } from "../src/engine/renderer.js";
 import { isWdmCable, WDM_CABLE_DASH, wdmInkRuns } from "../src/engine/wdmCableStyle.js";
 import { opticalWireStrokes } from "../src/engine/duplexFiberGeometry.js";
+import { buildCableSchedule } from "../src/engine/cableScheduleCore.js";
 
 const port = (type = "sfp-plus-cage", direction = "bidirectional") => ({
   id: "optic", type, physicalType: type, label: "Optical", direction, signalDirection: direction,
@@ -26,17 +27,17 @@ function project(left, right, connection = {}) {
     width: 220, height: 240, connectors: [{ ...connector, x: i ? 0 : 220, displaySide: i ? "left" : "right" }] }));
   return { deviceLibrary: definitions, cableHops: false,
     devices: definitions.map((definition, i) => ({ instanceId: "device-" + i, templateId: definition.id, x: i * 700, y: i * 140 })),
-    connections: [{ id: "optical-cable", cableType: "fiber-lc", cableNumber: "IT-001", length: "19m",
+    connections: [{ id: "optical-cable", cableType: "fiber-lc", cableNumber: "F-001", length: "19m",
       fiberMode: "single-mode", from: { deviceId: "device-0", connectorId: left.id }, to: { deviceId: "device-1", connectorId: right.id }, ...connection }] };
 }
 
 test("LR, LR4, BX and SR4 presets declare independent optical properties without altering cage identities", () => {
   const lr = draftFromPreset(port(), "10gbase-lr");
-  assert.deepEqual([lr.arrangement, lr.wavelengthMode, lr.signalDirection, lr.txNm, lr.rxNm],
-    ["duplex", "single-wavelength", "bidirectional", "1310", "1310"]);
+  assert.deepEqual([lr.arrangement, lr.wavelengthMode], ["duplex", "single-wavelength"]);
+  assert.deepEqual(lr.legacyWavelengths, { txNm: [1310], rxNm: [1310] });
   const qsfp = port("qsfp-cage");
   const lr4 = draftFromPreset(qsfp, "100gbase-lr4");
-  assert.deepEqual([lr4.arrangement, lr4.wavelengthMode, lr4.txNm], ["duplex", "wdm", "1295, 1300, 1304, 1309"]);
+  assert.deepEqual([lr4.arrangement, lr4.wavelengthMode], ["duplex", "wdm"]);
   const patch = transceiverDraftPatch(qsfp, editTransceiverDraft(lr4, "fiberGrade", "os2"));
   assert.equal(patch.installedModuleType, "lc-singlemode");
   assert.equal(patch.moduleCapabilities.optical.wavelengthMode, "wdm");
@@ -44,30 +45,30 @@ test("LR, LR4, BX and SR4 presets declare independent optical properties without
   const up = standard(port(), "10g-bx-u"), down = standard(port(), "10g-bx-d");
   assert.equal(up.moduleCapabilities.optical.arrangement, "simplex");
   assert.ok(status(up, down).valid);
-  assert.equal(status(up, up).rule, "module-optical-wavelength");
+  assert.equal(status(up, up).compatibilityStatus, "unverified");
   const sr4 = draftFromPreset(qsfp, "100gbase-sr4");
-  assert.deepEqual([sr4.arrangement, sr4.wavelengthMode, sr4.laneTxNm, sr4.laneRxNm],
-    ["parallel", "single-wavelength", "850; 850; 850; 850", "850; 850; 850; 850"]);
+  assert.deepEqual([sr4.arrangement, sr4.wavelengthMode], ["parallel", "single-wavelength"]);
+  assert.equal(sr4.mpoPhysical.positionCount, 12);
+  assert.deepEqual(sr4.mpoPhysical.activePositions, [1, 2, 3, 4, 9, 10, 11, 12]);
   const edited = transceiverDraftPatch(qsfp, editTransceiverDraft(sr4, "fiberGrade", "om4"));
   assert.equal(edited.moduleCapabilities.optical.laneWavelengths.length, 4);
   assert.deepEqual(edited.moduleCapabilities.optical.laneWavelengths[3], { lane: 4, txNm: [850], rxNm: [850] });
 });
 
-test("simplex BiDi and WDM coexist; inherited TX/RX roles remain independent", () => {
+test("simplex BiDi and WDM coexist without conditioning compatibility on historical wavelength numbers", () => {
   const opt = { arrangement: "simplex", signalDirection: "bidirectional", wavelengthMode: "wdm" };
   const txNm = [1270, 1290], rxNm = [1310, 1330];
   const a = custom(port(), { ...opt, txNm, rxNm }), b = custom(port(), { ...opt, txNm: rxNm, rxNm: txNm });
   assert.ok(status(a, b).valid);
-  assert.equal(status(a, a).rule, "module-optical-wavelength");
-  assert.throws(() => custom(port(), { ...opt, txNm, rxNm: [1270, 1310] }), /shared fibre/);
-  const from = custom(port(undefined, "output"), { signalDirection: "inherited", wavelengthMode: "wdm", txNm });
-  const to = custom(port(undefined, "input"), { signalDirection: "unidirectional", wavelengthMode: "wdm", rxNm: txNm });
-  assert.equal(from.moduleCapabilities.direction, "output");
-  assert.equal(to.moduleCapabilities.direction, "input");
+  assert.equal(status(a, a).compatibilityStatus, "unverified");
+  assert.match(status(a, a).warnings.join(" "), /BiDi interoperability/);
+  assert.ok(status(a, custom(port(), { ...opt, txNm, rxNm: [1270, 1310] })).valid);
+  const from = custom(port(undefined, "output"), { wavelengthMode: "wdm", txNm });
+  const to = custom(port(undefined, "input"), { wavelengthMode: "single-wavelength", rxNm: txNm });
+  assert.equal(from.moduleCapabilities.direction, "bidirectional");
+  assert.equal(to.moduleCapabilities.direction, "bidirectional");
+  assert.equal(to.signalDirection, "input");
   assert.ok(status(from, to).valid && status(to, from).valid);
-  assert.equal(status(from, from).rule, "module-direction");
-  assert.throws(() => custom(port(), { signalDirection: "unidirectional", txNm }), /connector role/);
-  assert.throws(() => custom(port(undefined, "input"), { signalDirection: "inherited", txNm }), /receive role/);
 });
 
 test("legacy optical values are read without authoring defaults or dropping wavelength evidence", () => {
@@ -109,8 +110,9 @@ test("LR4 styles a single physical cable across Viewer and SVG/PDF, never a conf
   assert.equal(snapshot.wires[0].length, "19m");
   const [primitive] = engineOutputPrimitives(model.scene, model.contract).wires;
   const route = snapshot.wires[0].renderPolyline, strands = primitive.opticalStrokes;
-  assert.equal(strands.length, 2);
-  assert.notDeepEqual(strands[0].points, strands[1].points);
+  assert.equal(strands.length, 1);
+  assert.deepEqual(strands[0].points, route);
+  assert.equal(buildCableSchedule(raw, { assignNumbers: "readOnly" }).length, 1);
   for (const strand of strands) {
     assert.equal(strand.dashed, true);
     assert.deepEqual(strand.points[0], route[0]);
@@ -122,13 +124,16 @@ test("LR4 styles a single physical cable across Viewer and SVG/PDF, never a conf
   assert.equal(trace[0].points.length, route.length);
   const svg = renderEngineOutputSvg(snapshot).svg;
   const markup = svg.match(/<g data-wire-id="optical-cable">([\s\S]*?)<\/g><\/g>/)[1];
-  assert.equal([...markup.matchAll(/<path /g)].length, 2);
-  assert.equal([...markup.matchAll(/stroke-dasharray="18 6 5 6"/g)].length, 2);
-  assert.equal([...markup.matchAll(/stroke-dashoffset=/g)].length, 2);
+  assert.equal([...markup.matchAll(/<path /g)].length, 1);
+  assert.equal([...markup.matchAll(/stroke-dasharray="18 6 5 6"/g)].length, 1);
   assert.deepEqual(buildEngineOutputScene(JSON.parse(JSON.stringify(raw))), snapshot);
 
   const wrong = structuredClone(lr4); wrong.moduleCapabilities.optical.rxNm = [1400, 1450, 1500, 1550];
-  const bad = createOutputViewerModel(buildEngineOutputScene(project(lr4, wrong)));
+  const historical = createOutputViewerModel(buildEngineOutputScene(project(lr4, wrong)));
+  assert.notEqual(historical.scene.savedWireStatuses.get(wire.id).status, "incompatible");
+  assert.deepEqual(historical.scene.getConnector("device-1", "optic").moduleCapabilities.optical.rxNm, [1400, 1450, 1500, 1550]);
+  const incompatible = custom(port("qsfp-cage"), {lineRate:"100G", fiberFamily:"multimode", fiberGrade:"om4"});
+  const bad = createOutputViewerModel(buildEngineOutputScene(project(lr4, incompatible)));
   assert.equal(bad.scene.savedWireStatuses.get(wire.id).status, "incompatible");
   assert.equal(isWdmCable(bad.scene, bad.scene.getWire(wire.id)), false);
   assert.deepEqual(outputCableTrace(bad, { type: "wire", id: wire.id }), []);
@@ -152,17 +157,11 @@ test("LR4 styles a single physical cable across Viewer and SVG/PDF, never a conf
   assert.equal(isWdmCable(badGrade.scene,badGrade.scene.getWire(wire.id)),false);
 });
 
-test("both duplex WDM strands cross away from the node, in the long dash at any route length", () => {
+test("duplex WDM never adds a strand or changes the drawn route at any length", () => {
   const sourceHit = { device: { id: "qsfp" }, connector: standard(port("qsfp-cage"), "100gbase-lr4") };
   const wire = { cableType: "fiber-lc", sourceHit };
   for (const length of [80, 196, 207, 218, 320, 510]) {
     const points = [{ x: 0, y: 0 }, { x: length, y: 0 }];
-    const crossing = length - Math.min(length * .4, 39.6);
-    for (const stroke of opticalWireStrokes({}, wire, points, 2.2)) {
-      const point = stroke.points.find(p => Math.abs(p.x - crossing) < 1e-7);
-      assert.ok(point && Math.abs(point.y) < 1e-7, "strand crosses the centreline before the end taper");
-      assert.ok(wdmInkRuns(stroke.points, stroke.dashOffset).some(run =>
-        run[0].x < crossing - 7 && run.at(-1).x > crossing + 7), "crossover is drawn on both sides, not in a gap");
-    }
+    assert.deepEqual(opticalWireStrokes({}, wire, points, 2.2), [{ points, width: 2.2, dashed: true }]);
   }
 });

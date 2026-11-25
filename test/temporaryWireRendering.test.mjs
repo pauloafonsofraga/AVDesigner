@@ -154,7 +154,7 @@ test("WDM preview paints one dashed route before a target is resolved and while 
     assert.ok(vertices.every(({color})=>color===route.color));
   }
   const incompatible = {...target,connector:{...target.connector,moduleCapabilities:{...cfg,
-    optical:{...cfg.optical,wavelengthMode:"single-wavelength"}}}};
+    optical:{...cfg.optical,fiberFamily:"multimode"}}}};
   const vertices = [];
   r.pushInteractionOverlay(vertices, {}, {tempWire:{...route,sourceHit:source,targetHit:incompatible}});
   assert.equal(vertices.length,1,"conflicting optics are not presented as a WDM pair");

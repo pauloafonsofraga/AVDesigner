@@ -49,7 +49,7 @@ try {
   assert.equal(await field("Bandwidth").inputValue(),"10G");
   assert.equal(await field("Installed interface").inputValue(),"lc");
   assert.equal(await field("Fibre arrangement").inputValue(),"duplex");
-  assert.equal(await field("Wavelength configuration").inputValue(),"single-wavelength");
+  assert.equal(await field("Wavelength Mode").inputValue(),"single-wavelength");
   assert.equal(await field("Bandwidth").inputValue(),"10G");
   assert.deepEqual(await snapshot("port-0"),original);
   await field("Fibre grade").selectOption("om3");
@@ -65,13 +65,10 @@ try {
     await field("Fibre category").selectOption("single-mode");
     await field("Fibre grade").selectOption("os2");
     await field("Fibre arrangement").selectOption("duplex");
-    await field("Wavelength configuration").selectOption("single-wavelength");
+    await field("Wavelength Mode").selectOption("single-wavelength");
     assert.deepEqual(await field("Bandwidth").locator("option").evaluateAll(options=>options.map(o=>o.value)),["1G","10G"]);
     await field("Bandwidth").selectOption("1G");
-    await field("TX wavelengths (nm, comma-separated)").fill("1310");
-    await field("TX wavelengths (nm, comma-separated)").press("Enter");
-    await field("RX wavelengths (nm, comma-separated)").fill("1310");
-    await field("RX wavelengths (nm, comma-separated)").press("Enter");
+    assert.equal(await panel.getByLabel(/(TX|RX).*wavelength/).count(),0);
     assert.equal((await snapshot("port-1")).caps.optical.interface,"duplex-"+iface);
   }
   await select("port-3");

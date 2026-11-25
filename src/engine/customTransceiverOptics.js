@@ -1,10 +1,11 @@
 export const CUSTOM_OPTICS = "custom-v1";
 export const WAVELENGTH_MODES = Object.freeze([
-  ["", "Unspecified"], ["single-wavelength", "Single Wavelength"], ["wdm", "Multiple Wavelengths (WDM)"]
+  ["single-wavelength", "Single Wavelength"], ["wdm", "Multiple Wavelengths"], ["", "Unspecified"]
 ]);
 export const OPTICAL_DIRECTIONS = Object.freeze(["inherited", "unidirectional", "bidirectional"]);
 export const MPO_FIBER_COUNTS = Object.freeze([8, 12, 16, 24, 32]);
 export const MPO_POLARITIES = Object.freeze(["A", "B", "C"]);
+export const LEGACY_WAVELENGTH_FIELDS = Object.freeze(["txNm", "rxNm", "rxRangeNm", "laneWavelengths"]);
 
 export function opticalWavelengthMode(optical = {}) {
   if (!optical) return "";
@@ -20,13 +21,9 @@ export function opticalWavelengthMode(optical = {}) {
 export const sharesOpticalFibre = (optical, direction) =>
   optical?.arrangement === "simplex" && direction === "bidirectional";
 
-const validWavelengths = values => Array.isArray(values) && values.length <= 16
-  && values.every(value => typeof value === "number" && Number.isFinite(value) && value > 0 && value <= 10000)
-  && new Set(values).size === values.length;
-
 export function customOpticalIssue(optical, signalFamily, direction) {
   const { interface: iface, fiberFamily, fiberGrade, arrangement, technology, signalDirection,
-    txNm, rxNm, rxRangeNm, fiberCount, mpoPolarity, laneMapping, laneWavelengths = [] } = optical;
+    fiberCount, mpoPolarity, laneMapping = [] } = optical;
   const mode = opticalWavelengthMode(optical);
   if (!["ethernet", "sdi"].includes(signalFamily) || !["single-mode", "multimode"].includes(fiberFamily)) {
     return "Select a supported optical signal and fibre family.";
@@ -47,49 +44,18 @@ export function customOpticalIssue(optical, signalFamily, direction) {
     || signalDirection === "bidirectional" && direction !== "bidirectional") {
     return "Choose a signal direction supported by the connector role.";
   }
-  if (!WAVELENGTH_MODES.some(([id]) => id === mode) || signalFamily === "sdi" && mode === "wdm"
+  if (!WAVELENGTH_MODES.some(([id]) => id === mode)
     || technology && !["single-wavelength", "bidi", "wdm", "parallel"].includes(technology)
     || technology === "bidi" && !sharesOpticalFibre(optical, direction)
     || technology === "parallel" && arrangement !== "parallel") {
     return "This optical technology or wavelength configuration does not match the fibre arrangement or signal.";
-  }
-  const setIssue = (tx, rx, perFibre) => {
-    if (![tx, rx].every(validWavelengths)) return "Enter unique positive wavelengths in nanometres (up to 16 per direction).";
-    if (direction === "input" && tx.length || direction === "output" && rx.length) {
-      return "Wavelengths must match the connector's transmit or receive role.";
-    }
-    if (perFibre && mode === "single-wavelength" && [tx, rx].some(values => values.length > 1)) {
-      return "Single wavelength uses at most one wavelength per direction.";
-    }
-    if (perFibre && mode === "wdm" && [tx, rx].some(values => values.length === 1)) {
-      return "Enter a set of at least two wavelengths for WDM, or leave the set unspecified.";
-    }
-    if (sharesOpticalFibre(optical, direction) && tx.some(value => rx.includes(value))) {
-      return "BiDi requires different transmit and receive wavelengths on its shared fibre.";
-    }
-    return "";
-  };
-  const issue = setIssue(txNm, rxNm, arrangement !== "parallel");
-  if (issue) return issue;
-  if (rxRangeNm !== undefined && (!Array.isArray(rxRangeNm) || rxRangeNm.length > 16
-    || rxRangeNm.some(range => !Array.isArray(range) || range.length !== 2 || range[0] > range[1]
-      || range.some(nm => typeof nm !== "number" || !Number.isFinite(nm) || nm <= 0 || nm > 10000)))) {
-    return "Receiver wavelength ranges must be positive ordered nanometre pairs.";
-  }
-  if (!Array.isArray(laneWavelengths) || laneWavelengths.length > 32 || laneWavelengths.length && arrangement !== "parallel"
-    || laneWavelengths.some((lane, index) => !lane || lane.lane !== index + 1)) {
-    return "Lane wavelengths require parallel fibre and sequential logical lane numbers.";
-  }
-  for (const lane of laneWavelengths) {
-    const issue = setIssue(lane.txNm ?? [], lane.rxNm ?? [], true);
-    if (issue) return issue;
   }
   if (!Array.isArray(laneMapping) || (iface !== "mpo" && (fiberCount || mpoPolarity || laneMapping.length))) {
     return "Fibre count, MPO polarity and lane mapping apply only to MPO.";
   }
   if (fiberCount != null && !MPO_FIBER_COUNTS.includes(fiberCount)) return "Choose a supported MPO fibre count.";
   if (mpoPolarity && !MPO_POLARITIES.includes(mpoPolarity)) return "Choose a supported MPO polarity.";
-  if (laneMapping.length && (!fiberCount || laneMapping.some(value => !Number.isInteger(value) || value < 1 || value > fiberCount)
+  if (laneMapping.length && (laneMapping.some(value => !Number.isInteger(value) || value < 1 || value > Math.max(12, fiberCount || 0))
     || new Set(laneMapping).size !== laneMapping.length)) {
     return "MPO lane mapping must use unique fibre positions within the declared fibre count.";
   }
