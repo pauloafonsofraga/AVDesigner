@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import * as api from "../src/engine/transceiverModules.js";
 import * as compatibility from "../src/engine/connectorCompatibility.js";
+import { isStandaloneMpo } from "../src/engine/standaloneConnectors.js";
 import { transceiverConfigurationPatch } from "../src/engine/transceiverConfiguration.js";
 import { createNodeBuilderPreviewScene } from "../src/engine/nodePreview.js";
 const original = () => ({ id: "stable", type: "hdmi", x: 12, y: 40, displaySide: "both", signalDirection: "bidirectional",
@@ -122,7 +123,7 @@ for (const scope of ["device", "card", "installed"]) test(`actual ${scope} metad
   if (scope === "installed") assert.equal(template.cardTypes[0].connectors[0].type, "hdmi");
 });
 test("connected comparison covers effective direction changes as well as family and module", () => {
-  const context = vm.createContext({ engineTransceiverApi: () => ({ ...api, ...compatibility }), isFiberCableType: () => false });
+  const context = vm.createContext({ engineTransceiverApi: () => ({ ...api, ...compatibility, isStandaloneMpo }), isFiberCableType: () => false });
   vm.runInContext(source("cageModuleStateForEditor"), context);
   const c = install(convert(original(), "sfp-plus-cage"), "sfp-sdi-12g-rx");
   assert.notEqual(context.cageModuleStateForEditor(c), context.cageModuleStateForEditor({ ...c, signalDirection: "output" }));

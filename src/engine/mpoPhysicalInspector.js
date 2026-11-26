@@ -1,7 +1,9 @@
-import { MPO_REFERENCE, mpoPositionMappingPreset } from "./mpoPhysical.js";
+import { MPO_CATEGORIES, MPO_REFERENCE, mpoPositionMappingPreset } from "./mpoPhysical.js";
+import { WAVELENGTH_MODES } from "./customTransceiverOptics.js";
+import { mpoFibreGrades, standaloneMpoFibre, standaloneMpoPatch } from "./standaloneConnectors.js";
 
 // A local form draft: mounting or expanding it never writes missing properties.
-export function mountMpoPhysicalFields(root, initial, { onChange = () => {}, prefix = "mpo", expanded = false, cableMapping = true } = {}) {
+export function mountMpoPhysicalFields(root, initial, { onChange = () => {}, prefix = "mpo", expanded = false, cableMapping = true, showFibreCategory = true } = {}) {
   let value = initial == null ? undefined : structuredClone(initial);
   const current = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const el = (tag, text) => { const n = document.createElement(tag); if (text) n.textContent = text; return n; };
@@ -30,7 +32,7 @@ export function mountMpoPhysicalFields(root, initial, { onChange = () => {}, pre
   }
   field("format", "MPO Format", [["mpo-12", "MPO-12 (1 x 12)"]], root);
   root.append(details);
-  field("fiberCategory", "MPO fibre category", [["os2", "OS2"], ["om3", "OM3"], ["om4", "OM4"]]);
+  if (showFibreCategory) field("fiberCategory", "MPO fibre category", MPO_CATEGORIES.map(grade => [grade, grade.toUpperCase()]));
   field("pinConfiguration", "Guide pins", [["pinned", "Pinned (male)"], ["unpinned", "Unpinned (female)"]]);
   field("polish", "Ferrule polish", [["upc", "UPC"], ["apc", "APC"]]);
   field("keying", "MPO keying", [["centered", "Centred key"]]);
@@ -68,7 +70,7 @@ export function mountMpoPhysicalFields(root, initial, { onChange = () => {}, pre
   return { read: () => value };
 }
 
-export function mountFixedMpoInspector(root, initial, { commit, disabled = false, prefix = "fixed-mpo" } = {}) {
+export function mountFixedMpoInspector(root, connector, { commit, disabled = false, prefix = "fixed-mpo" } = {}) {
   root.replaceChildren();
   const fieldset = document.createElement("fieldset");
   fieldset.disabled = disabled;
@@ -76,10 +78,47 @@ export function mountFixedMpoInspector(root, initial, { commit, disabled = false
   root.append(fieldset);
   const button = document.createElement("button");
   button.type = "button"; button.className = "tool-button"; button.textContent = "Apply MPO Properties"; button.disabled = true;
-  const draft = mountMpoPhysicalFields(fieldset, initial, { prefix, onChange: () => { button.disabled = false; } });
+  const fibre = standaloneMpoFibre(connector);
+  let fibreChanged = false, wavelengthChanged = false;
+  function select(key, title, options) {
+    const field = document.createElement("label"), text = document.createElement("span"), control = document.createElement("select");
+    field.className = "field";
+    text.textContent = title;
+    control.id = prefix + "-" + key;
+    field.append(text, control);
+    fieldset.append(field);
+    fill(control, options, fibre[key]);
+    control.addEventListener("change", () => {
+      fibre[key] = control.value;
+      if (key === "wavelengthMode") wavelengthChanged = true;
+      else fibreChanged = true;
+      button.disabled = false;
+    });
+    return control;
+  }
+  function fill(control, options, value) {
+    control.replaceChildren(...options.map(([id, label]) => new Option(label, id)));
+    control.value = options.some(([id]) => id === value) ? value : "";
+  }
+  const gradeOptions = () => [["", "Unspecified"], ...mpoFibreGrades(fibre.family).map(grade => [grade, grade.toUpperCase()])];
+  const family = select("family", "Fibre category", [["", "Unspecified"], ["single-mode", "Single-mode"], ["multimode", "Multimode"]]);
+  const grade = select("grade", "Fibre grade", gradeOptions());
+  grade.disabled = !fibre.family;
+  family.addEventListener("change", () => {
+    fibre.grade = "";
+    fill(grade, gradeOptions(), "");
+    grade.disabled = !fibre.family;
+  });
+  const arrangement = document.createElement("p");
+  arrangement.className = "field-hint";
+  arrangement.textContent = "Fibre arrangement: Parallel";
+  fieldset.append(arrangement);
+  select("wavelengthMode", "Wavelength Mode", WAVELENGTH_MODES);
+  const draft = mountMpoPhysicalFields(fieldset, connector.mpoPhysical, { prefix, cableMapping: false, showFibreCategory: false,
+    onChange: () => { button.disabled = false; } });
   const error = document.createElement("p"); error.setAttribute("role", "alert"); error.hidden = true;
   button.addEventListener("click", () => {
-    try { commit(draft.read()); error.hidden = true; }
+    try { commit(standaloneMpoPatch(connector, draft.read(), fibre, { fibreChanged, wavelengthChanged })); error.hidden = true; }
     catch (failure) { error.textContent = failure.message; error.hidden = false; }
   });
   fieldset.append(button, error);

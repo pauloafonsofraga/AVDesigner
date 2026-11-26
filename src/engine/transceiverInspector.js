@@ -3,6 +3,7 @@ import { WAVELENGTH_MODES } from "./customTransceiverOptics.js";
 import { cageDefinitionValue, CAGE_DEFINITION_CHOICES, transceiverConfigurationChoices, transceiverBandwidthChoices } from "./transceiverConfiguration.js";
 import { transceiverDraft, draftFromPreset, editTransceiverDraft, transceiverDraftConfiguration, transceiverDraftPatch } from "./transceiverDraft.js";
 import { mountMpoPhysicalFields } from "./mpoPhysicalInspector.js";
+import { mpoFibreGrades } from "./standaloneConnectors.js";
 
 const names = { lc: "LC", sc: "SC", st: "ST", mpo: "MPO", rj45: "RJ45", bnc: "BNC", dac: "DAC", aoc: "AOC", empty: "Empty" };
 const opticalInterface = value => ["lc", "sc", "st", "mpo"].includes(value);
@@ -11,16 +12,18 @@ export function mountTransceiverInspector(root, connector, { commit, disabled = 
   const profilesFor = iface => choices.standard.filter(p => p.activeType === "fiber-" + iface);
   const fiberFamiliesFor = iface => [...new Set([...choices.fiberFamilies[iface],
     ...profilesFor(iface).filter(p => p.capabilities.signalFamily === "ethernet").map(p => p.capabilities.optical.fiberFamily)])];
+  const opticalSdiFor = iface => choices.opticalSdiFor[iface]
+    || profilesFor(iface).some(p => p.capabilities.signalFamily === "sdi");
   const assembliesFor = iface => iface === "bnc" ? choices.coax : choices.assemblies.filter(p => p.value.startsWith(iface + "-"));
   const assemblyInterface = iface => ["bnc", "dac", "aoc"].includes(iface);
   const profileAtRate = (profiles, rate) => profiles.find(profile => profile.capabilities.supportedRates
     ?.some(value => transceiverRateKey(value) === transceiverRateKey(rate)));
   const interfaces = ["empty", ...["lc", "sc", "st", "mpo"].filter(iface =>
-    fiberFamiliesFor(iface).length || choices.opticalSdiFor[iface])];
+    fiberFamiliesFor(iface).length || opticalSdiFor(iface))];
   if (choices.copper) interfaces.push("rj45");
   if (choices.coax.length) interfaces.push("bnc");
   for (const kind of ["dac", "aoc"]) if (choices.assemblies.some(p => p.value.startsWith(kind + "-"))) interfaces.push(kind);
-  let draft = transceiverDraft(connector), presetControl;
+  let draft = transceiverDraft(connector);
   const el = (tag, text = "") => { const n = document.createElement(tag); n.textContent = text; return n; };
   const fields = el("fieldset");
   fields.disabled = disabled;
@@ -32,14 +35,34 @@ export function mountTransceiverInspector(root, connector, { commit, disabled = 
   summary.className = "field-hint"; summary.style.overflowWrap = "anywhere";
   const error = el("p"); error.className = "field-hint"; error.setAttribute("role", "alert"); error.hidden = true;
   root.replaceChildren(el("h4", "Transceiver"), summary, fields, error);
-  function applySelection() {
+  function resolveRestrictedOptic(field) {
+    if (!["interface", "rateChoice", "signalFamily", "fiberFamily", "arrangement", "wavelengthMode"].includes(field)) return;
+    const customAllowed = draft.signalFamily === "sdi" ? choices.opticalSdiFor[draft.interface]
+      : choices.fiberFamilies[draft.interface].includes(draft.fiberFamily);
+    if (customAllowed) return;
+    let matches = profilesFor(draft.interface).filter(({ capabilities }) => capabilities.signalFamily === draft.signalFamily
+      && capabilities.optical.fiberFamily === draft.fiberFamily
+      && draft.supportedRates.every(rate => capabilities.supportedRates.some(value => transceiverRateKey(value) === transceiverRateKey(rate))));
+    for (const key of ["arrangement", "wavelengthMode"]) {
+      const exact = matches.filter(({ capabilities }) => capabilities.optical[key] === draft[key]);
+      if (field === key || matches.length > 1 && exact.length) matches = exact;
+    }
+    if (matches.length !== 1) {
+      throw new Error(matches.length ? "More than one host-approved optic matches these settings." : "No host-approved optic matches these settings.");
+    }
+    draft = draftFromPreset(connector, matches[0].value);
+  }
+  function applySelection(field) {
     if (disabled) return;
     try {
       if (assemblyInterface(draft.interface) && !draft.assemblyProfile) return;
-      if (opticalInterface(draft.interface) && !draft.supportedRates.length) {
-        const rate = transceiverBandwidthChoices(connector, draft.signalFamily)[0];
-        if (!rate) throw new Error("No supported bandwidth is available for this cage.");
-        draft.supportedRates = [rate];
+      if (opticalInterface(draft.interface)) {
+        if (!draft.supportedRates.length) {
+          const rate = transceiverBandwidthChoices(connector, draft.signalFamily)[0];
+          if (!rate) throw new Error("No supported bandwidth is available for this cage.");
+          draft.supportedRates = [rate];
+        }
+        resolveRestrictedOptic(field);
       }
       if (transceiverDraftPatch(connector, draft)) commit(transceiverDraftConfiguration(draft));
     } catch (failure) {
@@ -49,7 +72,6 @@ export function mountTransceiverInspector(root, connector, { commit, disabled = 
   }
   function mark(field, value) {
     draft = editTransceiverDraft(draft, field, value);
-    if (field !== "preset" && presetControl?.isConnected) presetControl.value = "";
     error.hidden = true;
   }
   function append(control, label) {
@@ -67,7 +89,7 @@ export function mountTransceiverInspector(root, connector, { commit, disabled = 
     }
     control.addEventListener("change", () => {
       mark(key, control.value); callback?.(control.value);
-      applySelection();
+      applySelection(key);
     });
     append(control, label);
     return control;
@@ -85,7 +107,6 @@ export function mountTransceiverInspector(root, connector, { commit, disabled = 
   }
   function render() {
     fields.replaceChildren();
-    presetControl = null;
     const bandwidths = rateOptions();
     const rateControl = select("rateChoice", "Bandwidth", bandwidths.length ? bandwidths : [["__unavailable__", "No supported bandwidth"]], () => {
       if (draft.rateChoice.startsWith("__")) return;
@@ -103,7 +124,7 @@ export function mountTransceiverInspector(root, connector, { commit, disabled = 
     select("interface", "Installed interface", interfaces.map(value => [value, names[value]]), () => {
       const preferred = draft.rateChoice;
       const sdi = draft.interface === "bnc" || opticalInterface(draft.interface)
-        && !fiberFamiliesFor(draft.interface).length && choices.opticalSdiFor[draft.interface];
+        && !fiberFamiliesFor(draft.interface).length && opticalSdiFor(draft.interface);
       const signalFamily = sdi ? "sdi" : "ethernet";
       const rates = transceiverBandwidthChoices(connector, signalFamily);
       const selected = rates.find(rate => transceiverRateKey(rate) === transceiverRateKey(preferred));
@@ -120,23 +141,11 @@ export function mountTransceiverInspector(root, connector, { commit, disabled = 
         draft.assemblyProfile = profile?.value || "";
         draft.supportedRates = [...(profile?.capabilities.supportedRates || [])];
       }
-      // Hosts restricted to named modules still use the speed/interface workflow.
-      // Populate only an actually allowed profile, never relax host restrictions.
-      if (opticalInterface(draft.interface) && !(sdi ? choices.opticalSdiFor[draft.interface] : choices.fiberFamilies[draft.interface].length)) {
-        const allowed = profileAtRate(profilesFor(draft.interface), selected);
-        if (allowed) draft = draftFromPreset(connector, allowed.value);
-      }
       render();
     });
     if (opticalInterface(draft.interface)) {
-      const profiles = profilesFor(draft.interface).filter(profile => profile.value === draft.preset
-        || profile.capabilities.supportedRates?.some(rate => transceiverRateKey(rate) === transceiverRateKey(draft.rateChoice)));
-      if (profiles.length) presetControl = select("preset", "Optical profile", [["", "Custom"], ...profiles.map(p => [p.value, p.label])], value => {
-        if (value) draft = draftFromPreset(connector, value);
-        render();
-      });
       const families = fiberFamiliesFor(draft.interface);
-      if (choices.opticalSdiFor[draft.interface] && families.length) {
+      if (opticalSdiFor(draft.interface) && families.length) {
         select("signalFamily", "Signal family", [["ethernet", "Ethernet"], ["sdi", "Optical SDI"]], () => {
           if (draft.signalFamily === "sdi") {
             draft.fiberFamily = "single-mode"; draft.arrangement = "simplex"; draft.fiberGrade = "";
@@ -152,8 +161,7 @@ export function mountTransceiverInspector(root, connector, { commit, disabled = 
           draft.fiberGrade = ""; render();
         });
       }
-      select("fiberGrade", "Fibre grade", [["", "Unspecified"], ...(draft.fiberFamily === "single-mode"
-        ? [["os2", "OS2"]] : [["om3", "OM3"], ["om4", "OM4"], ["om5", "OM5"]])]);
+      select("fiberGrade", "Fibre grade", [["", "Unspecified"], ...mpoFibreGrades(draft.fiberFamily).map(grade => [grade, grade.toUpperCase()])]);
       if (draft.interface !== "mpo" && draft.signalFamily !== "sdi") {
         select("arrangement", "Fibre arrangement", [["simplex", "Simplex"], ["duplex", "Duplex"]], render);
       } else fields.append(el("p", draft.interface === "mpo" ? "Parallel" : choices.role === "input" ? "Simplex / Receive" : "Simplex / Transmit"));

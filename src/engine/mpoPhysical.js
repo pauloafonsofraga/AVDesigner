@@ -1,6 +1,6 @@
 // Physical MPO descriptions do not imply host breakout support or optical lanes.
 export const MPO_REFERENCE = "mating-face-key-up-left-to-right";
-export const MPO_CATEGORIES = ["os2", "om3", "om4"];
+export const MPO_CATEGORIES = ["os2", "om3", "om4", "om5"];
 export const MPO_MAPPING_TYPES = ["A", "B", "C"];
 const record = value => value !== null && typeof value === "object" && !Array.isArray(value);
 const known = value => value !== undefined && value !== null && value !== "";
@@ -153,7 +153,7 @@ export function mpoConnectorCheck(connector, physical, capabilities = {}) {
   const family = mpoFiberFamily(physical.fiberCategory);
   const declaredMode = capabilities.optical || connector?.fiberModeInferred ? "" : String(connector?.fiberMode || "").toLowerCase();
   const declaredFamily = /^(os[12]|single-mode)$/.test(declaredMode) ? "single-mode" : /^om[1-5]$/.test(declaredMode) ? "multimode" : "";
-  if (family && [declaredFamily, capabilities.optical?.fiberFamily].some(f => f && f !== family)) {
+  if (family && [declaredFamily, capabilities.optical?.fiberFamily, connector?.fiberCapability?.fiberFamily].some(f => f && f !== family)) {
     return reject("MPO fibre category contradicts the declared connector or transceiver fibre family.");
   }
   const optical = capabilities.optical || {};

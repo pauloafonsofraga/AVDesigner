@@ -7441,19 +7441,28 @@ class ProductionEngineBridge {
     this.scheduleRender();
   }
 
-  renderMpoHarnessPortInspector(panel, deviceId, connectorId) {
+  mpoHarnessPort(deviceId, connectorId) {
     const device = this.scene.getDevice(deviceId);
     const connector = this.scene.getConnector(deviceId, connectorId);
-    if (engineConnectorCompatibilityType(connector) !== "fiber-mpo" || connectorId === MPO_HARNESS_TRUNK) return;
-    const available = () => this.ready && layerEditable(this.scene.getDevice(deviceId))
-      && !this.scene.connectorWireIds(deviceId, connectorId).size
-      && !breakoutPortReserved(this.mutations.root, device.sourceId || deviceId, connectorId);
+    if (!device || engineConnectorCompatibilityType(connector) !== "fiber-mpo"
+      || device.visual?.isMpoHarness && connectorId === MPO_HARNESS_TRUNK) return null;
+    const blocked = !this.ready || !this.mutations ? "The project must finish loading before a harness can be attached."
+      : !layerEditable(device) ? "Unlock the device layer to attach a harness."
+      : this.scene.connectorWireIds(deviceId, connectorId).size || breakoutPortReserved(this.mutations.root, device.sourceId || deviceId, connectorId)
+        ? "Disconnect the existing cable or breakout before attaching a harness." : "";
+    return { connector, blocked };
+  }
+
+  renderMpoHarnessPortInspector(panel, deviceId, connectorId) {
+    const port = this.mpoHarnessPort(deviceId, connectorId);
+    if (!port) return;
+    const { connector, blocked } = port;
     const physical = mpoPhysicalForConnector(connector, installedModuleDetailsForEngine(connector).capabilities, isEngineCageConnector(connector));
-    const family = engineFiberModeFamily(physical?.fiberCategory || engineDeclaredConnectorFiberMode(connector));
+    const mode = physical?.fiberCategory || engineDeclaredConnectorFiberMode(connector);
+    const family = engineFiberModeFamily(mode) || connector.fiberCapability?.fiberFamily;
     const grades = MPO_HARNESS_GRADES.filter(grade => {
       return !family || (grade === "os2" ? "single-mode" : "multimode") === family;
     });
-    if (!grades.length) return;
     const section = document.createElement("section");
     section.className = "connector-inspector-section";
     section.innerHTML = `<h4 class="connector-inspector-heading">MPO Breakout</h4>
@@ -7465,28 +7474,24 @@ class ProductionEngineBridge {
     const grade = section.querySelector("[data-mpo-harness-grade]");
     const harness = section.querySelector('[aria-label="Harness"]');
     const button = section.querySelector("button");
-    button.disabled = !available();
+    if (grades.includes(mode)) grade.value = mode;
+    button.disabled = Boolean(blocked) || !grades.length;
     if (button.disabled) {
       grade.disabled = harness.disabled = true;
       const hint = document.createElement("p");
       hint.className = "field-hint";
-      hint.textContent = !layerEditable(device) ? "Unlock the device layer to attach a harness."
-        : this.ready ? "Disconnect the existing cable or breakout before attaching a harness."
-          : "The project must finish loading before a harness can be attached.";
+      hint.textContent = blocked || "No harness grade matches this port's fibre category.";
       section.append(hint);
     }
-    button.onclick = () => {
-      if (available()) this.attachMpoHarness(deviceId, connectorId, grade.value, harness.value);
-    };
+    button.onclick = () => this.attachMpoHarness(deviceId, connectorId, grade.value, harness.value);
     panel.append(section);
   }
 
   attachMpoHarness(deviceId, connectorId, grade, preset) {
+    const sourcePort = this.mpoHarnessPort(deviceId, connectorId);
+    if (!sourcePort || sourcePort.blocked || !MPO_HARNESS_GRADES.includes(grade) || !mpoHarnessPreset(preset)) return false;
     const source = hitForSceneWireEndpoint(this.scene, { fromDeviceId: deviceId, fromConnectorId: connectorId }, "from");
-    if (!source || !this.ready || !layerEditable(source.device)
-      || engineConnectorCompatibilityType(source.connector) !== "fiber-mpo" || connectorId === MPO_HARNESS_TRUNK
-      || !MPO_HARNESS_GRADES.includes(grade) || !mpoHarnessPreset(preset) || this.scene.connectorWireIds(deviceId, connectorId).size
-      || breakoutPortReserved(this.mutations.root, source.device.sourceId || deviceId, connectorId)) return false;
+    if (!source) return false;
     const id = `mpo-harness-${crypto.randomUUID()}`;
     const left = source.point.x < source.device.x + source.device.width / 2;
     const x = left ? source.device.x - LEGACY_ADAPTER_WIDTH - 140 : source.device.x + source.device.width + 140;
@@ -13290,9 +13295,11 @@ function sanitizeConnectorInspectorFields(fields = {}) {
 
 function normalizeConnectorInspectorPatch(connector, fields = {}, { installModule = true } = {}) {
   let patch = sanitizeConnectorInspectorFields(fields);
-  if (Object.keys(fields).length === 1 && fields.mpoPhysical !== undefined) {
-    const check = mpoConnectorCheck(connector, patch.mpoPhysical);
+  if (fields.mpoPhysical !== undefined) {
+    const merged = { ...connector, ...patch, ...(fields.fiberMode !== undefined ? { fiberModeInferred: false } : {}) };
+    const check = mpoConnectorCheck(merged, patch.mpoPhysical);
     if (installModule && !check.valid) throw new Error(check.reason);
+    if (fields.fiberMode !== undefined) patch.color = engineConnectorColor(merged);
     return patch;
   }
   if (installModule && fields.transceiverConfiguration !== undefined) {
@@ -13303,10 +13310,6 @@ function normalizeConnectorInspectorPatch(connector, fields = {}, { installModul
   }
   if (fields.fiberMode !== undefined) patch.fiberMode = String(fields.fiberMode || ENGINE_DEFAULT_FIBER_MODE);
   const merged = { ...connector, ...patch };
-  if (installModule && fields.mpoPhysical !== undefined) {
-    const check = mpoConnectorCheck(merged, merged.mpoPhysical);
-    if (!check.valid) throw new Error(check.reason);
-  }
   const moduleDetails = installedModuleDetailsForEngine(merged);
   const effectiveType = effectiveConnectorTypeForEngine(merged);
   patch.effectiveType = effectiveType || "";
@@ -13356,7 +13359,8 @@ function captureConnectorInspectorFields(connector, requestedFields = {}) {
     else if (key === "mpoPhysical" || key === "fiberCapability") fields[key] = connector[key] === undefined ? null : deepClone(connector[key]);
     else if (["installedModule", "module", "transceiverModule", "moduleCapabilities", "cageCapabilities"].includes(key)) {
       fields[key] = connector[key] ? deepClone(connector[key]) : null;
-    } else fields[key] = connector[key] ?? "";
+    } else if (key === "fiberMode" && requestedFields.mpoPhysical !== undefined && connector.fiberModeInferred) fields[key] = "";
+    else fields[key] = connector[key] ?? "";
   });
   return { connectorId: connector.id, fields };
 }

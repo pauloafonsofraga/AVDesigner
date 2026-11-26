@@ -2,6 +2,12 @@
 
 ## Simplified optical configuration
 
+All SFP and QSFP cages use **Bandwidth**, **Installed interface**, and the
+applicable fibre properties. There is no Optical profile picker. Saved
+standard modules keep their identity and display name. On a host that permits
+only named modules, the Inspector installs an approved optic only when the
+selected properties uniquely identify one.
+
 The Inspector now gives optical modules only a descriptive **Wavelength Mode**:
 Single Wavelength, Multiple Wavelengths, or Unspecified. Historical numerical
 fields are retained when reopening projects, and compatible edits retain them

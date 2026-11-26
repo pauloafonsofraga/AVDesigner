@@ -279,6 +279,7 @@ export function engineConnectorCompatibilityType(connector) {
   // A cage's installed module, not its scoped storage identity, determines
   // electrical compatibility. An empty cage remains disconnected.
   if (isEngineCageConnector(connector)) return effectiveConnectorTypeForEngine(connector);
+  if (connector.physicalType === "fiber-mpo" || connector.connectorType === "fiber-mpo") return "fiber-mpo";
   const value = String(connector.compatibilityType || "").trim() || effectiveConnectorTypeForEngine(connector);
   return ENGINE_CONNECTOR_COMPATIBILITY_ALIASES.get(value.toLowerCase()) || value;
 }
@@ -487,6 +488,7 @@ export function engineConnectorFiberMode(connector) {
   const declared = engineDeclaredConnectorFiberMode(connector);
   if (declared) return declared;
   const activeType = engineConnectorCompatibilityType(connector);
+  if (activeType === "fiber-mpo" && connector.fiberCapability?.fiberFamily === "multimode") return "om4";
   return isEngineFiberCableType(activeType) ? ENGINE_DEFAULT_FIBER_MODE : "";
 }
 
@@ -562,7 +564,7 @@ export function engineConnectorColor(connector, nodeColorByType = new Map()) {
   const rawType = connectorType(connector);
   const activeType = effectiveConnectorTypeForEngine(connector) || rawType;
   const compatibilityType = engineConnectorCompatibilityType(connector) || activeType;
-  if (isEngineFiberCableType(activeType)) return engineFiberModeColor(engineConnectorFiberMode(connector));
+  if (isEngineFiberCableType(activeType) || compatibilityType === "fiber-mpo") return engineFiberModeColor(engineConnectorFiberMode(connector));
   if (activeType === "misc" && connector.customColor) return String(connector.customColor).trim();
   return nodeColorByType.get(activeType)
     || ENGINE_CONNECTOR_TYPE_COLORS.get(activeType)
@@ -789,7 +791,8 @@ function engineFiberFamiliesForLink(source, target) {
     return [source, target].map(port => {
       const caps = resolveInstalledModule(port).capabilities;
       const physical = mpoPhysicalForConnector(port, caps, isTransceiverCage(port));
-      return mpoFiberFamily(physical?.fiberCategory) || engineFiberModeFamily(engineDeclaredConnectorFiberMode(port)) || caps.optical?.fiberFamily || "";
+      return mpoFiberFamily(physical?.fiberCategory) || engineFiberModeFamily(engineDeclaredConnectorFiberMode(port))
+        || port.fiberCapability?.fiberFamily || caps.optical?.fiberFamily || "";
     });
   }
   const detailed = [source, target].some(port =>

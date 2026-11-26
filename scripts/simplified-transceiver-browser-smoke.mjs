@@ -29,7 +29,9 @@ try {
   project.connections = [project.connections[2]];
   for (const device of project.devices) {
     const [standard, custom, occupied, sdi] = device.templateOverride.connectors;
-    Object.assign(standard, { type: "sfp-plus-cage", cageCapabilities: { supportedModuleTypes: ["10gbase-sr"] } });
+    Object.assign(standard, { type: "sfp-plus-cage", cageCapabilities: {
+      supportedModuleTypes: device.instanceId === "source" ? ["10gbase-sr"] : ["10gbase-sr", "10gbase-lr"]
+    } });
     custom.type = "qsfp-cage";
     if (device.instanceId === "source") custom.cageCapabilities = { supportedFormFactors: ["qsfp28"] };
     Object.assign(sdi, { type: device.instanceId === "sink" ? "sfp28-cage" : "sfp-plus-cage" });
@@ -66,6 +68,8 @@ try {
   assert.equal(await panel.getByRole("button", { name: "Apply Transceiver" }).count(), 0);
   let result = await status("port-0");
   assert.equal(result.module, "10gbase-sr");
+  assert.equal(await field("Optical profile").count(), 0);
+  assert.match(await panel.innerText(), /Installed: 10GBASE-SR/);
   assert.equal(result.caps.optical.arrangement, "duplex");
   assert.deepEqual([result.id, result.type, result.anchors, result.host], [before.id, before.type, before.anchors, before.host]);
   await page.locator("#undoAction").click();
@@ -73,11 +77,29 @@ try {
   await page.locator("#redoAction").click();
   assert.equal((await status("port-0")).module, "10gbase-sr");
 
+  await select("port-0", "sink");
+  await field("Installed interface").selectOption("lc");
+  assert.equal((await status("port-0", "sink")).module, "10gbase-lr");
+  await field("Fibre category").selectOption("multimode");
+  assert.equal((await status("port-0", "sink")).module, "10gbase-sr");
+  await field("Wavelength Mode").selectOption("wdm");
+  assert.match(await panel.getByRole("alert").innerText(), /No host-approved optic/);
+  assert.equal((await status("port-0", "sink")).module, "10gbase-sr");
+
+  await select("port-3");
+  await field("Installed interface").selectOption("lc");
+  for (const rate of ["1G", "2.5G", "5G", "10G"]) {
+    await field("Bandwidth").selectOption(rate);
+    assert.equal(await field("Optical profile").count(), 0);
+    assert.deepEqual((await status("port-3")).caps.supportedRates, [rate]);
+  }
+  await field("Installed interface").selectOption("empty");
+
   await select("port-1", "sink");
   const optionValues = name => field(name).locator("option").evaluateAll(options => options.map(o => o.value));
   assert.deepEqual(await optionValues("Bandwidth"), ["40G", "50G"]);
   await field("Installed interface").selectOption("lc");
-  assert(!(await optionValues("Optical profile")).includes("100gbase-lr4"));
+  assert.equal(await field("Optical profile").count(), 0);
   for (const kind of ["dac", "aoc"]) {
     await field("Installed interface").selectOption(kind);
     assert(!(await optionValues("Cable assembly")).includes(kind + "-qsfp28"));
@@ -190,15 +212,16 @@ try {
   await draftField("Bandwidth").selectOption("100G");
   await page.evaluate(() => window.__transceiverPreviewLabels.clear());
   await draftField("Installed interface").selectOption("lc");
-  await draftField("Optical profile").selectOption("100gbase-lr4");
+  assert.equal(await draftField("Optical profile").count(), 0);
+  await draftField("Wavelength Mode").selectOption("wdm");
   await page.waitForFunction(() => window.__transceiverPreviewLabels.has("QSFP28 Cage"));
   assert.equal(await page.evaluate(() => window.__transceiverPreviewLabels.has("Installed Module")), false);
-  assert.equal(await page.evaluate(() => currentEditorTemplate().connectors.at(-1).installedModuleType), "100gbase-lr4");
+  assert.equal(await page.evaluate(() => currentEditorTemplate().connectors.at(-1).installedModuleType), "lc-singlemode");
   await draftField("Fibre grade").selectOption("os2");
   const draftPort = await page.evaluate(() => currentEditorTemplate().connectors.at(-1));
   assert.equal(draftPort.installedModuleType, "lc-singlemode");
   assert.equal(draftPort.moduleCapabilities.optical.wavelengthMode, "wdm");
-  assert.deepEqual(draftPort.moduleCapabilities.optical.txNm, [1295, 1300, 1304, 1309]);
+  assert.equal(draftPort.moduleCapabilities.optical.txNm, undefined);
   assert.deepEqual([draftPort.id, draftPort.x, draftPort.y], [originalPort.id, originalPort.x, originalPort.y]);
 
   await page.evaluate(() => {
@@ -232,11 +255,28 @@ try {
   assert.equal(installed.type, "qsfp-cage");
   assert.deepEqual(installed.cageCapabilities.supportedFormFactors, ["qsfp28"]);
   assert.equal(await page.evaluate(() => currentEditorTemplate().connectors.at(-1).installedModuleType), "lc-singlemode");
+  await page.locator("#addInputNode").click();
+  const mpoSlot = await page.evaluate(() => currentEditorTemplate().connectors.at(-1).id);
+  await page.locator("#editorZoomReset").click();
+  await page.waitForFunction(() => !editorPlacementMotionState?.entries?.size && !editorEnginePreviewFitPending);
+  await page.locator("#nodePaletteSearch").fill("mpo");
+  await page.locator('#nodePalette [data-node-type="fiber-mpo"]').dragTo(
+    page.locator(`#deviceEditorPreviewHost [data-editor-node-id="${mpoSlot}"] .editor-slot-shape`).first());
+  const fixedMpo = page.locator('[data-mpo-editor="device"]');
+  await fixedMpo.getByLabel("Fibre category").selectOption("multimode");
+  await fixedMpo.getByLabel("Fibre grade").selectOption("om4");
+  await fixedMpo.getByLabel("MPO Format").selectOption("mpo-12");
+  await fixedMpo.getByLabel("Wavelength Mode").selectOption("wdm");
+  await fixedMpo.getByRole("button", { name: "Apply MPO Properties" }).click();
   const authoredId = await page.evaluate(() => currentEditorTemplate().id);
   await page.locator("#applyDeviceEditor").click();
   await page.waitForFunction(id => localUserSettingsOwner?.entry(id)?.definition, authoredId);
   const savedDefault = await page.evaluate(id => localUserSettingsOwner.entry(id).definition, authoredId);
-  assert.equal(savedDefault.connectors.at(-1).moduleCapabilities.optical.wavelengthMode, "wdm");
+  assert.equal(savedDefault.connectors.find(p => p.id === originalPort.id).moduleCapabilities.optical.wavelengthMode, "wdm");
+  const savedMpo = savedDefault.connectors.find(p => p.id === mpoSlot);
+  assert.equal(savedMpo.mpoPhysical.fiberCategory, "om4");
+  assert.equal(savedMpo.mpoPhysical.format, "mpo-12");
+  assert.equal(savedMpo.fiberCapability.wavelengthMode, "wdm");
   assert.equal(savedDefault.cardTypes[0].connectors[0].installedModuleType, "st-singlemode");
   assert.equal(savedDefault.cardSlots.find(slot => slot.id === slotId).connectorOverrides["card-optic"].installedModuleType, installed.installedModuleType);
   assert.deepEqual(failures, []);

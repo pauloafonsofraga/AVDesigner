@@ -21,7 +21,8 @@ export function isWdmCable(scene, wire) {
   if (!ends.every(end => end.connector && end.device)) return false;
   const physical = physicalOpticalCableEnds(scene, wire, ends);
   if (!physical.some(({ connector }) => isTransceiverCage(connector)
-    && opticalWavelengthMode(resolveInstalledModule(connector).capabilities.optical) === "wdm")) return false;
+    ? opticalWavelengthMode(resolveInstalledModule(connector).capabilities.optical) === "wdm"
+    : wire.cableType === "fiber-mpo" && connector.fiberCapability?.wavelengthMode === "wdm")) return false;
   if (scene?.savedWireStatuses?.get(wire.sourceId || wire.id)?.status === "incompatible"
     || !physical.every(({connector}) => engineConnectorCompatibilityType(connector) === wire.cableType)
     || physical.length === 2 && !engineCompatibilitySummary(...physical).valid) return false;

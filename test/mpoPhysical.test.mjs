@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { MPO_REFERENCE, mpoPositionMappingPreset, validateMpoPhysical, validateMpoPositionMapping,
   mpoMatingValidation } from "../src/engine/mpoPhysical.js";
-import { engineCompatibilitySummary, engineConnectorColor } from "../src/engine/connectorCompatibility.js";
+import { engineCompatibilitySummary, engineConnectorColor, engineConnectorCompatibilityType, engineDeclaredConnectorFiberMode } from "../src/engine/connectorCompatibility.js";
+import { isStandaloneMpo, standaloneMpoFibre, standaloneMpoPatch } from "../src/engine/standaloneConnectors.js";
 import { transceiverConfigurationPatch } from "../src/engine/transceiverConfiguration.js";
 import { transceiverModulePatch } from "../src/engine/transceiverModules.js";
 import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
@@ -19,6 +20,31 @@ export const physical = (overrides = {}) => ({ schemaVersion: 1, format: "mpo-12
   populatedPositions: Array.from({ length: 12 }, (_, i) => i + 1), activePositions: [1, 2, 3, 4, 9, 10, 11, 12], ...overrides });
 const port = data => ({ id: "p", type: "fiber-mpo", direction: "bidirectional", ...data });
 const compare = (a, b) => engineCompatibilitySummary({ device: { id: "a" }, connector: a }, { device: { id: "b" }, connector: b });
+
+test("standalone MPO uses its canonical physical identity and can change family without stale legacy fibre modes", () => {
+  const original = port({ id: "mpo-trunk", type: "personal-mpo", physicalType: "fiber-mpo", fiberMode: "single-mode",
+    mpoPhysical: physical({ fiberCategory: "os2", positionMapping: mpoPositionMappingPreset("B") }) });
+  assert.equal(engineConnectorCompatibilityType(original), "fiber-mpo");
+  assert.equal(isStandaloneMpo(original), true);
+  assert.deepEqual(standaloneMpoFibre(original), { family: "single-mode", grade: "os2", wavelengthMode: "" });
+  const patch = standaloneMpoPatch(original, original.mpoPhysical, { family: "multimode", grade: "om5", wavelengthMode: "wdm" },
+    { fibreChanged: true, wavelengthChanged: true });
+  const updated = { ...original, ...patch };
+  assert.equal(patch.fiberMode, "om5");
+  assert.equal(engineDeclaredConnectorFiberMode(updated), "om5");
+  assert.equal(engineConnectorColor(updated), "#66FF33");
+  assert.equal(updated.installedModuleType, undefined);
+  assert.deepEqual(updated.mpoPhysical.positionMapping, original.mpoPhysical.positionMapping);
+  assert.equal(updated.mpoPhysical.termination, "receptacle");
+  assert.equal(compare(updated, original).compatibilityStatus, "incompatible");
+  assert.equal(compare(updated, port({ mpoPhysical: physical() })).valid, true);
+  assert.equal(standaloneMpoFibre(updated).wavelengthMode, "wdm");
+  const ungraded = { ...original, ...standaloneMpoPatch(original, original.mpoPhysical, { family: "multimode", grade: "" },
+    { fibreChanged: true }) };
+  assert.equal(engineDeclaredConnectorFiberMode(ungraded), "", "display colour does not declare a grade");
+  assert.equal(compare(ungraded, original).compatibilityStatus, "incompatible");
+  assert.equal(original.mpoPhysical.fiberCategory, "os2");
+});
 
 test("MPO-12 preserves explicit populated/active positions and rejects contradictions", () => {
   assert.equal(validateMpoPhysical(physical()).valid, true);

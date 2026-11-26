@@ -13,6 +13,7 @@ try {
   await page.route("**/*", route => new URL(route.request().url()).origin === base ? route.continue() : route.abort());
   await page.route("**/account-config.json", route => route.fulfill({ json: { configured: false } }));
   await page.goto(base); await page.evaluate(() => wireNexusReady);
+  const sourcePort = "mpo-trunk"; // Ordinary ports may use the same local ID as a harness.
   const device = (id, type, direction, x, y) => {
     const name = id, width = 230, height = 220;
     return { instanceId: id, name, x, y, templateOverride: { id, name, width, height, connectors: [{
@@ -23,7 +24,7 @@ try {
   };
   const load = async (name, buffer) => {
     await page.locator("#fileInput").setInputFiles({ name, mimeType: "application/json", buffer });
-    await page.waitForFunction(name => projectFileName === name && activeEngineBridge()?.scene.getConnector("source", "port"), name);
+    await page.waitForFunction(([name, port]) => projectFileName === name && activeEngineBridge()?.scene.getConnector("source", port), [name, sourcePort]);
     await page.locator("#zoomFit").click();
   };
   const fixture = { devices: [
@@ -31,6 +32,7 @@ try {
     device("lc-dest-b", "fiber-lc", "input", 920, 390), device("generic-sfp", "sfp-cage", "output", 0, 400),
     device("qsfp-host", "qsfp-cage", "input", 420, 500)
   ], connections: [] };
+  fixture.devices[0].templateOverride.connectors[0].id = sourcePort;
   await load("harness.avd", Buffer.from(JSON.stringify(fixture)));
   const point = (id, cid = "port") => page.evaluate(([id, cid]) => {
     const b = activeEngineBridge(), d = b.scene.getDevice(id), c = b.scene.getConnector(id, cid);
@@ -52,21 +54,41 @@ try {
   }
   await page.locator("#undoAction").click(); assert.equal(await module("generic-sfp"), "sc-singlemode");
   await page.locator("#redoAction").click(); assert.equal(await module("generic-sfp"), "st-singlemode");
-  await inspect("source");
+  await inspect("source", sourcePort);
   const fixed = page.locator("[data-fixed-mpo]");
   const attach = page.getByRole("button", { name: "Attach MPO Breakout" });
   await page.locator("#inspectorBody").evaluate(element => { element.scrollTop = 0; });
   await attach.waitFor({state: "visible"});
   const top = await attach.boundingBox(), area = await page.locator("#inspectorBody").boundingBox();
   assert(top.y + top.height <= area.y + area.height, "Attach is visible without scrolling");
+  const sourcePoint = await point("source", sourcePort);
+  await page.mouse.click(sourcePoint.x, sourcePoint.y, { button: "right" });
+  await page.getByRole("button", { name: "MPO Breakout...", exact: true }).click();
+  assert(await attach.evaluate(button => button === document.activeElement));
   const fixedMpoFormat = fixed.getByLabel("MPO Format");
   assert(await fixedMpoFormat.isVisible(), "Format is shown while advanced properties are collapsed");
   await fixedMpoFormat.selectOption("mpo-12");
+  assert.equal(await fixed.getByLabel("Fibre category").inputValue(), "multimode");
+  await fixed.getByLabel("Fibre category").selectOption("single-mode");
+  assert.deepEqual(await fixed.getByLabel("Fibre grade").locator("option").evaluateAll(items => items.map(o => o.value)), ["", "os2"]);
+  await fixed.getByLabel("Fibre grade").selectOption("os2");
+  await fixed.getByRole("button", { name: "Apply MPO Properties" }).click();
+  assert.equal(await page.getByLabel("Harness fibre grade").inputValue(), "os2");
+  await page.locator("#undoAction").click();
+  await inspect("source", sourcePort);
+  assert.equal(await fixed.getByLabel("Fibre category").inputValue(), "multimode");
+  await page.locator("#redoAction").click();
+  await inspect("source", sourcePort);
+  assert.equal(await fixed.getByLabel("Fibre category").inputValue(), "single-mode");
+  await fixed.getByLabel("Fibre category").selectOption("multimode");
+  await fixed.getByLabel("Fibre grade").selectOption("om4");
+  await fixed.getByLabel("Wavelength Mode").selectOption("wdm");
   await fixed.getByRole("button", { name: "Apply MPO Properties" }).click();
   await fixed.getByText("MPO physical properties", { exact: true }).click();
   assert.equal(await fixed.getByLabel("MPO termination").count(), 0);
   assert.equal(await fixed.getByLabel(/numbering reference/i).count(), 0);
-  await page.getByLabel("Harness fibre grade").selectOption("om4");
+  assert.equal(await fixed.getByLabel("Cable mapping preset").count(), 0);
+  assert.equal(await page.getByLabel("Harness fibre grade").inputValue(), "om4");
   await page.getByRole("button", { name: "Attach MPO Breakout" }).click();
   const lengths = page.getByLabel("Harness length");
   await lengths.waitFor();
@@ -77,13 +99,21 @@ try {
   const created = await saved(), id = created.harness.instanceId;
   assert.equal(created.wires.length, 1);
   assert.equal(created.wires[0].to.connectorId, "mpo-trunk");
-  await inspect("source");
+  assert.equal(created.wires[0].from.connectorId, sourcePort);
+  assert.equal(await page.evaluate(async id => {
+    const { isWdmCable } = await import("./src/engine/wdmCableStyle.js");
+    const { scene } = activeEngineBridge();
+    return isWdmCable(scene, scene.getWire(id));
+  }, created.wires[0].id), true);
+  await inspect("source", sourcePort);
   assert(await attach.isDisabled());
   assert(await page.getByText("Disconnect the existing cable or breakout before attaching a harness.").isVisible());
   await page.locator("#undoAction").click(); assert.equal((await saved()).harness, undefined);
   await page.locator("#redoAction").click(); assert.equal((await saved()).harness.instanceId, id);
   await lengths.fill("5 m"); await lengths.blur();
   await page.locator("#zoomFit").click();
+  await inspect(id, "mpo-trunk");
+  assert.equal(await attach.count(), 0, "the actual harness trunk cannot generate another harness");
   for (const [branch, dest, count] of [["lc-4", "lc-dest-b", 2], ["lc-2", "lc-dest-a", 3]]) {
     const from = await point(id, branch), to = await point(dest);
     await page.mouse.move(from.x, from.y); await page.mouse.down();
@@ -111,6 +141,9 @@ try {
   assert.deepEqual(reopened.harness.templateOverride.mpoHarness, complete.harness.templateOverride.mpoHarness);
   assert.deepEqual(reopened.wires.map(w => [w.id, w.from, w.to]), complete.wires.map(w => [w.id, w.from, w.to]));
   assert.equal((await schedule())[0].length, "5 m");
+  await inspect("source", sourcePort);
+  assert.equal(await fixed.getByLabel("Fibre grade").inputValue(), "om4");
+  assert.equal(await fixed.getByLabel("Wavelength Mode").inputValue(), "wdm");
   await inspect("qsfp-host");
   await panel.getByLabel("Installed interface").selectOption("mpo");
   await panel.getByLabel("Fibre category", { exact: true }).selectOption("multimode");
@@ -147,7 +180,7 @@ try {
     await page.screenshot({ path: process.env.AVDESIGNER_MPO_SCREENSHOT });
   }
   assert.deepEqual(errors, []);
-  console.log("Chrome passed: SC/ST auto-apply, slim MPO fields, standalone and QSFP attachment, independent LC branches, one schedule row, undo/redo and AVD reopen.");
+  console.log("Chrome passed: standalone MPO properties, right-click shortcut, attachment on both port types, WDM, independent LC branches, schedule, undo/redo and AVD reopen.");
 } finally {
   await browser.close();
 }
