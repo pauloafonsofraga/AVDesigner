@@ -1297,7 +1297,7 @@ function normalizeProjectWire(wire, index, context) {
   const cableType = metadata.cableType;
   const fiberMode = metadata.fiberMode;
   const routing = projectWireRouting(wire, context.wireMode);
-  const routePoints = normalizeRoutePoints(routing.routePoints);
+  const routePoints = normalizeRoutePoints(routing.routePoints, routing.routeStyle === "orthogonal");
   const fromFallback = Boolean(from.deviceId && !from.usesRealConnector);
   const toFallback = Boolean(to.deviceId && !to.usesRealConnector);
   return {
@@ -1645,10 +1645,10 @@ function endpointExists(endpoint, context) {
   return connectorIds ? connectorIds.has(connectorId) : false;
 }
 
-function normalizeRoutePoints(points) {
+function normalizeRoutePoints(points, keepIds = false) {
   return Array.isArray(points)
     ? points
-      .map(point => ({ x: Number(point.x), y: Number(point.y) }))
+      .map(point => ({ ...(keepIds && point.id ? { id: point.id } : {}), x: Number(point.x), y: Number(point.y) }))
       .filter(point => Number.isFinite(point.x) && Number.isFinite(point.y))
     : [];
 }

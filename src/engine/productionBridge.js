@@ -84,6 +84,7 @@ import {
   createOrthogonalRouteModel,
   orthogonalWirePoints,
   orthogonalRouteDiagnostics,
+  sameOrthogonalRouteGeometry,
   ORTHOGONAL_WIRE_SNAP_STEPS,
   ORTHOGONAL_WIRE_SPACING,
 } from "./orthogonalRouting.js";
@@ -2922,11 +2923,15 @@ class ProductionEngineBridge {
     if (this.wireSegmentDrag) {
       const start = performance.now();
       const world = screenToWorld(this.camera, point);
+      const drag = this.wireSegmentDrag;
       const delta = this.wireSegmentDrag.orientation === "h"
         ? world.y - this.wireSegmentDrag.startWorld.y
         : world.x - this.wireSegmentDrag.startWorld.x;
       const proposedFixed = this.wireSegmentDrag.originalFixed + delta;
-      const snap = this.scene.snapOrthogonalSegment(
+      const wire = this.scene.getWire(drag.wireId);
+      const atStart = Math.round(proposedFixed) === drag.originalFixed && this.scene.isOrdinaryOrthogonalWire?.(wire);
+      if (atStart && !drag.moved) return;
+      const snap = atStart ? null : this.scene.snapOrthogonalSegment(
         this.wireSegmentDrag.wireId,
         this.wireSegmentDrag.segmentIndex,
         proposedFixed,
@@ -2938,7 +2943,7 @@ class ProductionEngineBridge {
           endpointTargets: this.wireSegmentDrag.endpointTargets,
         }
       );
-      const moved = this.scene.moveOrthogonalSegment(
+      const moved = snap && this.scene.moveOrthogonalSegment(
         this.wireSegmentDrag.wireId,
         this.wireSegmentDrag.segmentIndex,
         snap.value,
@@ -2947,6 +2952,13 @@ class ProductionEngineBridge {
           sourceRoutePoints: this.wireSegmentDrag.beforePoints,
         }
       );
+      if (atStart) {
+        wire.routePoints = drag.beforePoints;
+        drag.moved = false;
+        drag.currentFixed = drag.originalFixed;
+        drag.lastSnap = null;
+        drag.endpointClearance = null;
+      }
       if (moved?.moved) {
         this.wireSegmentDrag.moved = true;
         this.wireSegmentDrag.currentFixed = moved.fixed;
@@ -3172,10 +3184,17 @@ class ProductionEngineBridge {
     }
     if (this.wireSegmentDrag) {
       const commitStart = performance.now();
-      const { wireId, beforePoints, beforeRouteState, moved, lastSnap } = this.wireSegmentDrag;
-      if (moved) {
+      const { wireId, segmentIndex, beforePoints, beforeRouteState, moved, lastSnap } = this.wireSegmentDrag;
+      const wire = this.scene.getWire(wireId);
+      const unchanged = moved && this.scene.isOrdinaryOrthogonalWire?.(wire) &&
+        sameOrthogonalRouteGeometry(this.scene.wirePoints({ ...wire, routePoints: beforePoints }), this.scene.wirePoints(wire));
+      if (unchanged) {
+        wire.routePoints = beforePoints;
+        this.scene.refreshWireIndexes([wireId]);
+        this.renderer.updateDirty(this.scene, { wireIds: [wireId] });
+      } else if (moved) {
         const cleanup = lastSnap?.snapped
-          ? this.scene.finalizeSnappedOrthogonalSegment(wireId, { refreshIndexes: false })
+          ? this.scene.finalizeSnappedOrthogonalSegment(wireId, { refreshIndexes: false, segmentIndex })
           : { changed: false, removed: 0 };
         this.scene.refreshWireIndexes([wireId]);
         const afterPoints = cloneRoutePoints(this.scene.getWire(wireId)?.routePoints || []);
@@ -5086,7 +5105,8 @@ class ProductionEngineBridge {
         target.device.id,
         target.connector?.id || "",
         target.anchorId || target.anchor?.id || "",
-        target.rackPresentation || null
+        target.rackPresentation || null,
+        { repairRoute: !state.loomId }
       );
     if (!updated) {
       this.finishWireInteraction({ restoreSelection: true, reason: "wire-rewire-failed" });
@@ -5121,7 +5141,10 @@ class ProductionEngineBridge {
     if (isIntegratedCableType(updated.cableType) && updated.cableAssembly && compatibility.valid) {
       updated.cableAssembly = compatibility.cableAssembly || { ...updated.cableAssembly, warnings: compatibility.warnings };
     }
-    const mutationMs = this.mutations?.commitRewiredWire(this.scene, updated.id) || 0;
+    const routeChanged = !state.loomId && this.scene.isOrdinaryOrthogonalWire?.(beforeWire) &&
+      this.scene.isOrdinaryOrthogonalWire?.(updated) &&
+      !wireRouteStatesEqual(wireRouteState(beforeWire), wireRouteState(updated));
+    const mutationMs = this.mutations?.commitRewiredWire(this.scene, updated.id, null, { routeChanged }) || 0;
     if (beforeWire.loomId || updated.loomId || state.loomId) this.refreshLoomComposition();
     const afterWire = cloneWire(updated);
     const afterConnection = this.mutations?.connectionDataForWire(updated.sourceId || updated.id);
@@ -5811,6 +5834,11 @@ class ProductionEngineBridge {
     const wireTargetValid = this.wireCreate?.target ? compatibility.valid && !rejectionReason : false;
     const tempTo = this.wireCreate?.gatewayHover?.point || this.wireCreate?.target?.point || this.wireCreate?.pointerWorld;
     const rewire = this.wireCreate?.rewire;
+    const target = this.wireCreate?.target;
+    const repaired = rewire && target && !this.wireCreate.loomId && !this.wireCreate.gatewayHover
+      ? this.scene.previewOrthogonalRewire?.(rewire.originalWire, rewire.detachedSide, target.device.id,
+        target.connector?.id || "", target.anchorId || target.anchor?.id || "", target.rackPresentation || null)
+      : null;
     const previewFrom = rewire?.loomTail ? rewire.loomTail.gatewayPoint
       : rewire?.detachedSide === "from" ? tempTo
       : this.wireCreate?.loomExitPoint || this.wireCreate?.from?.point;
@@ -5819,17 +5847,17 @@ class ProductionEngineBridge {
     const exitDirection = hit => this.scene.connectorExitDirection?.(hit?.device, hit?.connector, hit?.anchorId);
     const fixedDirection = this.wireCreate?.loomExitPoint || rewire?.loomTail ? null : exitDirection(this.wireCreate?.from);
     const targetDirection = this.wireCreate?.gatewayHover ? null : exitDirection(this.wireCreate?.target);
-    const tempRoute = this.wireCreate
+    const tempRoute = repaired || (this.wireCreate
       ? rewire
         ? rewire.loomTail
           ? this.wireRouteForEndpoints(previewFrom, previewTo, this.wireCreate)
           : rewirePreviewRoute(rewire.originalWire, previewFrom, previewTo, rewire.detachedSide)
         : this.wireRouteForEndpoints(previewFrom, previewTo)
-      : null;
+      : null);
     const tempWire = this.wireCreate
       ? {
-        from: previewFrom,
-        to: previewTo,
+        from: repaired?.from || previewFrom,
+        to: repaired?.to || previewTo,
         fromDirection: !rewire?.loomTail && rewire?.detachedSide === "from" ? targetDirection : fixedDirection,
         toDirection: !rewire?.loomTail && rewire?.detachedSide === "from" ? fixedDirection : targetDirection,
         color: this.wireCreate.color,
@@ -9459,7 +9487,8 @@ class ProductionEngineBridge {
       to: this.scene.endpointForWire(wire, "to"),
       renderedPoints,
       nearestPoint: nearest,
-      segmentIndex: context.segmentIndex
+      segmentIndex: context.segmentIndex,
+      preserveRoutePoints: this.scene.isOrdinaryOrthogonalWire?.(wire)
     });
     return this.commitWireRouteAction("AddRoutePointCommand", [before], [after], {
       action: "add",
@@ -9480,7 +9509,8 @@ class ProductionEngineBridge {
       wire,
       from: this.scene.endpointForWire(wire, "from"),
       to: this.scene.endpointForWire(wire, "to"),
-      pointIndex
+      pointIndex,
+      preserveRoutePoints: this.scene.isOrdinaryOrthogonalWire?.(wire)
     });
     return this.commitWireRouteAction("RemoveRoutePointCommand", [before], [after], {
       action: "remove",

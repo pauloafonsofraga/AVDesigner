@@ -3,11 +3,13 @@ import {applyProjectLayers, layerEditable, layerSceneView} from './projectLayers
 import { SpatialIndex } from "./spatialIndex.js";
 import {
   cleanOrthogonalRoutePoints,
+  cleanEditedOrthogonalSegment,
   moveOrthogonalRouteSegment,
   moveOrthogonalRoutePoint,
   orthogonalRouteSegmentsForWire,
   orthogonalRouteSegmentInfo,
   orthogonalWirePoints,
+  repairDirectedOrthogonalRoute,
   routePointsForMovedEndpoints,
   snapOrthogonalSegmentFixed,
   shiftRoutePoints
@@ -86,6 +88,11 @@ const CONNECTOR_MODULE_STRING_FIELDS = [
   "transceiverModuleId", "transceiverModuleName", "transceiverModuleType",
   "transceiverModuleActiveType", "transceiverModuleEffectiveType", "transceiverModuleFiberMode"
 ];
+
+const ORTHOGONAL_SOCKET_DIRECTIONS = {
+  left: { x: -1, y: 0 }, right: { x: 1, y: 0 },
+  top: { x: 0, y: -1 }, bottom: { x: 0, y: 1 }
+};
 
 export class SceneGraph {
   constructor() {
@@ -882,8 +889,7 @@ export class SceneGraph {
     return wire;
   }
 
-  rewireWireEndpoint(wireId, end, targetDeviceId, targetConnectorId, targetAnchorId = "", presentation = null) {
-    const wire = this.getWire(wireId);
+  wireEndpointRewireState(wire, end, targetDeviceId, targetConnectorId, targetAnchorId, presentation, repairRoute) {
     const targetDevice = this.getDevice(targetDeviceId);
     const targetConnector = this.getConnector(targetDeviceId, targetConnectorId);
     if (!wire || !targetDevice || !["from", "to"].includes(end)) return null;
@@ -924,6 +930,30 @@ export class SceneGraph {
           [`${endpointPrefix}PatchPortId`]: targetPresentation?.patchPortId || "",
         }
         : null;
+    if (!next) return null;
+    if (repairRoute && this.isOrdinaryOrthogonalWire(wire) && this.isOrdinaryOrthogonalWire({ ...wire, ...next })) {
+      const prospective = { ...wire, ...next };
+      if (wire[`${end}DeviceId`] !== prospective[`${end}DeviceId`]
+          || wire[`${end}ConnectorId`] !== prospective[`${end}ConnectorId`]
+          || wire[`${end}AnchorId`] !== prospective[`${end}AnchorId`]) {
+        next.routePoints = this.repairOrdinaryWireEnds(prospective, end === "from", end === "to");
+      }
+    }
+    return next;
+  }
+
+  previewOrthogonalRewire(wire, end, deviceId, connectorId, anchorId, presentation) {
+    if (!this.isOrdinaryOrthogonalWire(wire)) return null;
+    const next = this.wireEndpointRewireState(wire, end, deviceId, connectorId, anchorId, presentation, true);
+    if (!next || !this.isOrdinaryOrthogonalWire({ ...wire, ...next })) return null;
+    const points = this.wirePoints({ ...wire, ...next });
+    return { from: points[0], to: points.at(-1), routeStyle: "orthogonal", routePoints: points.slice(1, -1) };
+  }
+
+  rewireWireEndpoint(wireId, end, targetDeviceId, targetConnectorId, targetAnchorId = "", presentation = null,
+    { repairRoute = true } = {}) {
+    const next = this.wireEndpointRewireState(this.getWire(wireId), end, targetDeviceId, targetConnectorId, targetAnchorId,
+      presentation, repairRoute);
     if (!next) return null;
     const updated = this.applyWireState(wireId, next);
     if (!updated) return null;
@@ -1528,7 +1558,7 @@ export class SceneGraph {
     const movedIds = new Set(movedObjectIds.map(id => String(id || "")));
     wireIds.forEach(wireId => {
       const wire = this.getWire(wireId);
-      if (!wire?.routePoints?.length) return;
+      if (!wire || !wire.routePoints.length && !this.isOrdinaryOrthogonalWire(wire)) return;
       const fromMoved = movedIds.has(this.wireEndpointOwnerId(wire, "from"));
       const toMoved = movedIds.has(this.wireEndpointOwnerId(wire, "to"));
       if (!fromMoved && !toMoved) return;
@@ -1537,7 +1567,11 @@ export class SceneGraph {
         this.dirtyWires.add(wire.id);
         return;
       }
-      if (fromMoved && toMoved) {
+      if (this.isOrdinaryOrthogonalWire(wire)) {
+        wire.routePoints = fromMoved && toMoved
+          ? wire.routePoints.map(point => ({ ...point, x: point.x + dx, y: point.y + dy }))
+          : this.repairOrdinaryWireEnds(wire, fromMoved, toMoved);
+      } else if (fromMoved && toMoved) {
         wire.routePoints = shiftRoutePoints(wire.routePoints, dx, dy);
       } else if (wire.routeStyle === "orthogonal") {
         wire.routePoints = routePointsForMovedEndpoints({
@@ -1639,6 +1673,7 @@ export class SceneGraph {
         // Re-feeding the already-mutated live route changes point identity and
         // eventually produces the diagonal/ghost behavior seen in Iteration 37.
         routePoints,
+        preserveRoutePoints: this.isOrdinaryOrthogonalWire(wire),
         pointIndex: editPointIndex,
         nextPoint: { x, y },
         from: this.endpointForWire(wire, "from"),
@@ -1675,6 +1710,7 @@ export class SceneGraph {
     }
     return orthogonalRouteSegmentInfo({
       routePoints: wire.routePoints,
+      preserveRoutePoints: this.isOrdinaryOrthogonalWire(wire),
       segmentIndex,
       from: this.endpointForWire(wire, "from"),
       to: this.endpointForWire(wire, "to")
@@ -1688,6 +1724,7 @@ export class SceneGraph {
       targets.push(...orthogonalRouteSegmentsForWire({
         wireId: wire.id,
         routePoints: wire.routePoints,
+        preserveRoutePoints: this.isOrdinaryOrthogonalWire(wire),
         from: this.endpointForWire(wire, "from"),
         to: this.endpointForWire(wire, "to"),
       }));
@@ -1740,6 +1777,7 @@ export class SceneGraph {
       // dogleg onto an endpoint and make the next pointer frame think the segment
       // is now an endpoint stub. Legacy always drags from stable start geometry.
       routePoints: Array.isArray(sourceRoutePoints) ? sourceRoutePoints : wire.routePoints,
+      preserveRoutePoints: this.isOrdinaryOrthogonalWire(wire),
       segmentIndex,
       fixed,
       from: this.endpointForWire(wire, "from"),
@@ -1752,7 +1790,7 @@ export class SceneGraph {
     return moved;
   }
 
-  finalizeSnappedOrthogonalSegment(wireId, { refreshIndexes = true } = {}) {
+  finalizeSnappedOrthogonalSegment(wireId, { refreshIndexes = true, segmentIndex = -1 } = {}) {
     const wire = this.getWire(wireId);
     if (!wire || wire.routeStyle !== "orthogonal") {
       return { changed: false, removed: 0, reason: "not-orthogonal" };
@@ -1760,8 +1798,9 @@ export class SceneGraph {
     const from = this.endpointForWire(wire, "from");
     const to = this.endpointForWire(wire, "to");
     const beforeCount = wire.routePoints.length;
-    const cleanedFullRoute = cleanOrthogonalRoutePoints([from, ...wire.routePoints, to]);
-    const routePoints = cleanedFullRoute.slice(1, Math.max(1, cleanedFullRoute.length - 1));
+    const routePoints = this.isOrdinaryOrthogonalWire(wire)
+      ? cleanEditedOrthogonalSegment(wire.routePoints, from, to, segmentIndex)
+      : cleanOrthogonalRoutePoints([from, ...wire.routePoints, to]).slice(1, -1);
     const removed = Math.max(0, beforeCount - routePoints.length);
     if (!removed) return { changed: false, removed: 0, routePoints: wire.routePoints };
 
@@ -2033,6 +2072,33 @@ export class SceneGraph {
       wire[`${end}AnchorId`], wire[`${end}Side`]);
   }
 
+  isOrdinaryOrthogonalWire(wire) {
+    return wire?.routeStyle === "orthogonal" && !wire.loomId && !wire.multiCoreIdentity &&
+      !wire.stageboxAssemblyId && !wire.internalRackWire && wire.sourceKind !== "rackInternalConnection" &&
+      !wire.cableAssembly && Boolean(this.orthogonalSocketDirection(wire, "from") && this.orthogonalSocketDirection(wire, "to"));
+  }
+
+  orthogonalSocketDirection(wire, end) {
+    if (wire[`${end}SurfaceId`] || wire[`${end}PatchPortId`]) return null;
+    const device = this.getDevice(wire[`${end}DeviceId`]);
+    if (!device || !["device", "power-distro"].includes(device.kind) || device.stageboxIdentity) return null;
+    const connector = device.connectorsById.get(wire[`${end}ConnectorId`]);
+    if (!connector || this.compactRackPortForConnector(device, connector)) return null;
+    const anchor = connectorDisplayAnchorById(device, connector, wire[`${end}AnchorId`], this.connectorDisplayLayoutForDevice(device));
+    return ORTHOGONAL_SOCKET_DIRECTIONS[anchor?.side || connector.side] || null;
+  }
+
+  repairOrdinaryWireEnds(wire, fromMoved, toMoved, endpoints = {}) {
+    return repairDirectedOrthogonalRoute({
+      routePoints: wire.routePoints,
+      from: endpoints.from || this.endpointForWire(wire, "from"),
+      to: endpoints.to || this.endpointForWire(wire, "to"),
+      fromDirection: this.orthogonalSocketDirection(wire, "from"),
+      toDirection: this.orthogonalSocketDirection(wire, "to"),
+      fromMoved, toMoved
+    });
+  }
+
   endpointForWire(wire, end, offsetMap = null) {
     const rawFrom = this.rawEndpointForWire(wire, "from", offsetMap);
     const rawTo = this.rawEndpointForWire(wire, "to", offsetMap);
@@ -2165,6 +2231,9 @@ export class SceneGraph {
     const connectorSide = anchor?.side || connector?.side || side;
     if (connectorSide === "left") return { x: point.x - radius, y: point.y };
     if (connectorSide === "right") return { x: point.x + radius, y: point.y };
+    if (wire.routeStyle === "orthogonal" && (connectorSide === "top" || connectorSide === "bottom")) {
+      return { x: point.x, y: point.y + ORTHOGONAL_SOCKET_DIRECTIONS[connectorSide].y * radius };
+    }
     if (!otherPoint) return point;
     const dx = point.x - otherPoint.x;
     const dy = point.y - otherPoint.y;
@@ -2181,18 +2250,26 @@ export class SceneGraph {
     const fromOffset = this.endpointOffsetForWire(wire, "from", offsetMap);
     const toOffset = this.endpointOffsetForWire(wire, "to", offsetMap);
     const routeOffset = this.routePointOffsetForWire(wire, offsetMap);
+    const ordinary = this.isOrdinaryOrthogonalWire(wire);
     const routePoints = (wire.routePoints || []).map(point => ({
       x: point.x + routeOffset.dx,
       y: point.y + routeOffset.dy
     }));
     if (wire.internalRackWire || wire.sourceKind === "rackInternalConnection" || wire.routeStyle === "orthogonal") {
       const sameRouteOffset = Math.abs(routeOffset.dx) > 0.001 || Math.abs(routeOffset.dy) > 0.001;
+      const fromMoved = offsetHasMovement(fromOffset) && !sameRouteOffset;
+      const toMoved = offsetHasMovement(toOffset) && !sameRouteOffset;
+      if (ordinary && fromMoved !== toMoved) {
+        return orthogonalWirePoints({
+          from, to, preserveRoutePoints: true, routePoints: this.repairOrdinaryWireEnds(wire, fromMoved, toMoved, { from, to })
+        });
+      }
       return orthogonalWirePoints({
         from,
         to,
         routePoints,
-        fromMoved: offsetHasMovement(fromOffset) && !sameRouteOffset,
-        toMoved: offsetHasMovement(toOffset) && !sameRouteOffset
+        preserveRoutePoints: ordinary,
+        fromMoved, toMoved
       });
     }
     return [from, ...routePoints, to];

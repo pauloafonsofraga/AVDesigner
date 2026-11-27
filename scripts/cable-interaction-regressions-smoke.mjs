@@ -78,7 +78,16 @@ try{
     const before=await read(),wire=before.find(w=>w.id===`cable-${i}`),target=end==='to'?'spare-sink':'spare-source';
     const from=await point(wire[end].deviceId,wire[end].connectorId),to=await point(target,`port-${i}`);
     await drag(from,to);const after=await read(),updated=after.find(w=>w.id===wire.id);
-    assert.equal(updated[end].deviceId,target,`${wire.id} ${end}`);assert.deepEqual(metadata(updated),metadata(wire));
+    assert.equal(updated[end].deviceId,target,`${wire.id} ${end}`);
+    if (i === 0) assert.deepEqual(metadata(updated),metadata(wire));
+    else {
+      const {routePoints,orthogonalRoutePoints,...repaired}=metadata(updated);
+      const {routePoints:oldRoute,orthogonalRoutePoints:oldOrtho,...original}=metadata(wire);
+      assert.deepEqual(repaired,original,"only the route array may change");
+      const oldPoints=oldRoute || oldOrtho, newPoints=routePoints || orthogonalRoutePoints;
+      assert.ok(newPoints.some(point=>JSON.stringify(point)===JSON.stringify(end==='to'?oldPoints[0]:oldPoints.at(-1))),
+        "the far end keeps its authored bend");
+    }
     assert.deepEqual(after.filter(w=>w.id!==wire.id),before.filter(w=>w.id!==wire.id));
     await page.evaluate(()=>activeEngineBridge().undoEngineCommand());assert.deepEqual(await read(),before);
     await page.evaluate(()=>activeEngineBridge().redoEngineCommand());assert.deepEqual(await read(),after);

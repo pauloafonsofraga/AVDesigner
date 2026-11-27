@@ -22,7 +22,8 @@ export function addWireRoutePoint({
   to,
   renderedPoints = [],
   nearestPoint,
-  segmentIndex = -1
+  segmentIndex = -1,
+  preserveRoutePoints = false
 } = {}) {
   const before = wireRouteState(wire);
   const point = roundedPoint(nearestPoint);
@@ -32,10 +33,11 @@ export function addWireRoutePoint({
     const model = createOrthogonalRouteModel({
       routePoints: before.routePoints,
       from,
-      to
+      to,
+      preserveRoutePoints
     });
     const index = clampIndex(segmentIndex, model.routePoints.length);
-    const routePoints = clonePoints(model.routePoints);
+    const routePoints = model.editableRoutePoints();
     routePoints.splice(index, 0, point);
     return {
       id: before.id,
@@ -60,11 +62,11 @@ export function addWireRoutePoint({
   };
 }
 
-export function removeWireRoutePoint({ wire, from, to, pointIndex = -1 } = {}) {
+export function removeWireRoutePoint({ wire, from, to, pointIndex = -1, preserveRoutePoints = false } = {}) {
   const before = wireRouteState(wire);
   const index = Math.floor(Number(pointIndex));
   if (index < 0 || index >= before.routePoints.length) return before;
-  const routePoints = clonePoints(before.routePoints);
+  const routePoints = preserveRoutePoints ? before.routePoints : clonePoints(before.routePoints);
   routePoints.splice(index, 1);
   if(!routePoints.length && hasIndependentWireRoute(wire))return {
     id:before.id,routeStyle:before.routeStyle==='orthogonal'?'orthogonal':'bezier',routePoints:[],manualRoute:false,routeAutomatic:true
@@ -75,11 +77,11 @@ export function removeWireRoutePoint({ wire, from, to, pointIndex = -1 } = {}) {
     if (!routePoints.length) {
       return { ...authored, routeStyle: "orthogonal", routePoints: [] };
     }
-    const model = createOrthogonalRouteModel({ routePoints, from, to });
+    const model = createOrthogonalRouteModel({ routePoints, from, to, preserveRoutePoints });
     return {
       ...authored,
       routeStyle: "orthogonal",
-      routePoints: clonePoints(model.routePoints)
+      routePoints: model.editableRoutePoints()
     };
   }
 

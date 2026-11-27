@@ -387,7 +387,9 @@ export function isConnectorExplicitlyBidirectional(connector = {}) {
 }
 
 function normalizeConnectorAnchor(anchor = {}, options = {}) {
-  const side = normalizeDisplaySide(anchor.side, options.legacyDirection, anchor.x, options.deviceWidth);
+  const declaredSide = String(anchor.side || "").toLowerCase();
+  const side = ["top", "bottom"].includes(declaredSide) && Number.isFinite(anchor.x) && Number.isFinite(anchor.y)
+    ? declaredSide : normalizeDisplaySide(anchor.side, options.legacyDirection, anchor.x, options.deviceWidth);
   const fallback = defaultAnchorForSide(side === "both" ? "left" : side, options.deviceWidth, options.localY, side === "right" ? "right" : `anchor-${options.index + 1}`);
   const x = Number.isFinite(Number(anchor.x)) ? Number(anchor.x) : fallback.x;
   const y = Number.isFinite(Number(anchor.y)) ? Number(anchor.y) : fallback.y;

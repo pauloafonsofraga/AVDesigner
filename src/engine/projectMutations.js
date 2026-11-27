@@ -528,7 +528,7 @@ export class ProjectMutationAdapter {
       entry.item.routeAutomatic = !wire.manualRoute;
       entry.item.routeStyle = wire.routeStyle === "orthogonal" ? "orthogonal" : "bezier";
     }
-    entry.item[routeKey] = (wire.routePoints || []).map(point => ({
+    entry.item[routeKey] = scene.isOrdinaryOrthogonalWire?.(wire) ? deepClone(wire.routePoints) : (wire.routePoints || []).map(point => ({
       x: roundNumber(point.x),
       y: roundNumber(point.y)
     }));
@@ -542,7 +542,7 @@ export class ProjectMutationAdapter {
     return this.lastMutation.durationMs;
   }
 
-  commitRewiredWire(scene, wireId, connectionState = null) {
+  commitRewiredWire(scene, wireId, connectionState = null, { routeChanged = false } = {}) {
     const start = performance.now();
     const wire = scene.getWire(wireId);
     if (!wire || wire.multiCoreIdentity || wire.stageboxAssemblyId) return 0;
@@ -556,8 +556,14 @@ export class ProjectMutationAdapter {
       Object.keys(entry.item).forEach(key => delete entry.item[key]);
       Object.assign(entry.item, restored);
     } else {
-      // A normal endpoint rewire changes only from/to. Cable type, length,
-      // fiber mode, notes, labels, custom colors, and route arrays stay intact.
+      // Only an orthogonal endpoint repair replaces a route array. Retain the
+      // historical field and route ownership, along with other cable metadata.
+      if (routeChanged) {
+        const routing = projectWireRouting(entry.item, this.root.wireMode);
+        const key = routing.routePoints === entry.item.orthogonalRoutePoints || !routing.manualRoute
+          ? "orthogonalRoutePoints" : "routePoints";
+        entry.item[key] = deepClone(wire.routePoints);
+      }
       // Integrated cables may also refresh their derived compatibility and host rates.
       entry.item.from = endpointToProject(scene, wire, "from");
       entry.item.to = endpointToProject(scene, wire, "to");

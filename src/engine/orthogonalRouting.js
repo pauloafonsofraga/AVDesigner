@@ -50,6 +50,38 @@ function isCollinear(a, b, c) {
   );
 }
 
+function redundantPoint(a, b, c) {
+  return isCollinear(a, b, c) &&
+    (b.x - a.x) * (c.x - b.x) + (b.y - a.y) * (c.y - b.y) >= 0;
+}
+
+export function sameOrthogonalRouteGeometry(before, after) {
+  const shape = points => {
+    const result = [];
+    for (const point of routePointsWithoutCollinearCollapse(points)) {
+      while (result.length >= 2 && redundantPoint(result.at(-2), result.at(-1), point)) result.pop();
+      result.push(point);
+    }
+    return result;
+  };
+  const a = shape(before), b = shape(after);
+  return a.length === b.length && a.every((point, i) => sameOrthogonalPoint(point, b[i]));
+}
+
+export function cleanEditedOrthogonalSegment(routePoints, from, to, segmentIndex) {
+  const full = [routePoint(from), ...routePoints, routePoint(to)];
+  const start = Math.max(1, segmentIndex - 1);
+  let end = Math.min(full.length - 2, segmentIndex + 2);
+  for (let i = start; i <= end;) {
+    if (!full[i].id && redundantPoint(full[i - 1], full[i], full[i + 1])) {
+      full.splice(i, 1);
+      end -= 1;
+      i = Math.max(start, i - 1);
+    } else i += 1;
+  }
+  return full.slice(1, -1);
+}
+
 export function cleanOrthogonalRoutePoints(points = []) {
   const cleaned = [];
   points.forEach((point) => {
@@ -71,12 +103,12 @@ export function cleanOrthogonalRoutePoints(points = []) {
   return cleaned;
 }
 
-export function routePointsWithoutCollinearCollapse(points = []) {
+export function routePointsWithoutCollinearCollapse(points = [], keepIds = false) {
   const cleaned = [];
   points.forEach((point) => {
     const next = routePoint(point);
     if (cleaned.length && sameOrthogonalPoint(cleaned[cleaned.length - 1], next)) return;
-    cleaned.push(next);
+    cleaned.push(keepIds && point.id ? { ...next, id: point.id } : next);
   });
   return cleaned;
 }
@@ -89,8 +121,8 @@ export function storableRoutePointsWithoutCollinearCollapse(routePoints = [], fr
 // Route edit helpers can receive legacy projects, jump-node paths, and endpoint
 // repairs that contain one stale diagonal span. Split those spans locally so
 // the engine never renders or stores a non-orthogonal 90-degree route.
-function ensureOrthogonalFullPath(points = []) {
-  const clean = routePointsWithoutCollinearCollapse(points);
+function ensureOrthogonalFullPath(points = [], keepIds = false) {
+  const clean = routePointsWithoutCollinearCollapse(points, keepIds);
   if (clean.length < 2) return clean;
   const result = [];
   const lastIndex = clean.length - 1;
@@ -115,11 +147,11 @@ function ensureOrthogonalFullPath(points = []) {
   }
   const finalPoint = clean[lastIndex];
   if (!sameOrthogonalPoint(result[result.length - 1], finalPoint)) result.push(finalPoint);
-  return routePointsWithoutCollinearCollapse(result);
+  return routePointsWithoutCollinearCollapse(result, keepIds);
 }
 
-function storableOrthogonalInteriorPoints(routePoints = [], from, to) {
-  const full = ensureOrthogonalFullPath([from, ...routePoints, to]);
+function storableOrthogonalInteriorPoints(routePoints = [], from, to, keepIds = false) {
+  const full = ensureOrthogonalFullPath([from, ...routePoints, to], keepIds);
   return full.slice(1, Math.max(1, full.length - 1));
 }
 
@@ -309,12 +341,96 @@ export function routePointsForMovedEndpoints({ routePoints = [], from, to, fromM
   return normalized;
 }
 
-export function orthogonalWirePoints({ from, to, routePoints = [], fromMoved = false, toMoved = false }) {
+export function orthogonalWirePoints({ from, to, routePoints = [], fromMoved = false, toMoved = false, preserveRoutePoints = false }) {
   if (!routePoints?.length) return buildPreviewOrthogonalWirePoints(from, to);
   const interior = fromMoved || toMoved
     ? repairMovedEndpointOrthogonalRoute(routePoints, from, to, fromMoved, toMoved)
-    : normalizeOrthogonalRoutePoints(routePoints);
+    : preserveRoutePoints ? routePoints : normalizeOrthogonalRoutePoints(routePoints);
   return ensureOrthogonalFullPath([from, ...interior, to]);
+}
+
+function outwardAxis(direction) {
+  return direction.x ? ["x", "y", Math.sign(direction.x)] : ["y", "x", Math.sign(direction.y)];
+}
+
+function outwardStub(endpoint, direction) {
+  return { x: endpoint.x + direction.x * ORTHOGONAL_EXIT_OFFSET, y: endpoint.y + direction.y * ORTHOGONAL_EXIT_OFFSET };
+}
+
+function exitsOutward(endpoint, neighbor, direction, clearance = 0) {
+  const [axis, cross, sign] = outwardAxis(direction);
+  const reach = (routeCoord(neighbor[axis]) - endpoint[axis]) * sign;
+  return routeCoord(neighbor[cross]) === endpoint[cross] && reach > 0 && reach >= clearance;
+}
+
+function repairOutwardEnd(points, endpoint, otherEndpoint, direction) {
+  const [axis, cross, sign] = outwardAxis(direction);
+  const first = points[0], second = points[1];
+  if (exitsOutward(endpoint, first, direction, ORTHOGONAL_EXIT_OFFSET)) return;
+  const stub = outwardStub(endpoint, direction);
+  const firstBend = second && routeCoord(first[axis]) === routeCoord(second[axis]) &&
+    routeCoord(first[cross]) !== routeCoord(second[cross]);
+  if (firstBend) {
+    if ((routeCoord(first[axis]) - endpoint[axis]) * sign >= ORTHOGONAL_EXIT_OFFSET) stub[axis] = first[axis];
+    points[0] = { ...first, ...stub };
+  } else {
+    points.unshift(stub);
+  }
+  const join = firstBend ? second : first;
+  if (routeCoord(join[axis]) === routeCoord(stub[axis]) || routeCoord(join[cross]) === endpoint[cross] &&
+      (routeCoord(join[axis]) - endpoint[axis]) * sign >= ORTHOGONAL_EXIT_OFFSET) return;
+  if (routeCoord(join[cross]) === endpoint[cross]) {
+    // Keep the turn off the socket's axis if joining on that line would double back.
+    const lane = endpoint[cross] + (Math.sign(otherEndpoint[cross] - endpoint[cross]) || 1) * ORTHOGONAL_EXIT_OFFSET;
+    points.splice(1, 0, { [axis]: stub[axis], [cross]: lane }, { [axis]: join[axis], [cross]: lane });
+  } else {
+    points.splice(1, 0, { [axis]: stub[axis], [cross]: join[cross] });
+  }
+}
+
+// Only reconnect the end being moved. Authored points past the adjacent bend
+// are left intact, even when they describe overlapping runs or reversals.
+export function repairDirectedOrthogonalRoute({
+  routePoints = [], from, to, fromDirection, toDirection, fromMoved, toMoved
+}) {
+  const a = routePoint(from), b = routePoint(to);
+  const route = routePoints.slice();
+  if (!route.length) {
+    const defaultPath = buildPreviewOrthogonalWirePoints(a, b);
+    const clearance = defaultPath.length > 2 ? ORTHOGONAL_EXIT_OFFSET : 0;
+    if (defaultPath.length < 2 ||
+        exitsOutward(a, defaultPath[1], fromDirection, clearance) &&
+        exitsOutward(b, defaultPath.at(-2), toDirection, clearance)) return route;
+    const start = outwardStub(a, fromDirection), end = outwardStub(b, toDirection);
+    const [axis, cross] = outwardAxis(fromDirection);
+    if (fromDirection[axis] && toDirection[axis]) {
+      const middle = a[cross] === b[cross] ? a[cross] + ORTHOGONAL_EXIT_OFFSET : routeCoord((a[cross] + b[cross]) / 2);
+      return routePointsWithoutCollinearCollapse([a, start, { [axis]: start[axis], [cross]: middle },
+        { [axis]: end[axis], [cross]: middle }, end, b]).slice(1, -1);
+    }
+    return routePointsWithoutCollinearCollapse([a, start, { [axis]: start[axis], [cross]: end[cross] }, end, b]).slice(1, -1);
+  }
+  if (fromMoved) repairOutwardEnd(route, a, b, fromDirection);
+  if (toMoved) {
+    route.reverse();
+    repairOutwardEnd(route, b, a, toDirection);
+    route.reverse();
+  }
+  return route;
+}
+
+function preserveStoredRoutePoints(points, originals) {
+  const matches = new Map();
+  for (const original of originals) {
+    const key = `${routeCoord(original.x)},${routeCoord(original.y)}`;
+    if (!matches.has(key)) matches.set(key, []);
+    matches.get(key).push(original);
+  }
+  return points.map(point => {
+    const candidates = matches.get(`${point.x},${point.y}`) || [];
+    const index = point.id ? candidates.findIndex(candidate => candidate.id === point.id) : 0;
+    return { ...(index >= 0 ? candidates.splice(index, 1)[0] || point : point) };
+  });
 }
 
 // One immutable route model owns the geometry used by rendering, hit-testing,
@@ -323,10 +439,11 @@ export function orthogonalWirePoints({ from, to, routePoints = [], fromMoved = f
 // mutated frame. This is the key distinction between a yEd-style route and a
 // loose collection of independently moving points.
 export class OrthogonalRouteModel {
-  constructor({ routePoints = [], from, to } = {}) {
+  constructor({ routePoints = [], from, to, preserveRoutePoints = false } = {}) {
     this.from = routePoint(from);
     this.to = routePoint(to);
-    const stored = normalizeOrthogonalRoutePoints(routePoints);
+    const stored = preserveRoutePoints ? routePoints : normalizeOrthogonalRoutePoints(routePoints);
+    this.storedPoints = preserveRoutePoints ? routePoints : null;
     this.fullPoints = stored.length
       ? ensureOrthogonalFullPath([this.from, ...stored, this.to])
       : buildPreviewOrthogonalWirePoints(this.from, this.to);
@@ -379,6 +496,10 @@ export class OrthogonalRouteModel {
     };
   }
 
+  editableRoutePoints() {
+    return this.storedPoints ? preserveStoredRoutePoints(this.routePoints, this.storedPoints) : this.routePoints.map(routePoint);
+  }
+
   moveSegment(segmentIndex, fixed) {
     const info = this.segmentInfo(segmentIndex);
     if (!info.draggable) return { ...info, routePoints: this.routePoints.map(routePoint), moved: false };
@@ -395,9 +516,15 @@ export class OrthogonalRouteModel {
     // Do not collapse collinear or overlapping spans during a live edit. Those
     // points encode the selected dogleg and must keep stable indices until the
     // user explicitly resets/deletes the route.
-    const nextRoutePoints = updated.slice(1, -1).map(routePoint);
+    const nextRoutePoints = this.storedPoints
+      ? this.editableRoutePoints().map((point, i) => {
+          const old = this.routePoints[i], next = updated[i + 1];
+          return { ...point, x: old.x === next.x ? point.x : next.x, y: old.y === next.y ? point.y : next.y };
+        })
+      : updated.slice(1, -1).map(routePoint);
     const nextModel = new OrthogonalRouteModel({
       routePoints: nextRoutePoints,
+      preserveRoutePoints: this.storedPoints !== null,
       from: this.from,
       to: this.to,
     });
@@ -411,13 +538,18 @@ export class OrthogonalRouteModel {
   }
 
   moveCorner(pointIndex, nextPoint) {
-    return moveOrthogonalCornerPoints({
-      routePoints: this.routePoints,
+    const moved = moveOrthogonalCornerPoints({
+      routePoints: this.editableRoutePoints(),
       pointIndex,
       nextPoint,
       from: this.from,
       to: this.to,
+      keepIds: this.storedPoints !== null,
     });
+    if (this.storedPoints) {
+      moved.routePoints = preserveStoredRoutePoints(moved.routePoints, this.storedPoints);
+    }
+    return moved;
   }
 
   diagnostics() {
@@ -434,12 +566,12 @@ export function createOrthogonalRouteModel(options = {}) {
   return new OrthogonalRouteModel(options);
 }
 
-export function orthogonalRouteSegmentInfo({ routePoints = [], segmentIndex = -1, from, to } = {}) {
-  return createOrthogonalRouteModel({ routePoints, from, to }).segmentInfo(segmentIndex);
+export function orthogonalRouteSegmentInfo({ segmentIndex = -1, ...options } = {}) {
+  return createOrthogonalRouteModel(options).segmentInfo(segmentIndex);
 }
 
-export function orthogonalRouteSegmentsForWire({ wireId, routePoints = [], from, to } = {}) {
-  return createOrthogonalRouteModel({ routePoints, from, to }).segments
+export function orthogonalRouteSegmentsForWire({ wireId, ...options } = {}) {
+  return createOrthogonalRouteModel(options).segments
     .filter(segment => segment.orientation)
     .map(segment => ({ ...segment, wireId }));
 }
@@ -604,8 +736,8 @@ export function snapOrthogonalSegmentFixed({
   };
 }
 
-export function moveOrthogonalRouteSegment({ routePoints = [], segmentIndex = -1, fixed, from, to } = {}) {
-  return createOrthogonalRouteModel({ routePoints, from, to }).moveSegment(segmentIndex, fixed);
+export function moveOrthogonalRouteSegment({ segmentIndex = -1, fixed, ...options } = {}) {
+  return createOrthogonalRouteModel(options).moveSegment(segmentIndex, fixed);
 }
 
 export function shiftRoutePoints(routePoints = [], dx = 0, dy = 0) {
@@ -615,13 +747,13 @@ export function shiftRoutePoints(routePoints = [], dx = 0, dy = 0) {
   }));
 }
 
-function moveOrthogonalCornerPoints({ routePoints = [], pointIndex = 0, nextPoint, from, to } = {}) {
-  const full = ensureOrthogonalFullPath([from, ...routePoints, to]);
+function moveOrthogonalCornerPoints({ routePoints = [], pointIndex = 0, nextPoint, from, to, keepIds = false } = {}) {
+  const full = ensureOrthogonalFullPath([from, ...routePoints, to], keepIds);
   const fullIndex = pointIndex + 1;
   if (fullIndex <= 0 || fullIndex >= full.length - 1) {
     return { routePoints, pointIndex };
   }
-  const moved = routePoint(nextPoint);
+  const moved = { ...routePoint(nextPoint), ...(full[fullIndex].id ? { id: full[fullIndex].id } : {}) };
   let updated = full.map((point) => ({ ...point }));
   const prev = updated[fullIndex - 1];
   const current = updated[fullIndex];
@@ -638,7 +770,7 @@ function moveOrthogonalCornerPoints({ routePoints = [], pointIndex = 0, nextPoin
         const returnX = routeCoord(moved.x + direction * offset);
         const replacement = [
           { x: moved.x, y: prev.y },
-          { x: moved.x, y: moved.y },
+          moved,
           { x: returnX, y: moved.y },
           { x: returnX, y: next.y },
         ];
@@ -646,7 +778,7 @@ function moveOrthogonalCornerPoints({ routePoints = [], pointIndex = 0, nextPoin
           ...updated.slice(1, fullIndex),
           ...replacement,
           ...updated.slice(fullIndex + 1, -1),
-        ], from, to);
+        ], from, to, keepIds);
         return { routePoints, pointIndex: Math.min(pointIndex + 1, Math.max(0, routePoints.length - 1)) };
       }
       const direction = next.y >= moved.y ? 1 : -1;
@@ -654,7 +786,7 @@ function moveOrthogonalCornerPoints({ routePoints = [], pointIndex = 0, nextPoin
       const returnY = routeCoord(moved.y + direction * offset);
       const replacement = [
         { x: prev.x, y: moved.y },
-        { x: moved.x, y: moved.y },
+        moved,
         { x: moved.x, y: returnY },
         { x: next.x, y: returnY },
       ];
@@ -662,25 +794,25 @@ function moveOrthogonalCornerPoints({ routePoints = [], pointIndex = 0, nextPoin
         ...updated.slice(1, fullIndex),
         ...replacement,
         ...updated.slice(fullIndex + 1, -1),
-      ], from, to);
+      ], from, to, keepIds);
       return { routePoints, pointIndex: Math.min(pointIndex + 1, Math.max(0, routePoints.length - 1)) };
     }
     const replacement = previousOrientation === "h"
       ? [
           { x: moved.x, y: prev.y },
-          { x: moved.x, y: moved.y },
+          moved,
           { x: next.x, y: moved.y },
         ]
       : [
           { x: prev.x, y: moved.y },
-          { x: moved.x, y: moved.y },
+          moved,
           { x: moved.x, y: next.y },
         ];
     const routePoints = storableOrthogonalInteriorPoints([
       ...updated.slice(1, fullIndex),
       ...replacement,
       ...updated.slice(fullIndex + 1, -1),
-    ], from, to);
+    ], from, to, keepIds);
     return { routePoints, pointIndex: Math.min(pointIndex + 1, Math.max(0, routePoints.length - 1)) };
   }
 
@@ -711,7 +843,7 @@ function moveOrthogonalCornerPoints({ routePoints = [], pointIndex = 0, nextPoin
   alignNext();
   alignPrevious();
 
-  updated = ensureOrthogonalFullPath(updated);
+  updated = ensureOrthogonalFullPath(updated, keepIds);
   let nextFullIndex = updated.findIndex((point, index) =>
     index > 0 &&
     index < updated.length - 1 &&
