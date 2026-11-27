@@ -10,6 +10,7 @@ import { adapterIntegrationFixture, modularIntegrationFixture } from "../fixture
 const { chromium } = createRequire(import.meta.url)(process.env.AVDESIGNER_PLAYWRIGHT_PATH || "playwright");
 const candidate = process.env.AVDESIGNER_BASE_URL || "http://127.0.0.1:8947";
 const baseline = process.env.WIRENEXUS_TYPOGRAPHY_BASELINE_URL;
+const checkSize = process.env.WIRENEXUS_CHECK_TEXT_STEP === "1";
 for (const url of [candidate, baseline].filter(Boolean)) assert.equal(new URL(url).hostname, "127.0.0.1");
 const dir = await mkdtemp(join(tmpdir(), "wnx-cabin-visual-"));
 const browser = await chromium.launch({ headless: true, executablePath: process.env.AVDESIGNER_CHROME_PATH
@@ -92,6 +93,8 @@ async function inspect(url, prefix, verify) {
   await screen("dense-dark");
   await theme(false); await screen("dense-light");
   const samples = await page.evaluate(() => [...textDraws.values()]);
+  const inspectorSize = await page.locator("[data-transceiver-config] label").first()
+    .evaluate(label => parseFloat(getComputedStyle(label).fontSize));
   const panelFont = await platformFonts(page, '[data-transceiver-config] label');
   if (verify) {
     assert(panelFont.some(font => font.familyName === "Cabin" && font.isCustomFont), JSON.stringify(panelFont));
@@ -100,6 +103,8 @@ async function inspect(url, prefix, verify) {
   }
   await page.locator("#cableScheduleButton").click();
   await page.locator("#cableScheduleDialog tr").filter({ hasText: "VX-1234" }).waitFor();
+  const scheduleSize = await page.locator(".cable-schedule-id").first()
+    .evaluate(label => parseFloat(getComputedStyle(label).fontSize));
   if (verify) assert((await platformFonts(page, ".cable-schedule-id")).some(font => font.familyName === "Cabin"));
   await screen("schedule");
   await page.locator("#closeCableSchedule").click();
@@ -141,7 +146,7 @@ async function inspect(url, prefix, verify) {
   await viewer.screenshot({ path: join(dir, prefix + "-viewer-mobile.png") });
   assert.deepEqual(pageErrors, []);
   await offline.close(); await context.close();
-  return { geometry, samples, panelFont };
+  return { geometry, samples, panelFont, inspectorSize, scheduleSize };
 }
 
 try {
@@ -149,7 +154,14 @@ try {
   const after = await inspect(candidate, "cabin", true);
   if (before) {
     assert.deepEqual(after.geometry, before.geometry, "typography must not alter device bounds, connector anchors or wires");
-    assert.notDeepEqual(after.panelFont, before.panelFont);
+    if (checkSize) {
+      for (const surface of ["inspectorSize", "scheduleSize"]) {
+        assert(Math.abs(after[surface] - before[surface] - 4 / 3) < .02, surface);
+      }
+      const largestSdi = entry => Math.max(...entry.samples.filter(sample => sample.text === "SDI")
+        .map(sample => Number(sample.font.match(/([\d.]+)px/)?.[1])));
+      assert(largestSdi(after) > largestSdi(before), "Canvas connector text grows as well");
+    } else assert.notDeepEqual(after.panelFont, before.panelFont);
   }
   console.log(JSON.stringify({ dir, geometryCompared: Boolean(before), inspector: after.panelFont,
     canvasTextSamples: after.samples.length }));

@@ -43,7 +43,7 @@ function reportPages(doc, report, layout) {
     doc.flushPages();
     doc.addPage({ size: [layout.paperWidth, layout.paperHeight], margin: 0 });
     y = margin;
-    doc.font(cabinBold).fontSize(15).fillColor(text)
+    doc.font(cabinBold).fontSize(16).fillColor(text)
       .text(String(report.projectName || "WireNexus Project"), margin, y, { width });
     y += 28;
   };
@@ -52,7 +52,7 @@ function reportPages(doc, report, layout) {
     doc.rect(margin, y, width, headerHeight).fill(dark);
     let x = margin;
     headers.forEach((header, i) => {
-      doc.font(cabinBold).fontSize(8).fillColor("#ffffff")
+      doc.font(cabinBold).fontSize(9).fillColor("#ffffff")
         .text(header.toUpperCase(), x + 5, y + 5, { width: columnWidths[i] - 10, height: 12, ellipsis: true });
       x += columnWidths[i];
     });
@@ -60,7 +60,7 @@ function reportPages(doc, report, layout) {
   };
   const drawTitle = title => {
     y += 10;
-    doc.font(cabinBold).fontSize(11).fillColor(text).text(title, margin, y, { width });
+    doc.font(cabinBold).fontSize(12).fillColor(text).text(title, margin, y, { width });
     y += 18;
   };
   const drawMatrixGrid = (matrix, title) => {
@@ -68,7 +68,7 @@ function reportPages(doc, report, layout) {
     if (!inputs.length || !outputs.length) return;
     if (inputs.length * outputs.length > 400) {
       if (y + rowHeight > layout.paperHeight - margin) { newPage(); drawTitle(title); }
-      doc.font(CABIN_FONT).fontSize(8).fillColor(text)
+      doc.font(CABIN_FONT).fontSize(9).fillColor(text)
         .text(`Crosspoint grid is ${matrix.size} and is summarized in the route table below.`, margin, y, { width });
       y += rowHeight + 5;
       return;
@@ -83,13 +83,13 @@ function reportPages(doc, report, layout) {
       doc.rect(margin, y, width, rowHeight).fill("#ffffff");
       doc.moveTo(margin, y + rowHeight).lineTo(margin + width, y + rowHeight)
         .strokeColor(rule).lineWidth(0.5).stroke();
-      doc.font(cabinBold).fontSize(8).fillColor(text)
+      doc.font(cabinBold).fontSize(9).fillColor(text)
         .text(String(output.name || ""), margin + 5, y + 4, { width: first - 10, height: 12, ellipsis: true });
       let x = margin + first;
       for (const input of inputs) {
         if (matrix.routes?.[output.id] === input.id) {
           doc.rect(x, y, remaining, rowHeight).fill("#32b6ff");
-          doc.font(cabinBold).fontSize(9).fillColor(text)
+          doc.font(cabinBold).fontSize(10).fillColor(text)
             .text("\u2022", x, y + 3, { width: remaining, align: "center", height: 12 });
         }
         x += remaining;
@@ -115,7 +115,7 @@ function reportPages(doc, report, layout) {
       doc.moveTo(margin, y + rowHeight).lineTo(margin + width, y + rowHeight).strokeColor(rule).lineWidth(0.5).stroke();
       let x = margin;
       values(row).forEach((value, i) => {
-        doc.font(CABIN_FONT).fontSize(8).fillColor(text).text(String(value ?? ""), x + 5, y + 3,
+        doc.font(CABIN_FONT).fontSize(9).fillColor(text).text(String(value ?? ""), x + 5, y + 3,
           { width: columnWidths[i] - 10, height: rowHeight - 7, ellipsis: true });
         x += columnWidths[i];
       });
@@ -127,15 +127,15 @@ function reportPages(doc, report, layout) {
 /** Appended pages only: drawing page references and XYZ destinations are untouched. */
 function multiCoreReportPages(doc, reports, layout) {
   const margin = Math.max(layout.margin, 24), width = layout.paperWidth - 2 * margin;
-  const columnWidth = width / 3, lineHeight = 11;
+  const columnWidth = width / 3, lineHeight = 12;
   let y;
   const page = title => {
     doc.flushPages(); doc.addPage({ size: [layout.paperWidth, layout.paperHeight], margin: 0 });
-    doc.font(cabinBold).fontSize(13).fillColor(text).text(title, margin, margin, { width });
+    doc.font(cabinBold).fontSize(14).fillColor(text).text(title, margin, margin, { width });
     y = margin + 32;
   };
   const wrap = value => {
-    const result = []; doc.font(CABIN_FONT).fontSize(8);
+    const result = []; doc.font(CABIN_FONT).fontSize(9);
     for (const paragraph of String(value).split("\n")) {
       let line = "";
       for (const char of paragraph) {
@@ -162,7 +162,7 @@ function multiCoreReportPages(doc, reports, layout) {
         const take = Math.min(remaining, Math.max(1, available)), height = take * lineHeight + 12;
         doc.rect(margin, y, width, height).fillAndStroke("#f7f9fb", rule);
         cells.forEach((lines, column) => lines.slice(offset, offset + take).forEach((line, index) => {
-          doc.font(CABIN_FONT).fontSize(8).fillColor(text).text(line, margin + column * columnWidth + 8, y + 6 + index * lineHeight,
+          doc.font(CABIN_FONT).fontSize(9).fillColor(text).text(line, margin + column * columnWidth + 8, y + 6 + index * lineHeight,
             { width: columnWidth - 16, lineBreak: false });
         }));
         y += height; offset += take; remaining -= take;

@@ -9,13 +9,13 @@ vm.runInNewContext(source,context);
 const api=context.window.WireNexusToolbarIcons;
 const document=new DOMImplementation().createDocument(null,null);
 
-test('compact toolbar buttons keep 22px artwork and reduce captions by ten percent without changing other interfaces',()=>{
+test('compact toolbar buttons keep their artwork and make room for captions one point larger',()=>{
   const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
-  assert.match(html,/gap: 2px; width: 42px; min-width: 42px; height: 37px; padding: 1px 2px/);
-  assert.match(html,/font-size: 7\.2px; line-height: 9px; font-weight: 600/);
+  assert.match(html,/gap: 2px; width: max-content; min-width: 42px; height: 37px; padding: 1px 2px/);
+  assert.match(html,/font-size: calc\(7\.2px \+ 1pt\); line-height: 10px; font-weight: 600/);
   assert.match(html,/#saveCloudProject, \.topbar \.toolbar #openCloudProject \{ width: 54px; min-width: 54px;/);
   assert.match(html,/\.topbar \.toolbar \.wire-placement-select \{ min-width: 71px; height: 26px;/);
-  assert.match(html,/\.topbar \.toolbar #voltageToggle span \{ font-size: 10\.8px;/);
+  assert.match(html,/\.topbar \.toolbar #voltageToggle span \{ font-size: calc\(10\.8px \+ 1pt\);/);
 });
 
 test('toolbar icons cover every icon action, leaving voltage and placement as explicit values',()=>{

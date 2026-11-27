@@ -299,7 +299,7 @@ export class MultiCoreEditor {
       group.append(svg("rect", { class: "power-plug-hit", x: entry.x - 5, y: entry.y - 5, width: entry.width + 10, height: entry.height + 10, rx: 5 }));
       if (overlaps.has(entry.connector.id)) group.append(svg("rect", { class: "power-plug-warning-outline", x: entry.x - 3, y: entry.y - 3, width: entry.width + 6, height: entry.height + 6, rx: 4 }));
       if (selected) group.append(svg("rect", { class: "power-plug-selection-outline", x: entry.x - 6, y: entry.y - 6, width: entry.width + 12, height: entry.height + 12, rx: 5 }));
-      const label = entry.connector.label || entry.connector.id, fontSize = Math.min(11, 11 / camera.zoom);
+      const label = entry.connector.label || entry.connector.id, fontSize = Math.min(37 / 3, 37 / 3 / camera.zoom);
       const right = entry.cx + entry.width / 2 + 4, labelOnLeft = bounds.width - right < 48;
       const text = svg("text", { x: labelOnLeft ? entry.x - 4 : right, y: entry.cy + fontSize * .35, "text-anchor": labelOnLeft ? "end" : "start",
         fill: "var(--ink)", "font-size": fontSize, "pointer-events": "none" }); text.textContent = label;

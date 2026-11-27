@@ -3,7 +3,7 @@ import {LiveCollaborationSession,createCollaborationApi} from './liveCollaborati
 export function mountLiveCollaboration({account,bridge,load,apply,readLocal,isDraftOpen,capture=()=>null,onStatus=()=>{},onSaved=()=>{},onHistory=()=>{}}) {
   const panel=document.createElement('section');panel.id='liveCollaboration';panel.hidden=true;
   const style=document.createElement('style');style.textContent='#liveCollaboration[hidden],#liveCollaboration [hidden]{display:none!important}';panel.append(style);
-  panel.style.cssText='position:fixed;left:12px;bottom:12px;z-index:45;background:var(--panel,#20272d);color:var(--text,#fff);border:1px solid var(--line,#566);border-radius:4px;padding:8px;max-width:calc(100vw - 24px);font-size:12px';
+  panel.style.cssText='position:fixed;left:12px;bottom:12px;z-index:45;background:var(--panel,#20272d);color:var(--text,#fff);border:1px solid var(--line,#566);border-radius:4px;padding:8px;max-width:calc(100vw - 24px);font-size:calc(12px + 1pt)';
   const status=document.createElement('span');status.setAttribute('role','status');
   const conflict=document.createElement('p');conflict.hidden=true;conflict.setAttribute('role','alert');
   conflict.style.cssText='margin:6px 0 0;max-width:520px;white-space:normal;color:var(--text,#fff)';
@@ -52,7 +52,7 @@ export function mountLiveCollaboration({account,bridge,load,apply,readLocal,isDr
         if(x<rect.left || x>rect.right || y<rect.top || y>rect.bottom)return;
         const node=document.createElement('div');node.textContent=label;
         const device=ghost?b.scene.getDevice(peer.drag.id):null;
-        node.style.cssText=`position:absolute;left:${x}px;top:${y}px;color:${color};font:12px Cabin, system-ui, sans-serif;white-space:nowrap;${ghost?
+        node.style.cssText=`position:absolute;left:${x}px;top:${y}px;color:${color};font:calc(12px + 1pt) Cabin, system-ui, sans-serif;white-space:nowrap;${ghost?
           `border:1px dashed currentColor;opacity:.5;padding:6px;box-sizing:border-box;width:${Math.min(rect.width,(device?.width || 50)*camera.zoom)}px;height:${Math.min(rect.height,(device?.height || 50)*camera.zoom)}px;overflow:hidden`:
           'border-left:3px solid currentColor;padding-left:4px'}`;
         overlay.append(node);

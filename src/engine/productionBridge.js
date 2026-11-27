@@ -11177,7 +11177,7 @@ function injectBridgeStyles() {
       background: rgba(15, 24, 32, .88);
       box-shadow: 0 0 24px rgba(50,182,255,.16);
       pointer-events: auto;
-      font-size: 12px;
+      font-size: calc(12px + 1pt);
     }
     .engine-bridge-badge strong { color: #32b6ff; letter-spacing: .04em; text-transform: uppercase; }
     .engine-bridge-badge span {
@@ -11208,7 +11208,7 @@ function injectBridgeStyles() {
       border: 1px solid rgba(204,215,228,.22);
       border-radius: 8px;
       background: rgba(15, 24, 32, .76);
-      font-size: 12px;
+      font-size: calc(12px + 1pt);
       pointer-events: none;
     }
     .engine-bridge-status span,
@@ -11258,7 +11258,7 @@ function injectBridgeStyles() {
       border: 1px solid rgba(50,182,255,.35);
       border-radius: 8px;
       background: rgba(15, 24, 32, .84);
-      font-size: 11px;
+      font-size: calc(11px + 1pt);
       pointer-events: auto;
     }
     .engine-bridge-validation {
@@ -11273,20 +11273,20 @@ function injectBridgeStyles() {
       border: 1px solid rgba(255,121,4,.45);
       border-radius: 8px;
       background: rgba(15, 24, 32, .86);
-      font-size: 11px;
+      font-size: calc(11px + 1pt);
       pointer-events: auto;
     }
     .engine-bridge-inspector h3 {
       margin: 0 0 8px;
       color: #32b6ff;
-      font-size: 12px;
+      font-size: calc(12px + 1pt);
       letter-spacing: .08em;
       text-transform: uppercase;
     }
     .engine-bridge-validation h3 {
       margin: 0 0 8px;
       color: #ff7904;
-      font-size: 12px;
+      font-size: calc(12px + 1pt);
       letter-spacing: .08em;
       text-transform: uppercase;
     }
@@ -11332,7 +11332,7 @@ function injectBridgeStyles() {
     .engine-bridge-field-heading {
       margin: 0;
       color: #aeb9c6;
-      font: 900 11px/1.2 Cabin, system-ui, sans-serif;
+      font: 900 calc(11px + 1pt)/1.2 Cabin, system-ui, sans-serif;
       letter-spacing: .08em;
       text-transform: uppercase;
     }
@@ -11352,7 +11352,7 @@ function injectBridgeStyles() {
       background: rgba(8, 13, 19, .72);
       color: #eef5ff;
       padding: 4px 7px;
-      font: 12px/1.3 Cabin, system-ui, sans-serif;
+      font: calc(12px + 1pt)/1.3 Cabin, system-ui, sans-serif;
     }
     .engine-bridge-field input:focus {
       outline: none;
@@ -11367,7 +11367,7 @@ function injectBridgeStyles() {
       border-radius: 6px;
       background: rgba(251,121,4,.14);
       color: #fff4e8;
-      font: 800 12px/1.2 Cabin, system-ui, sans-serif;
+      font: 800 calc(12px + 1pt)/1.2 Cabin, system-ui, sans-serif;
       cursor: pointer;
     }
     .engine-bridge-action:hover { border-color: #ff9d3b; background: rgba(251,121,4,.24); }
@@ -11408,13 +11408,13 @@ function injectBridgeStyles() {
 	    }
 	    .engine-bridge-loading strong {
 	      color: #32b6ff;
-	      font-size: 17px;
+	      font-size: calc(17px + 1pt);
 	      letter-spacing: .08em;
 	      text-transform: uppercase;
 	    }
     .engine-bridge-loading span {
 	      color: #cbd6e3;
-	      font-size: 13px;
+	      font-size: calc(13px + 1pt);
 	    }
 	    .engine-bridge-loading-bar {
 	      position: relative;
@@ -11434,7 +11434,7 @@ function injectBridgeStyles() {
 	    .engine-bridge-loading-note {
 	      margin: 0;
 	      color: #93a3b3;
-	      font-size: 12px;
+	      font-size: calc(12px + 1pt);
 	      line-height: 1.4;
 	    }
 	    .engine-bridge-loading-error {
@@ -11447,7 +11447,7 @@ function injectBridgeStyles() {
 	      background: rgba(80, 14, 20, .42);
 	      color: #ffdce0;
 	      white-space: pre-wrap;
-	      font: 11px/1.45 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+	      font: calc(11px + 1pt)/1.45 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 	    }
 	    .engine-bridge-loading-fallback {
 	      justify-self: start;
@@ -11483,14 +11483,14 @@ function injectBridgeStyles() {
       border-radius: 8px;
       background: rgba(15, 24, 32, .9);
       color: #eef5ff;
-      font-size: 11px;
+      font-size: calc(11px + 1pt);
       pointer-events: auto;
       box-shadow: 0 10px 30px rgba(0,0,0,.35);
     }
     .engine-bridge-layer-debug h2 {
       margin: 0 0 8px;
       color: #ff7904;
-      font-size: 12px;
+      font-size: calc(12px + 1pt);
       letter-spacing: .08em;
       text-transform: uppercase;
     }
@@ -11528,7 +11528,7 @@ function injectBridgeStyles() {
       border: 1px solid rgba(50,182,255,.35);
       border-radius: 8px;
       background: rgba(15, 24, 32, .84);
-      font-size: 11px;
+      font-size: calc(11px + 1pt);
       pointer-events: none;
     }
     .engine-bridge-debug * {
@@ -11537,7 +11537,7 @@ function injectBridgeStyles() {
     .engine-bridge-debug h2 {
       margin: 0 0 8px;
       color: #32b6ff;
-      font-size: 12px;
+      font-size: calc(12px + 1pt);
       letter-spacing: .08em;
       text-transform: uppercase;
     }

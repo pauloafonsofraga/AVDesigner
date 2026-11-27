@@ -25,7 +25,7 @@
     'title-block': [['rect',{x:2,y:3,width:20,height:18,rx:1}],['path',{d:'M2 15h20m-7 0v6m-7-6v6'}]],
     'save-copy': [...lucide.save,['circle',{cx:18,cy:18,r:5,fill:'var(--panel)',stroke:'none'}],['path',{d:'M15 18h6m-3-3v6'}]],
     pdf: [...lucide['file-text'].slice(0,2),
-      ['text',{x:12,y:18.5,'text-anchor':'middle',stroke:'none',fill:'currentColor','font-family':'Cabin, system-ui, sans-serif','font-weight':700,'font-size':8},'PDF']]
+      ['text',{x:12,y:18.5,'text-anchor':'middle',stroke:'none',fill:'currentColor','font-family':'Cabin, system-ui, sans-serif','font-weight':700,'font-size':8 + 4 / 3},'PDF']]
   };
   const buttons = {
     zoomOut:'minus',zoomIn:'plus',zoomFit:'scan',undoAction:'undo-2',redoAction:'redo-2',

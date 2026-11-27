@@ -521,7 +521,7 @@ test("XLSX contains text values, formatting, and reused endpoint/cable artwork",
   assert.equal(sheet.rowCount, 3);
   assert.equal(sheet.getCell("A1").value, "Cable ID");
   assert.equal(sheet.getCell("A2").value, "VX-001");
-  assert.equal(sheet.getCell("A2").font.size, 17);
+  assert.equal(sheet.getCell("A2").font.size, 18);
   assert.equal(sheet.getCell("A2").font.bold, true);
   assert.equal(sheet.getCell("A2").font.color.argb, "FF32B6FF");
   assert.equal(sheet.getCell("J2").value, "FOH-01");

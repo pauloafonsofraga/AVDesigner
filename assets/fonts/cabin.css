@@ -16,4 +16,5 @@
 
 :root {
   --wnx-font-family: Cabin, system-ui, sans-serif;
+  font-size: calc(100% + 1pt);
 }

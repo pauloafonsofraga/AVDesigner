@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import vm from "node:vm";
-import { WIRENEXUS_FONT_STACK } from "../src/engine/typography.js";
+import { TEXT_POINT_PX, WIRENEXUS_FONT_STACK } from "../src/engine/typography.js";
 import { readFileSync } from "node:fs";
 import { engineConnectorInfoFields, engineConnectorCanvasLabelLines } from "../src/engine/connectorCompatibility.js";
 import { isTransceiverCage } from "../src/engine/transceiverModules.js";
@@ -22,7 +22,7 @@ function functionSource(name) {
 
 function rendererFunctions(names, bindings = {}) {
   const context = vm.createContext({ attachedConnectorLabelPosition, adapterWorldPoint, connectorFieldRowWidth,sharedBusTypeLabels,adaptiveSharedBusLabel,
-    legacyCanvasDetailScale:()=>1, INFO_BOX_COMPACT_SCALE:1.18, WIRENEXUS_FONT_STACK, ...bindings });
+    legacyCanvasDetailScale:()=>1, INFO_BOX_COMPACT_SCALE:1.18, TEXT_POINT_PX, WIRENEXUS_FONT_STACK, ...bindings });
   vm.runInContext(functionSource("connectorAnchorRenderPoint"), context);
   vm.runInContext(functionSource("rotateAdapterLabel"), context);
   names.forEach(name => vm.runInContext(functionSource(name), context));
@@ -154,7 +154,7 @@ test("info-box values wrap long words using their rendered font and stay inside 
   assert.ok(valueLines[0].text.startsWith("VeryLong"));
   assert.ok(valueLines[1].text.endsWith("..."));
   valueLines.forEach(line => {
-    assert.match(line.font, /700 4\.65px/);
+    assert.ok(line.font.startsWith(`700 ${4.65 + TEXT_POINT_PX}px `));
     ctx.font = line.font;
     assert.ok(ctx.measureText(line.text).width <= availableWidth, `${line.text} overflows`);
   });

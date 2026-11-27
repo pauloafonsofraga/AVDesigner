@@ -122,7 +122,9 @@ export async function createCableScheduleXlsx(rows, { nodeDefinitions = [], load
     }
   }
   workbook.eachSheet(worksheet => worksheet.eachRow(row => {
-    row.eachCell(cell => { cell.font = { ...cell.font, name: CABIN_FONT }; });
+    row.eachCell(cell => {
+      cell.font = { ...cell.font, name: CABIN_FONT, size: (cell.font?.size ?? 11) + 1 };
+    });
   }));
   return workbook.xlsx.writeBuffer();
 }

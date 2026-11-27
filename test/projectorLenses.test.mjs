@@ -89,8 +89,8 @@ test("projector hover includes the current instance lens below its name without 
   const a = hoverArtwork(scene.devices[0]), b = hoverArtwork(scene.devices[1]);
   assert.deepEqual(a.lines.map(line => line[0]), ["AV Projector A", "Lens: Wide 0.8:1"]);
   assert.deepEqual(b.lines.map(line => line[0]), ["AV Projector B", "Lens: Long Throw 2.5:1"]);
-  assert.equal(a.lines[1][2] - a.lines[0][2], 16);
-  assert.equal(a.box[3], 38);
+  assert.ok(Math.abs(a.lines[1][2] - a.lines[0][2] - (16 + 4 / 3)) < 1e-9);
+  assert.ok(Math.abs(a.box[3] - (38 + 8 / 3)) < 1e-9);
   assert.deepEqual(project, before);
   project.devices[0].selectedProjectorLensId = "standard";
   scene = buildEngineOutputScene(project);
@@ -102,8 +102,8 @@ test("ordinary and empty projectors retain the original one-line hover; long len
   for (const visual of [{}, { isProjector: false, projectorLensName: "Stale lens" }, { isProjector: true, projectorLensName: "" }]) {
     const hover = hoverArtwork({ ...device, visual });
     assert.deepEqual(hover.lines.map(line => line[0]), ["AV Projector A"]);
-    assert.equal(hover.box[3], 22);
-    assert.equal(hover.lines[0][2], hover.box[1] + 11);
+    assert.ok(Math.abs(hover.box[3] - (22 + 4 / 3)) < 1e-9);
+    assert.ok(Math.abs(hover.lines[0][2] - (hover.box[1] + 11 + 2 / 3)) < 1e-9);
   }
   const hover = hoverArtwork({ ...device, visual: { ...device.visual, projectorLensName: "Long lens ".repeat(50) } }, { x: 639, y: 479 });
   assert.equal(hover.box[2], 280);
@@ -116,7 +116,9 @@ test("one subtitle uses the existing header gap; non-projectors and empty projec
   const project = projectorLensFixture(), device = buildEngineOutputScene(project).devices[0];
   const svg = artwork(device);
   assert.equal(svg.match(/>Lens: Wide 0.8:1</g)?.length, 1);
-  assert.match(svg, /<text x="20" y="34"[^>]*font-size="10.5"[^>]*>Lens: Wide 0.8:1</);
+  const subtitle = svg.match(/<text x="20" y="34"[^>]*font-size="([\d.]+)"[^>]*>Lens: Wide 0\.8:1</);
+  assert.ok(subtitle);
+  assert.equal(Number(subtitle[1]), 10.5 + 4 / 3);
   const plain = structuredClone(device);
   for (const key of ["isProjector", "projectorLenses", "projectorLensName", "selectedProjectorLensId"]) delete plain.visual[key];
   const disabled = structuredClone(device); disabled.visual.isProjector = false;

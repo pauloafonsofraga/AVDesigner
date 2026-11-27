@@ -1,3 +1,5 @@
+import { TEXT_POINT_PX } from "./typography.js";
+
 export const INFO_BOX_COMPACT_SCALE = 1.18;
 export const INFO_BOX_MAGNIFY_ZOOM = 1.18;
 export const INFO_BOX_HIDE_ZOOM = 0.20;
@@ -31,7 +33,7 @@ export function legacyConnectorLabelMetrics(zoom) {
   const cameraZoom = Number(zoom) || 1;
   return {
     detailScale,
-    screenFontSize: 9 * detailScale * cameraZoom,
+    screenFontSize: (9 + TEXT_POINT_PX) * detailScale * cameraZoom,
     offsetX: 16 + (detailScale - 1) * 4,
     offsetY: 18 + (detailScale - 1) * 3
   };

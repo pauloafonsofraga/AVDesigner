@@ -1,6 +1,6 @@
 import { engineConnectorInfoFields, engineConnectorCanvasLabelLines, isEngineCageConnector } from "./connectorCompatibility.js";
 import { deviceHeaderLabel, hasOrdinaryDeviceHeader } from "./deviceDisplayName.js";
-import { WIRENEXUS_FONT_STACK } from "./typography.js";
+import { TEXT_POINT_PX, WIRENEXUS_FONT_STACK } from "./typography.js";
 import "./stageboxSnakeCore.js";
 import {
   adapterColorStops,
@@ -777,8 +777,8 @@ function drawInfoBox(ctx, connector, title, value, index, rowY) {
 }
 
 function drawInfoBoxText(ctx, x, y, width, height, scale, title, text) {
-  const labelFontSize = 5.1 * scale;
-  const valueFontSize = 4.65 * scale;
+  const labelFontSize = (5.1 + TEXT_POINT_PX) * scale;
+  const valueFontSize = (4.65 + TEXT_POINT_PX) * scale;
   ctx.save();
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
@@ -790,10 +790,17 @@ function drawInfoBoxText(ctx, x, y, width, height, scale, title, text) {
   ctx.strokeText(title, x + width / 2, y);
   ctx.fillText(title, x + width / 2, y);
 
-  const lines = wrapInfoBoxLines(text, Math.max(8, width - 7 * scale), valueFontSize, 2);
-  const lineHeight = valueFontSize * 1.12;
-  const startY = y + height / 2 + 3.3 * scale - (lines.length - 1) * lineHeight / 2;
   ctx.font = `700 ${valueFontSize}px ${WIRENEXUS_FONT_STACK}`;
+  const availableWidth = Math.max(8, width - 7 * scale);
+  const measuredWidth = ctx.measureText(text).width;
+  if (measuredWidth > availableWidth) {
+    const fittedSize = valueFontSize * availableWidth / measuredWidth;
+    if (fittedSize >= 4.65 * scale) ctx.font = `700 ${Math.max(4.65 * scale, fittedSize - 0.01)}px ${WIRENEXUS_FONT_STACK}`;
+  }
+  const lineHeight = valueFontSize * 1.12;
+  const lines = wrapTitleBlockValue(ctx, String(text || ""), availableWidth,
+    Math.max(1, Math.min(2, Math.floor((height - 2 * scale) / lineHeight))));
+  const startY = y + height / 2 + scale - (lines.length - 1) * lineHeight / 2;
   ctx.strokeStyle = "transparent";
   ctx.lineWidth = 0;
   ctx.fillStyle = "#edf2f7";
@@ -1138,15 +1145,24 @@ function drawTitleBlockField(ctx, rect, label, value) {
   const x = rect.x + 8;
   const valueX = x + 54;
   const valueWidth = Math.max(0, rect.x + rect.width - 8 - valueX);
-  const lineHeight = 9;
-  const maxLines = Math.max(1, Math.floor((rect.height - 10) / lineHeight));
+  const lineHeight = 9 + TEXT_POINT_PX;
+  const maxLines = Math.max(1, Math.floor((rect.height - 10) / 9));
   ctx.save();
-  ctx.font = `700 6px ${WIRENEXUS_FONT_STACK}`;
+  ctx.font = `700 ${6 + TEXT_POINT_PX}px ${WIRENEXUS_FONT_STACK}`;
   ctx.fillStyle = "#d7e6f5";
   ctx.textBaseline = "middle";
   ctx.fillText(label, x, rect.y + rect.height / 2);
-  ctx.font = `800 7px ${WIRENEXUS_FONT_STACK}`;
-  const lines = wrapTitleBlockValue(ctx, String(value || ""), valueWidth, maxLines);
+  const text = String(value || "");
+  const valueSize = 7 + TEXT_POINT_PX;
+  ctx.font = `800 ${valueSize}px ${WIRENEXUS_FONT_STACK}`;
+  const textWidth = ctx.measureText(text).width;
+  if (textWidth > valueWidth) {
+    const fittedSize = valueSize * valueWidth / textWidth;
+    if (maxLines === 1 || fittedSize >= 7) {
+      ctx.font = `800 ${Math.max(7, fittedSize - 0.01)}px ${WIRENEXUS_FONT_STACK}`;
+    }
+  }
+  const lines = wrapTitleBlockValue(ctx, text, valueWidth, maxLines);
   const firstY = rect.y + rect.height / 2 - (lines.length - 1) * lineHeight / 2;
   lines.forEach((line, index) => ctx.fillText(line, valueX, firstY + index * lineHeight));
   ctx.restore();
@@ -1183,7 +1199,7 @@ function wrapTitleBlockValue(ctx, value, maxWidth, maxLines) {
 }
 
 function drawWrappedText(ctx, text, x, y, maxWidth, maxHeight, options = {}) {
-  const size = Math.max(7, Number(options.size) || 12);
+  const size = Math.max(7, Number(options.size) || 12) + TEXT_POINT_PX;
   const lineHeight = size * 1.25;
   const words = String(text || "").split(/\s+/).filter(Boolean);
   const lines = [];
@@ -1272,16 +1288,16 @@ function drawFittedText(ctx, text, x, y, maxWidth, maxSize, options = {}) {
   let value = String(text || "").trim();
   if (!value || maxWidth <= 0 || maxSize <= 0) return;
   const minSize = options.minSize || 5;
-  let size = maxSize;
+  let size = maxSize + TEXT_POINT_PX;
   ctx.save();
   ctx.textAlign = options.align || "left";
   ctx.textBaseline = options.baseline || "alphabetic";
   ctx.lineJoin = "round";
-  do {
+  for (;;) {
     ctx.font = `${options.weight || 700} ${size}px ${WIRENEXUS_FONT_STACK}`;
     if (ctx.measureText(value).width <= maxWidth || size <= minSize) break;
-    size -= 0.75;
-  } while (size > minSize);
+    size = Math.max(minSize, size - 0.75);
+  }
   if (options.truncate && ctx.measureText(value).width > maxWidth) {
     value = wrapTitleBlockValue(ctx, value, maxWidth, 1)[0] || "";
   }
@@ -1602,27 +1618,6 @@ function preserveAspectRatioMeetRect(box, naturalWidth, naturalHeight) {
     width: drawWidth,
     height: drawHeight
   };
-}
-
-function wrapInfoBoxLines(text, maxWidth, fontSize, maxLines = 2) {
-  const value = String(text || "");
-  if (!value.trim()) return [""];
-  const measure = candidate => estimateTextWidth(candidate, fontSize, 700);
-  const words = value.split(/\s+/).filter(Boolean);
-  const lines = [];
-  let current = "";
-  words.forEach(word => {
-    const candidate = current ? `${current} ${word}` : word;
-    if (measure(candidate) <= maxWidth || !current) {
-      current = candidate;
-    } else {
-      lines.push(current);
-      current = word;
-    }
-  });
-  if (current) lines.push(current);
-  if (!lines.length) lines.push(value);
-  return lines.slice(0, maxLines);
 }
 
 function visualSourceKey(value) {

@@ -32,7 +32,7 @@ export function mountPlansPanel({container,identity,rpc}) {
       for(const row of rows){
         const block=document.createElement('div');block.style.cssText='padding:10px 0;border-top:1px solid var(--line,#566);overflow-wrap:anywhere';
         const name=document.createElement('strong');name.textContent=`${row.name} - ${title(row.policy.plan)}${row.policy.status==='revoked'?' (revoked)':''}${row.policy.adminOverride?' - Platform Admin':''}`;
-        const id=document.createElement('div');id.textContent=row.workspaceId;id.style.cssText='font-size:12px;overflow-wrap:anywhere';block.append(name,id);
+        const id=document.createElement('div');id.textContent=row.workspaceId;id.style.cssText='font-size:calc(12px + 1pt);overflow-wrap:anywhere';block.append(name,id);
         for(const [key,limit] of Object.entries(row.policy.limits)){const line=document.createElement('div');line.textContent=`${labels[key] || key}: ${amount(key,row.usage[key] ?? 0)} / ${amount(key,limit)}`;block.append(line);}
         const features=document.createElement('div');features.textContent=Object.entries(row.policy.features).map(([key,value])=>`${labels[key] || key}: ${value?'On':'Off'}`).join(' | ');block.append(features);summaries.append(block);
       }

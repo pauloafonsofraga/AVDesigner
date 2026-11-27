@@ -26,7 +26,7 @@ test("pixel measurements are zoom independent while labels and ticks retain scre
   for(const zoom of [.25,1,3]){
     const f=fixture({zoom});f.draw(face);const g=f.parent.children[0],label=g.children.find(n=>n.tag==="g");
     assert.equal(g.children[0].attributes["data-pixels"],face.width);
-    assert.equal(label.children[1].attributes["font-size"]*zoom,16.5);
+    assert.ok(Math.abs(label.children[1].attributes["font-size"]*zoom - (16.5 + 4 / 3)) < 1e-9);
     assert.equal(label.children[0].attributes.height*zoom,27);
     assert.equal(g.children[0].attributes["vector-effect"],"non-scaling-stroke");
   }
