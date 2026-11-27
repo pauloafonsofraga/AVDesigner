@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>WireNexus by Video Core</title>
   <link rel="icon" href="VideoCoreLogo.png">
+  <link rel="stylesheet" href="./assets/fonts/cabin.css">
+  <link rel="preload" href="./assets/fonts/Cabin.woff2" as="font" type="font/woff2" crossorigin>
   <style>
     :root {
       color-scheme: light;
@@ -30,7 +32,7 @@
       --connector-label-fill: #18202a;
       --slot: #20272f;
       --screen: #7bc6b5;
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-family: var(--wnx-font-family);
     }
 
     body.dark-mode {
@@ -747,7 +749,7 @@
       background: transparent;
       color: var(--ink);
       cursor: pointer;
-      font: 700 12px/1.15 Inter, system-ui, sans-serif;
+      font: 700 12px/1.15 Cabin, system-ui, sans-serif;
       text-align: left;
     }
 
@@ -1791,7 +1793,7 @@
       text-align: left;
       padding: 0 10px;
       cursor: pointer;
-      font: 700 12px/1 Inter, system-ui, sans-serif;
+      font: 700 12px/1 Cabin, system-ui, sans-serif;
     }
 
     .context-menu button:hover {
@@ -1854,7 +1856,7 @@
       stroke: rgba(6, 10, 14, .92);
       stroke-width: 5;
       stroke-linejoin: round;
-      font: 900 18px/1 Inter, system-ui, sans-serif;
+      font: 900 18px/1 Cabin, system-ui, sans-serif;
       pointer-events: none;
     }
 
@@ -2735,7 +2737,7 @@
       resize: none;
       background: #101820;
       color: #eef5ff;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-family: inherit;
       font-size: 12px;
       line-height: 1.5;
     }
@@ -2769,7 +2771,7 @@
       background: rgba(255,255,255,.5);
       color: var(--muted);
       cursor: pointer;
-      font: 800 12px/1 Inter, system-ui, sans-serif;
+      font: 800 12px/1 Cabin, system-ui, sans-serif;
       letter-spacing: .02em;
     }
 
@@ -3393,7 +3395,7 @@
       background: rgba(50, 182, 255, .12);
       color: var(--ink);
       cursor: pointer;
-      font: 900 10.5px/1 Inter, system-ui, sans-serif;
+      font: 900 10.5px/1 Cabin, system-ui, sans-serif;
     }
 
     #deviceEditorModal input[type="file"]::file-selector-button:hover {
@@ -3426,7 +3428,7 @@
       padding: 8px;
       background: rgba(17, 22, 27, .96);
       color: #edf2f7;
-      font: 12px/1.25 Inter, system-ui, sans-serif;
+      font: 12px/1.25 Cabin, system-ui, sans-serif;
       outline: none;
       box-shadow: 0 10px 22px rgba(0,0,0,.35);
     }
@@ -4371,7 +4373,7 @@
       padding: 0 11px;
       background: var(--input-bg);
       color: var(--ink);
-      font: 700 13px/1 Inter, system-ui, sans-serif;
+      font: 700 13px/1 Cabin, system-ui, sans-serif;
       outline: none;
     }
 
@@ -4539,7 +4541,7 @@
       justify-content: space-between;
       gap: 8px;
       color: var(--muted);
-      font: 800 11px/1 Inter, system-ui, sans-serif;
+      font: 800 11px/1 Cabin, system-ui, sans-serif;
       text-transform: uppercase;
       letter-spacing: .08em;
     }
@@ -5327,7 +5329,7 @@
     .cable-schedule-illustrated { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 32px; }
     .cable-schedule-illustrated > span { min-width: 0; }
     .cable-schedule-graphic { width: 38px; height: 24px; flex: 0 0 38px; object-fit: contain; }
-    .cable-schedule-id { font: 700 17pt Arial, sans-serif; -webkit-text-stroke: .5pt #000; paint-order: stroke fill; white-space: nowrap; }
+    .cable-schedule-id { font: 700 17pt Cabin, system-ui, sans-serif; -webkit-text-stroke: .5pt #000; paint-order: stroke fill; white-space: nowrap; }
     body.dark-mode .cable-schedule-table th, body.dark-mode .cable-schedule-table td { border-color: #3a4650; }
     body.dark-mode .cable-schedule-table tbody tr { background: #20262d; }
     body.dark-mode .cable-schedule-table tbody tr:nth-child(even) { background: #28323b; }
@@ -24010,7 +24012,7 @@
         box.appendChild(createSvg("rect", { x: x - width / 2, y: y - 13.5 / zoom,
           width, height: 27 / zoom, rx: 3 / zoom, fill: "#101820" }));
         const caption = createSvg("text", { x, y, "text-anchor": "middle", "dominant-baseline": "central",
-          "font-size": 16.5 / zoom, "font-family": "Inter, system-ui, sans-serif", "font-weight": 600, fill: "#8edbff" });
+          "font-size": 16.5 / zoom, "font-family": "Cabin, system-ui, sans-serif", "font-weight": 600, fill: "#8edbff" });
         caption.textContent = text; box.appendChild(caption); group.appendChild(box);
       };
       const right = face.x + face.width, bottom = face.y + face.height;
@@ -26900,7 +26902,7 @@
         borderRadius: "4px",
         background: "#101820",
         color: editingCaption ? "#32b6ff" : "#edf2f7",
-        font: "700 10px Inter, Arial, sans-serif",
+        font: "700 10px Cabin, system-ui, sans-serif",
         textAlign: "center",
         outline: "none",
         padding: "0 3px"
@@ -30393,7 +30395,7 @@
         control.style.border = "none";
         control.style.boxShadow = "none";
         control.style.borderRadius = `${2 * zoom}px`;
-        control.style.font = `700 ${Math.max(7, Number(comment.textSize) || 12) * zoom}px/1.25 system-ui, -apple-system, Segoe UI, sans-serif`;
+        control.style.font = `700 ${Math.max(7, Number(comment.textSize) || 12) * zoom}px/1.25 Cabin, system-ui, sans-serif`;
       }
       control.style.color = field === "title" ? "#32b6ff" : (comment.textColor || (state.darkMode ? "#edf2f7" : "#1f2a36"));
       control.style.background = comment.backgroundColor || (state.darkMode ? "#18202a" : "#f4f7fb");
@@ -30505,7 +30507,7 @@
       control.style.height = "44px";
       control.style.color = "#32b6ff";
       control.style.background = area.backgroundColor || "#223544";
-      control.style.font = "800 28px/1 Inter, system-ui, sans-serif";
+      control.style.font = "800 28px/1 Cabin, system-ui, sans-serif";
       engineCommentEditorHost().appendChild(control);
       areaEditor = { control, areaId, before: structuredClone(area) };
       control.focus();
@@ -35402,7 +35404,23 @@
       return hasRows ? `<section class="report-section"><h2>${escapeHtml(title)}</h2>${html}</section>` : "";
     }
 
-    function buildPrintableReportHtml(report, drawingSvg = "", logoSrc = "VideoCoreLogo.png") {
+    let reportFontCssPromise;
+    function loadReportFontCss() {
+      // The about:blank report is a separate document and does not inherit the app's FontFaceSet.
+      return reportFontCssPromise ||= fetch("./assets/fonts/Cabin.woff2").then(async response => {
+        if (!response.ok) throw new Error("Cabin was not available for the report.");
+        const blob = await response.blob();
+        const data = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = () => reject(reader.error);
+          reader.readAsDataURL(blob);
+        });
+        return `@font-face{font-family:Cabin;src:url("${data}") format("woff2");font-weight:400 700}`;
+      }).catch(() => { reportFontCssPromise = null; return ""; });
+    }
+
+    function buildPrintableReportHtml(report, drawingSvg = "", logoSrc = "VideoCoreLogo.png", fontCss = "") {
       const devicesHtml = reportTableHtml([
         { key: "quantity", label: "Qty" },
         { key: "brand", label: "Brand" },
@@ -35443,8 +35461,9 @@
 <meta charset="utf-8">
 <title>${escapeHtml(report.projectName)} - WireNexus Report</title>
 <style>
+  ${fontCss}
   @page{size:landscape;margin:4mm}
-  *{box-sizing:border-box}body{margin:0;padding:10px 12px 18px;font-family:Arial,Helvetica,sans-serif;color:#17202a;background:#fff}h1{margin:0;font-size:15px;line-height:1.1}h2{margin:16px 0 7px;font-size:13px}.report-header{display:flex;align-items:center;gap:9px;margin:0 0 6px}.report-logo{width:34px;height:34px;object-fit:contain}.meta{display:none}.drawing-frame{padding:2px;border:1px solid #cbd3dc;border-radius:5px;background:#f7f9fb;break-after:page;page-break-after:always}.drawing-frame svg{display:block;width:100%;height:auto;max-height:100%;object-fit:contain}.report-section{max-width:980px;margin-top:14px}table{width:100%;max-width:980px;border-collapse:collapse;background:#fff;border:1px solid #cbd3dc}th,td{padding:6px 8px;border-bottom:1px solid #d8dee6;text-align:left;font-size:11px}th{background:#20262d;color:#fff;text-transform:uppercase;letter-spacing:.04em}.matrix-report-grid-wrap{max-width:980px;margin:6px 0 10px;overflow:hidden}.matrix-report-grid{table-layout:fixed}.matrix-report-grid th,.matrix-report-grid td{padding:3px 4px;text-align:center;font-size:8px}.matrix-report-grid th:first-child{width:90px;text-align:right}.matrix-report-grid td.active{background:#32b6ff;color:#17202a;font-weight:900}.report-empty{padding:10px;border:1px solid #cbd3dc;background:#fff;color:#5d6876}@media print{body{padding:0}.report-header{margin:0 0 3mm}.drawing-frame{height:calc(100vh - 2mm);padding:1.5mm;display:flex;align-items:center;justify-content:center}.drawing-frame svg{width:auto!important;height:auto!important;max-width:100%;max-height:100%}.report-section{break-inside:auto;max-width:260mm}.report-header,h2{break-after:avoid}thead{display:table-header-group}tr{break-inside:avoid}.no-print{display:none}}
+  *{box-sizing:border-box}body{margin:0;padding:10px 12px 18px;font-family:Cabin, system-ui, sans-serif;color:#17202a;background:#fff}h1{margin:0;font-size:15px;line-height:1.1}h2{margin:16px 0 7px;font-size:13px}.report-header{display:flex;align-items:center;gap:9px;margin:0 0 6px}.report-logo{width:34px;height:34px;object-fit:contain}.meta{display:none}.drawing-frame{padding:2px;border:1px solid #cbd3dc;border-radius:5px;background:#f7f9fb;break-after:page;page-break-after:always}.drawing-frame svg{display:block;width:100%;height:auto;max-height:100%;object-fit:contain}.report-section{max-width:980px;margin-top:14px}table{width:100%;max-width:980px;border-collapse:collapse;background:#fff;border:1px solid #cbd3dc}th,td{padding:6px 8px;border-bottom:1px solid #d8dee6;text-align:left;font-size:11px}th{background:#20262d;color:#fff;text-transform:uppercase;letter-spacing:.04em}.matrix-report-grid-wrap{max-width:980px;margin:6px 0 10px;overflow:hidden}.matrix-report-grid{table-layout:fixed}.matrix-report-grid th,.matrix-report-grid td{padding:3px 4px;text-align:center;font-size:8px}.matrix-report-grid th:first-child{width:90px;text-align:right}.matrix-report-grid td.active{background:#32b6ff;color:#17202a;font-weight:900}.report-empty{padding:10px;border:1px solid #cbd3dc;background:#fff;color:#5d6876}@media print{body{padding:0}.report-header{margin:0 0 3mm}.drawing-frame{height:calc(100vh - 2mm);padding:1.5mm;display:flex;align-items:center;justify-content:center}.drawing-frame svg{width:auto!important;height:auto!important;max-width:100%;max-height:100%}.report-section{break-inside:auto;max-width:260mm}.report-header,h2{break-after:avoid}thead{display:table-header-group}tr{break-inside:avoid}.no-print{display:none}}
   /* Chromium omits @page margins from SVG named destinations. Keep the same
      physical drawing margins in its layout so annotations and artwork agree. */
   @page engineDrawing{size:landscape;margin:0}
@@ -35459,7 +35478,7 @@ ${sections || '<p class="report-empty">No reportable items in this project.</p>'
 </html>`;
     }
 
-    function buildEditorReportHtml(report) {
+    function buildEditorReportHtml(report, fontCss = "") {
       const devicesHtml = reportTableHtml([
         { key: "quantity", label: "Qty" },
         { key: "brand", label: "Brand" },
@@ -35501,7 +35520,9 @@ ${sections || '<p class="report-empty">No reportable items in this project.</p>'
 <meta charset="utf-8">
 <title>${escapeHtml(report.projectName)} - WireNexus Report</title>
 <style>
-  :root{color-scheme:dark;--panel:#20262d;--panel-strong:#26313d;--line:#33404d;--text:#edf2f7;--muted:#a7b2c1;--blue:#32b6ff}*{box-sizing:border-box}body{margin:0;padding:22px;font-family:Inter,Arial,sans-serif;background:#11161b;color:var(--text)}header{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:18px}h1{margin:0;font-size:22px}h2{margin:20px 0 9px;font-size:16px}.tool-button{min-height:34px;padding:0 12px;border:1px solid #526171;border-radius:8px;background:#20262d;color:#edf2f7;font-weight:900;cursor:pointer}.summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}.summary-card{padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--panel-strong)}.summary-card strong{display:block;font-size:20px}.summary-card span{color:var(--muted);font-size:11px;font-weight:900;text-transform:uppercase}table{width:100%;border-collapse:collapse;border:1px solid var(--line);background:var(--panel)}th,td{padding:8px 9px;border-bottom:1px solid var(--line);text-align:left;font-size:12px}th{background:#151a20;color:#edf2f7;text-transform:uppercase;letter-spacing:.04em}.report-clickable-table tbody tr{cursor:pointer}.report-clickable-table tbody tr:hover{background:rgba(50,182,255,.14)}.report-empty{padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--muted)}.matrix-report-grid-wrap{overflow:auto}.matrix-report-grid td.active{background:var(--blue);color:#11161b;font-weight:900}
+  ${fontCss}
+  button{font:inherit}
+  :root{color-scheme:dark;--panel:#20262d;--panel-strong:#26313d;--line:#33404d;--text:#edf2f7;--muted:#a7b2c1;--blue:#32b6ff}*{box-sizing:border-box}body{margin:0;padding:22px;font-family:Cabin, system-ui, sans-serif;background:#11161b;color:var(--text)}header{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:18px}h1{margin:0;font-size:22px}h2{margin:20px 0 9px;font-size:16px}.tool-button{min-height:34px;padding:0 12px;border:1px solid #526171;border-radius:8px;background:#20262d;color:#edf2f7;font-weight:900;cursor:pointer}.summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}.summary-card{padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--panel-strong)}.summary-card strong{display:block;font-size:20px}.summary-card span{color:var(--muted);font-size:11px;font-weight:900;text-transform:uppercase}table{width:100%;border-collapse:collapse;border:1px solid var(--line);background:var(--panel)}th,td{padding:8px 9px;border-bottom:1px solid var(--line);text-align:left;font-size:12px}th{background:#151a20;color:#edf2f7;text-transform:uppercase;letter-spacing:.04em}.report-clickable-table tbody tr{cursor:pointer}.report-clickable-table tbody tr:hover{background:rgba(50,182,255,.14)}.report-empty{padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--muted)}.matrix-report-grid-wrap{overflow:auto}.matrix-report-grid td.active{background:var(--blue);color:#11161b;font-weight:900}
   .matrix-report-section{margin-top:20px;border-top:1px solid var(--line)}.matrix-report-section>summary{padding:12px 0;font-size:16px;font-weight:700;cursor:pointer;overflow-wrap:anywhere}.matrix-report-section>summary:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 </style>
 </head>
@@ -35542,8 +35563,9 @@ document.addEventListener("click", function(event) {
       await ensureEngineOutputSceneModule();
       const snapshot = buildCanonicalOutputSnapshot({ mode: "editor-report" });
       const report = snapshot.reportData;
+      const fontCss = await loadReportFontCss();
       popup.document.open();
-      popup.document.write(buildEditorReportHtml(report));
+      popup.document.write(buildEditorReportHtml(report, fontCss));
       popup.document.close();
       recordOutputTiming("editor-report", {
         reportWindowMs: outputNow() - started
@@ -35626,11 +35648,11 @@ document.addEventListener("click", function(event) {
       const snapshot = buildCanonicalOutputSnapshot({ mode: "pdf-report", drawingDependency: "engine-svg" });
       const report = snapshot.reportData;
       popup.document.open();
-      popup.document.write("<!doctype html><title>Preparing report...</title><body style=\"font-family:Arial,sans-serif;padding:24px\">Preparing PDF report...</body>");
+      popup.document.write("<!doctype html><title>Preparing report...</title><body style=\"font-family:Cabin, system-ui, sans-serif;padding:24px\">Preparing PDF report...</body>");
       popup.document.close();
-      let logoSrc, drawing;
+      let logoSrc, drawing, fontCss;
       try {
-        [logoSrc, drawing] = await Promise.all([logoSourceForReport(), buildEnginePrintDrawing(snapshot)]);
+        [logoSrc, drawing, fontCss] = await Promise.all([logoSourceForReport(), buildEnginePrintDrawing(snapshot), loadReportFontCss()]);
       } catch (error) {
         popup.document.body.textContent = `PDF report could not be prepared: ${error.message || error}`;
         throw error;
@@ -35639,7 +35661,7 @@ document.addEventListener("click", function(event) {
         pdfAssetMs: outputNow() - started
       });
       popup.document.open();
-      popup.document.write(buildPrintableReportHtml(report, drawing.svg, logoSrc));
+      popup.document.write(buildPrintableReportHtml(report, drawing.svg, logoSrc, fontCss));
       popup.document.close();
       recordOutputTiming("pdf-report", {
         pdfMs: outputNow() - started

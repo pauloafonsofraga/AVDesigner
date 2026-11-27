@@ -167,8 +167,9 @@ test("Chromium reference PDF uses the Engine drawing and retains report sections
   const popup={document:{open(){},write(html){writes.push(html);},close(){},body:{}}};
   const context=vm.createContext({window:{open:()=>popup},outputNow:()=>0,ensureEngineOutputSceneModule:async()=>{},
     buildCanonicalOutputSnapshot:options=>{calls.push(options);return{reportData:report,engineScene:contract};},
-    logoSourceForReport:async()=>"logo",buildEnginePrintDrawing:async s=>{assert.equal(s.reportData,report);return{svg:"ENGINE"};},
-    buildPrintableReportHtml:(r,svg,logo)=>{assert.equal(r,report);assert.equal(svg,"ENGINE");assert.equal(logo,"logo");return"REPORT";},recordOutputTiming(){},
+    logoSourceForReport:async()=>"logo",loadReportFontCss:async()=>"CABIN",buildEnginePrintDrawing:async s=>{assert.equal(s.reportData,report);return{svg:"ENGINE"};},
+    buildPrintableReportHtml:(r,svg,logo,fonts)=>{assert.equal(r,report);assert.equal(svg,"ENGINE");assert.equal(logo,"logo");
+      assert.equal(fonts,"CABIN");return"REPORT";},recordOutputTiming(){},
     canvas:{cloneNode(){throw new Error("Legacy clone called");}},wirechartSvgMarkup(){throw new Error("Legacy renderer called");}});
   vm.runInContext(extract("exportChromiumPdfReport"),context);await context.exportChromiumPdfReport();
   assert.equal(calls[0].drawingDependency,"engine-svg");assert.equal(writes.at(-1),"REPORT");

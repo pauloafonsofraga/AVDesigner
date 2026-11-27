@@ -20,14 +20,21 @@ export async function createViewerBundle() {
       throw new Error(`Editor or project-normalization code in viewer bundle: ${file}`);
     }
   }
-  const css = (await transform(await readFile(path.join(root, "src/engine/outputViewer.css"), "utf8"),
+  const fontFiles = ["cabin.css", "Cabin.woff2", "Cabin-Italic.woff2", "OFL-Cabin.txt"].map(file => "assets/fonts/" + file);
+  let fontCss = await readFile(path.join(root, fontFiles[0]), "utf8");
+  for (const file of fontFiles.slice(1, 3)) {
+    const data = (await readFile(path.join(root, file))).toString("base64");
+    fontCss = fontCss.replace(`url("${path.basename(file)}")`, `url(data:font/woff2;base64,${data})`);
+  }
+  const license = await readFile(path.join(root, fontFiles[3]), "utf8");
+  const css = "/*!\n" + license + "*/\n" + (await transform(fontCss + await readFile(path.join(root, "src/engine/outputViewer.css"), "utf8"),
     { loader: "css", minify: true, charset: "ascii" })).code;
   const icons = {};
   for (const [name, file] of [["light", "lightmode.png"], ["dark", "darkmode.png"]]) {
     icons[name] = `data:image/png;base64,${(await readFile(path.join(root, "icons", file))).toString("base64")}`;
   }
   const inputs = [...new Set([...Object.keys(result.metafile.inputs), "src/engine/outputViewer.css",
-    "scripts/build-output-viewer.mjs", "package.json", "package-lock.json", "icons/lightmode.png", "icons/darkmode.png"])].sort();
+    ...fontFiles, "scripts/build-output-viewer.mjs", "package.json", "package-lock.json", "icons/lightmode.png", "icons/darkmode.png"])].sort();
   const inputHashes = [];
   for (const file of inputs) inputHashes.push([file, hash(await readFile(fileURLToPath(new URL(file, pathToFileURL(root)))))]);
   return { format: "engine-output-viewer-v1", esbuildVersion: version,

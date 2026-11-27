@@ -1,4 +1,5 @@
 import { TextureCache } from "./textureCache.js";
+import { WIRENEXUS_FONT_STACK } from "./typography.js";
 import { deviceHeaderLabel, hasOrdinaryDeviceHeader } from "./deviceDisplayName.js";
 import { adapterRotationBounds, adapterWorldPoint, rotateAdapterPoint } from "./adapterRotation.js";
 import {DEFAULT_LAYER_ID, layerSceneView, layerVisible} from './projectLayers.js';
@@ -3902,7 +3903,7 @@ export function drawQsfpBreakoutLabels(ctx, plan, camera) {
   ctx.fillStyle = "#ecf5fb";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.font = "bold 8px sans-serif";
+  ctx.font = `bold 8px ${WIRENEXUS_FONT_STACK}`;
   for (const branch of plan.branches) ctx.fillText(String(branch.lane),
     (branch.tip.x - camera.x) * camera.zoom, (branch.tip.y - camera.y) * camera.zoom);
   ctx.restore();
@@ -4067,7 +4068,7 @@ function drawLoomPortalLabels(ctx, plan, camera) {
     const label = `${plan.portalPair.name} ${side}`;
     ctx.save();
     ctx.textPaintMode = "exact";
-    ctx.font = "700 11px system-ui, -apple-system, Segoe UI, sans-serif";
+    ctx.font = `700 11px ${WIRENEXUS_FONT_STACK}`;
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
     ctx.lineJoin = "round";
@@ -4141,16 +4142,16 @@ function drawStageboxNodeBadges(ctx, devices, camera, offsets = null) {
           const size = (lines.length === 1 ? 5 : 4.35) * textScale;
           const maxWidth = stageboxNodeFillRadius(device) * 1.55 * textScale;
           lines.forEach((line, index) => {
-            ctx.font = `700 ${size}px system-ui, sans-serif`;
+            ctx.font = `700 ${size}px ${WIRENEXUS_FONT_STACK}`;
             const width = ctx.measureText(line).width;
-            if (width > maxWidth) ctx.font = `700 ${size * maxWidth / width}px system-ui, sans-serif`;
+            if (width > maxWidth) ctx.font = `700 ${size * maxWidth / width}px ${WIRENEXUS_FONT_STACK}`;
             ctx.fillText(line, x, y + (index - (lines.length - 1) / 2) * 4.9 * textScale);
           });
           continue;
         }
-        ctx.font = `700 ${4.35 * textScale}px system-ui, sans-serif`;
+        ctx.font = `700 ${4.35 * textScale}px ${WIRENEXUS_FONT_STACK}`;
         ctx.fillText(connector.direction === "input" ? "IN" : "OUT", x, y - 2.45 * textScale);
-        ctx.font = `700 ${5 * textScale}px system-ui, sans-serif`;
+        ctx.font = `700 ${5 * textScale}px ${WIRENEXUS_FONT_STACK}`;
         ctx.fillText(String(connector.stageboxNumber), x, y + 2.45 * textScale);
       }
     }
@@ -4275,7 +4276,7 @@ export function connectorAnnotationPlacements(ctx, scene, device, camera) {
     const side=connector.side==='right'?'right':'left';
     const anchor=attachedConnectorLabelPosition(device,point,side,metrics.offsetX,metrics.offsetY);
     const size=metrics.screenFontSize/zoom;
-    ctx.save();ctx.font=`${weight} ${metrics.screenFontSize}px system-ui, -apple-system, Segoe UI, sans-serif`;
+    ctx.save();ctx.font=`${weight} ${metrics.screenFontSize}px ${WIRENEXUS_FONT_STACK}`;
     const width=Math.max(1,...lines.map(line=>ctx.measureText(line).width/zoom));ctx.restore();
     const parts=[{x:anchor.x-(anchor.textAlign==='right'?width:0)-2,y:anchor.y-size*.7-2,width:width+4,height:size*1.25*lines.length+4}];
     const left=Math.min(...parts.map(r=>r.x)),top=Math.min(...parts.map(r=>r.y));
@@ -4294,7 +4295,7 @@ export function connectorAnnotationPlacements(ctx, scene, device, camera) {
       let lines=engineConnectorCanvasLabelLines(connector);
       if(zoom<.5 && lines.length>1)lines=lines.slice(-1);
       if(isTransceiverCage(connector)) {
-        ctx.save();ctx.font=`800 ${metrics.screenFontSize}px system-ui, -apple-system, Segoe UI, sans-serif`;
+        ctx.save();ctx.font=`800 ${metrics.screenFontSize}px ${WIRENEXUS_FONT_STACK}`;
         lines=lines.map(line=>fitCanvasText(ctx,line,connectorCaptionWidth(device,connector)*zoom));ctx.restore();
       }
       add(`node:${connector.id}:${anchor.id || ""}`,{...connector,side:anchor.side},{x:anchor.x,y:anchor.y},lines);
@@ -4328,7 +4329,7 @@ export function connectorAnnotationPlacements(ctx, scene, device, camera) {
     row.connector.__fieldLayout=connectorFieldRowWidth(row,fieldRows,scale,zoom);
     for(let i=0;i<row.count;i++)blockers.push({...connectorInfoBoxWorldRect(row.point,row.connector,i,scale),owner:row.owner});
   }
-  ctx.save();ctx.font=`900 ${metrics.screenFontSize}px system-ui, -apple-system, Segoe UI, sans-serif`;
+  ctx.save();ctx.font=`900 ${metrics.screenFontSize}px ${WIRENEXUS_FONT_STACK}`;
   for(const [key,value] of resolveSharedBusLabels(fixed,blockers,text=>ctx.measureText(text).width/zoom,2))placements.set(key,value);
   ctx.restore();return placements;
 }
@@ -4358,7 +4359,7 @@ function drawConnectorWorldLabel(ctx, point, connector = {}, text = "", camera, 
   ctx.save();
   rotateAdapterLabel(ctx, device, x, y);
   ctx.globalAlpha *= Number.isFinite(connector.__renderOpacity) ? connector.__renderOpacity : 1;
-  ctx.font = `800 ${size}px system-ui, -apple-system, Segoe UI, sans-serif`;
+  ctx.font = `800 ${size}px ${WIRENEXUS_FONT_STACK}`;
   ctx.textAlign = anchor.textAlign;
   ctx.textBaseline = "middle";
   ctx.lineJoin = "round";
@@ -4388,7 +4389,7 @@ function drawSharedBusConnectorWorldLabel(ctx, layout, baseX, baseY, camera, max
   const size = metrics.screenFontSize;
   ctx.save();
   rotateAdapterLabel(ctx, device, x, y);
-  ctx.font = `900 ${size}px system-ui, -apple-system, Segoe UI, sans-serif`;
+  ctx.font = `900 ${size}px ${WIRENEXUS_FONT_STACK}`;
   ctx.textAlign = anchor.textAlign;
   ctx.textBaseline = "middle";
   ctx.lineJoin = "round";
@@ -4690,7 +4691,7 @@ function drawScreenInfoBoxText(ctx, rect, scale, title, value) {
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.lineJoin = "round";
-  ctx.font = `800 ${labelFontSize}px system-ui, -apple-system, Segoe UI, sans-serif`;
+  ctx.font = `800 ${labelFontSize}px ${WIRENEXUS_FONT_STACK}`;
   ctx.strokeStyle = "#18202a";
   ctx.lineWidth = Math.max(1.4, 3.5 * scale);
   ctx.fillStyle = "#28bdfd";
@@ -4700,7 +4701,7 @@ function drawScreenInfoBoxText(ctx, rect, scale, title, value) {
   ctx.strokeText(fittedTitle, rect.x + rect.width / 2, titleY);
   ctx.fillText(fittedTitle, rect.x + rect.width / 2, titleY);
 
-  ctx.font = `700 ${valueFontSize}px system-ui, -apple-system, Segoe UI, sans-serif`;
+  ctx.font = `700 ${valueFontSize}px ${WIRENEXUS_FONT_STACK}`;
   const lines = wrapScreenInfoBoxLines(ctx, value, Math.max(8, rect.width - 7 * scale), 2);
   const lineHeight = valueFontSize * 1.12;
   const startY = rect.y + rect.height / 2 + 3.3 * scale - (lines.length - 1) * lineHeight / 2;
@@ -4840,7 +4841,7 @@ function drawPolylineLabel(ctx, points, camera, text, style = null) {
   if (style) ctx.textPaintMode = "exact";
   ctx.translate(x, y);
   ctx.rotate(placement.angle * Math.PI / 180);
-  ctx.font = `700 ${size}px system-ui, -apple-system, Segoe UI, sans-serif`;
+  ctx.font = `700 ${size}px ${WIRENEXUS_FONT_STACK}`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.lineJoin = "round";
@@ -4878,7 +4879,7 @@ function drawLoomHeadLabels(ctx, plan, loom, camera, style = loomLabelStyle(loom
     const y = (point.y - camera.y) * camera.zoom - 23;
     ctx.save();
     ctx.textPaintMode = "exact";
-    ctx.font = "700 11px system-ui, -apple-system, Segoe UI, sans-serif";
+    ctx.font = `700 11px ${WIRENEXUS_FONT_STACK}`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.lineJoin = "round";
@@ -4911,7 +4912,7 @@ function drawSnapMeasurementLabel(ctx, measure, camera) {
   const x = (world.x - camera.x) * camera.zoom + world.offsetX;
   const y = (world.y - camera.y) * camera.zoom + world.offsetY;
   ctx.save();
-  ctx.font = "800 13px system-ui, -apple-system, Segoe UI, sans-serif";
+  ctx.font = `800 13px ${WIRENEXUS_FONT_STACK}`;
   ctx.textAlign = measure.axis === "x" ? "center" : "right";
   ctx.textBaseline = "middle";
   ctx.lineJoin = "round";
@@ -5021,7 +5022,7 @@ function drawConnectorTooltip(ctx, entry, camera, offsets = null) {
   if (!text) return;
   const size = 11;
   ctx.save();
-  ctx.font = `800 ${size}px system-ui, -apple-system, Segoe UI, sans-serif`;
+  ctx.font = `800 ${size}px ${WIRENEXUS_FONT_STACK}`;
   const paddingX = 7;
   const paddingY = 5;
   const bus=createConnectorDisplayLayout(entry.device).byConnectorId.get(entry.connector.id)?.layout;
@@ -5071,7 +5072,7 @@ function drawDeviceLabel(ctx, device, camera, offsets = null, tone = "normal") {
   const toneBoost = tone === "selected" ? 1.1 : tone === "hover" ? 1.06 : 1;
   const size = Math.max(9, Math.min(17, 11 * Math.sqrt(camera.zoom) * toneBoost));
   ctx.save();
-  ctx.font = `800 ${size}px system-ui, -apple-system, Segoe UI, sans-serif`;
+  ctx.font = `800 ${size}px ${WIRENEXUS_FONT_STACK}`;
   ctx.textBaseline = "top";
   ctx.lineJoin = "round";
   ctx.shadowColor = tone === "selected"
@@ -5100,7 +5101,7 @@ function drawDeviceLabel(ctx, device, camera, offsets = null, tone = "normal") {
     const labelX = (anchor.x - camera.x) * camera.zoom;
     const labelY = (anchor.y - camera.y) * camera.zoom;
     rotateAdapterLabel(ctx, device, labelX, labelY);
-    ctx.font = `900 ${labelSize}px system-ui, -apple-system, Segoe UI, sans-serif`;
+    ctx.font = `900 ${labelSize}px ${WIRENEXUS_FONT_STACK}`;
     ctx.textAlign = "center";
     ctx.textBaseline = "alphabetic";
     ctx.lineWidth = Math.max(2, 4 * camera.zoom);
@@ -5176,7 +5177,7 @@ function drawJumpNodeInfoBox(ctx, scene, device, camera, offsets = null) {
   roundedRectPath(ctx, boxX, boxY, width, height, 5 * legacyScale);
   ctx.fill();
   ctx.stroke();
-  ctx.font = `800 ${10 * legacyScale}px system-ui, -apple-system, Segoe UI, sans-serif`;
+  ctx.font = `800 ${10 * legacyScale}px ${WIRENEXUS_FONT_STACK}`;
   ctx.fillStyle = "#edf2f7";
   ctx.textBaseline = "middle";
   ctx.textAlign = "left";
@@ -5223,7 +5224,7 @@ export function drawObjectHoverTooltip(ctx, device, camera, offsets = null, scre
   };
   const size = 12;
   ctx.save();
-  ctx.font = `800 ${size}px system-ui, -apple-system, Segoe UI, sans-serif`;
+  ctx.font = `800 ${size}px ${WIRENEXUS_FONT_STACK}`;
   const paddingX = 8;
   const paddingY = 5;
   const lineHeight = size + 4;
@@ -5258,7 +5259,7 @@ function drawRackLabel(ctx, rack, camera, offset = { dx: 0, dy: 0 }, selected = 
   const y = (bounds.y + offset.dy + 24 - camera.y) * camera.zoom;
   const size = Math.max(8, 16 * camera.zoom);
   ctx.save();
-  ctx.font = `900 ${size}px system-ui, -apple-system, Segoe UI, sans-serif`;
+  ctx.font = `900 ${size}px ${WIRENEXUS_FONT_STACK}`;
   ctx.textAlign = "left";
   ctx.textBaseline = "middle";
   ctx.lineJoin = "round";
@@ -5282,7 +5283,7 @@ function drawCompactRackPanelLabels(ctx, layout, camera, offset = { dx: 0, dy: 0
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(-Math.PI / 2);
-    ctx.font = `800 ${fontSize}px system-ui, -apple-system, Segoe UI, sans-serif`;
+    ctx.font = `800 ${fontSize}px ${WIRENEXUS_FONT_STACK}`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.lineJoin = "round";

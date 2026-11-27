@@ -5,6 +5,7 @@ import { transceiverDraft, draftFromPreset, editTransceiverDraft, transceiverDra
 import { transceiverConfigurationPatch, transceiverLineRateChoices, transceiverConfigurationChoices } from "../src/engine/transceiverConfiguration.js";
 import { transceiverModulePatch, resolveInstalledModule, compactTransceiverTooltip, isTransceiverCage } from "../src/engine/transceiverModules.js";
 import vm from "node:vm";
+import { WIRENEXUS_FONT_STACK } from "../src/engine/typography.js";
 import { opticalTechnologyKind } from "../src/engine/customTransceiverOptics.js";
 import { engineCompatibilitySummary, engineConnectorColor } from "../src/engine/connectorCompatibility.js";
 import { ProjectMutationAdapter } from "../src/engine/projectMutations.js";
@@ -91,7 +92,7 @@ test("cage tooltip is two compact lines; detailed identity and warnings stay out
   assert.equal(opticalTechnologyKind({ technology: "100GBASE-UNKNOWN" }), "");
   const source = readFileSync(new URL("../src/engine/renderer.js", import.meta.url), "utf8")
     .match(/^function drawConnectorTooltip\([\s\S]*?^\}/m)[0];
-  const draw = vm.runInNewContext("(" + source + ")", { isTransceiverCage, compactTransceiverTooltip,
+  const draw = vm.runInNewContext("(" + source + ")", { isTransceiverCage, compactTransceiverTooltip, WIRENEXUS_FONT_STACK,
     connectorLabel: port => port.nameText, engineConnectorUserFacingTypeLabel: () => "LC", deviceLabel: () => "Device",
     createConnectorDisplayLayout: () => ({ byConnectorId: new Map([["cage", { layout: { members: [c] } }]]) }),
     wrapScreenInfoBoxLines: () => assert.fail("cage tooltip must not use the oversized shared-bus/specification wrapper") });

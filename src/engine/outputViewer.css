@@ -1,4 +1,4 @@
-.engine-output-viewer { --bg: #181d23; --panel: #242b33; --text: #edf1f5; --muted: #adb8c5; --border: #414b57; height: 100%; min-height: 0; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: 44px minmax(0, 1fr); background: var(--bg); color: var(--text); font: 12px/1.4 system-ui, sans-serif; letter-spacing: 0; }
+.engine-output-viewer { --bg: #181d23; --panel: #242b33; --text: #edf1f5; --muted: #adb8c5; --border: #414b57; height: 100%; min-height: 0; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: 44px minmax(0, 1fr); background: var(--bg); color: var(--text); font: 12px/1.4 var(--wnx-font-family, Cabin, system-ui, sans-serif); letter-spacing: 0; }
 .engine-output-viewer[data-theme="light"] { --bg: #f0f2f5; --panel: #fff; --text: #19242d; --muted: #596773; --border: #c6cdd5; color-scheme: light; }
 .engine-output-viewer * { box-sizing: border-box; }
 .engine-output-viewer button { height: 28px; min-width: 30px; border: 1px solid var(--border); border-radius: 4px; padding: 0 8px; background: var(--panel); color: var(--text); font: inherit; cursor: pointer; }

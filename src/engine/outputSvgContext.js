@@ -1,3 +1,5 @@
+import { CABIN_FONT } from "./typography.js";
+
 // Canvas drawing commands, not a second device layout engine. Coordinates and
 // text placement are supplied by the Engine's existing artwork/label routines.
 export const svgEscape = value => String(value ?? "").replace(/[&<>"']/g,
@@ -37,7 +39,7 @@ export class OutputSvgContext {
     this.elements = []; this.defs = []; this.stack = []; this.path = []; this.textBounds = null;
     this.fillStyle = "#000000"; this.strokeStyle = "#000000"; this.lineWidth = 1;
     this.lineCap = "butt"; this.lineJoin = "miter"; this.globalAlpha = 1;
-    this.font = "10px sans-serif"; this.textAlign = "left"; this.textBaseline = "alphabetic"; this.textPaintMode = "print";
+    this.font = "10px " + CABIN_FONT; this.textAlign = "left"; this.textBaseline = "alphabetic"; this.textPaintMode = "print";
     this.lineDash = []; this.lineDashOffset = 0; this.matrix = [1,0,0,1,0,0]; this.clips = [];
   }
   save() { this.stack.push(Object.fromEntries(stateKeys.map(k => [k, Array.isArray(this[k]) ? [...this[k]] : this[k]]))); }
@@ -105,6 +107,8 @@ export class OutputSvgContext {
   text(text,x,y,stroke) {
     const parsed = this.font.match(/^(.*?)\s*([.\d]+)px\s+(.+)$/);
     const weight = parsed?.[1]?.trim() || "normal", size = Number(parsed?.[2] || 10);
+    // SVG-to-PDFKit resolves its registered font by family name, not a CSS fallback list.
+    const family = parsed?.[3]?.startsWith(CABIN_FONT + ",") ? CABIN_FONT : parsed?.[3] || CABIN_FONT;
     const anchor = this.textAlign === "center" ? "middle" : ["right","end"].includes(this.textAlign) ? "end" : "start";
     const baseline = ({ middle:"central", top:"text-before-edge", bottom:"text-after-edge", hanging:"hanging" })[this.textBaseline] || "alphabetic";
     // Include outward Engine labels in the print viewport without moving them
@@ -119,7 +123,7 @@ export class OutputSvgContext {
       this.textBounds.right = Math.max(this.textBounds.right,wx); this.textBounds.bottom = Math.max(this.textBounds.bottom,wy);
     }
     const exactStyle = this.textPaintMode === "exact";
-    this.emit(`<text x="${svgNumber(x)}" y="${svgNumber(y)}" font-family="${svgEscape(parsed?.[3] || "sans-serif")}" font-size="${size}" font-weight="${svgEscape(weight)}" text-anchor="${anchor}" dominant-baseline="${baseline}" xml:space="preserve" ${stroke ? `fill="none" ${this.strokeAttributes(exactStyle ? "stroke" : "text-stroke")}` : `fill="${this.paint(this.fillStyle,exactStyle ? "fill" : "text")}"`}>${svgEscape(text)}</text>`);
+    this.emit(`<text x="${svgNumber(x)}" y="${svgNumber(y)}" font-family="${svgEscape(family)}" font-size="${size}" font-weight="${svgEscape(weight)}" text-anchor="${anchor}" dominant-baseline="${baseline}" xml:space="preserve" ${stroke ? `fill="none" ${this.strokeAttributes(exactStyle ? "stroke" : "text-stroke")}` : `fill="${this.paint(this.fillStyle,exactStyle ? "fill" : "text")}"`}>${svgEscape(text)}</text>`);
   }
   fillText(text,x,y) { this.text(text,x,y,false); }
   strokeText(text,x,y) { this.text(text,x,y,true); }

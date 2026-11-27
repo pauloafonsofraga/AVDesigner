@@ -1,9 +1,11 @@
 import { EngineOutputViewer } from "./outputViewerApp.js";
 import { buildEngineOutputScene } from "./outputSceneSnapshot.js";
 import { outputViewerParityFixture, outputViewerScaleFixture } from "../../fixtures/output-viewer.mjs";
+import { loadCabinFonts } from "./typography.js";
 
 // Development-only fixture generation. The viewer itself accepts scene JSON only.
 window.mountOutputViewer = async snapshot => {
+  await loadCabinFonts();
   window.outputViewer?.dispose();
   window.outputViewer = new EngineOutputViewer(document.getElementById("viewer"), snapshot);
   await window.outputViewer.ready;

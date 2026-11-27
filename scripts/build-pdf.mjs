@@ -12,6 +12,7 @@ const pdfkit = createRequire(import.meta.url).resolve("pdfkit");
 const sourceProfile = resolve(dirname(pdfkit), "data/sRGB_IEC61966_2_1.icc");
 const result = await build({ entryPoints: [resolve(root, "src/engine/outputPdfBrowser.js")],
   bundle: true, platform: "browser", format: "esm",
+  loader: { ".ttf": "binary" }, external: ["node:fs/promises"],
   minify: true, write: false, legalComments: "none" });
 const javascript = result.outputFiles[0].text.replace(/^[ \t]+$/gm, "");
 if (process.argv.includes("--check")) {

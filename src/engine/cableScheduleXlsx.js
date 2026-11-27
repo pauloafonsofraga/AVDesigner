@@ -2,6 +2,7 @@ import ExcelJS from "exceljs/dist/exceljs.min.js";
 import { cableScheduleColumns } from "./cableScheduleCore.js";
 import { multiCoreReportSections } from "./multiCoreReportSections.js";
 import { cableGraphic, cableIdGraphic, cleanCableScheduleColor, nodeGraphic } from "./cableScheduleGraphics.js";
+import { CABIN_FONT, loadCabinFonts } from "./typography.js";
 
 function toArgb(color) {
   return `FF${cleanCableScheduleColor(color).slice(1).toUpperCase()}`;
@@ -10,6 +11,7 @@ function toArgb(color) {
 export async function createCableScheduleXlsx(rows, { nodeDefinitions = [], loadArtwork = async value => value,
   graphics = null, looms = [], reports = null } = {}) {
   const workbook = new ExcelJS.Workbook();
+  await loadCabinFonts();
   workbook.creator = "WireNexus";
   const sheet = workbook.addWorksheet("Cable Schedule", { views: [{ state: "frozen", ySplit: 1 }] });
   const columns = cableScheduleColumns(rows);
@@ -119,5 +121,8 @@ export async function createCableScheduleXlsx(rows, { nodeDefinitions = [], load
       row.height = Math.max(32, ...columns.map(([key]) => Math.ceil(String(record[key] ?? "").length / 24) * 12));
     }
   }
+  workbook.eachSheet(worksheet => worksheet.eachRow(row => {
+    row.eachCell(cell => { cell.font = { ...cell.font, name: CABIN_FONT }; });
+  }));
   return workbook.xlsx.writeBuffer();
 }

@@ -11126,7 +11126,7 @@ function injectBridgeStyles() {
       background: #111820;
       overflow: hidden;
       color: #eef5ff;
-      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-family: Cabin, system-ui, sans-serif;
     }
     .engine-bridge-canvas,
     .engine-bridge-label-canvas {
@@ -11332,7 +11332,7 @@ function injectBridgeStyles() {
     .engine-bridge-field-heading {
       margin: 0;
       color: #aeb9c6;
-      font: 900 11px/1.2 Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font: 900 11px/1.2 Cabin, system-ui, sans-serif;
       letter-spacing: .08em;
       text-transform: uppercase;
     }
@@ -11352,7 +11352,7 @@ function injectBridgeStyles() {
       background: rgba(8, 13, 19, .72);
       color: #eef5ff;
       padding: 4px 7px;
-      font: 12px/1.3 Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font: 12px/1.3 Cabin, system-ui, sans-serif;
     }
     .engine-bridge-field input:focus {
       outline: none;
@@ -11367,7 +11367,7 @@ function injectBridgeStyles() {
       border-radius: 6px;
       background: rgba(251,121,4,.14);
       color: #fff4e8;
-      font: 800 12px/1.2 Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font: 800 12px/1.2 Cabin, system-ui, sans-serif;
       cursor: pointer;
     }
     .engine-bridge-action:hover { border-color: #ff9d3b; background: rgba(251,121,4,.24); }

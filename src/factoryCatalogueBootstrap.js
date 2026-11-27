@@ -6,6 +6,7 @@ import { MULTI_CORE_PROJECT_FIELDS, multiCoreProjectFields } from "./engine/mult
 import { breakoutProjectFields } from "./engine/qsfpBreakoutModel.js";
 import { isMultiCoreConnection } from "./engine/multiCoreConnectivity.js";
 import * as editorLifecycle from "./editorLifecycle.js";
+import { loadCabinFonts } from "./engine/typography.js";
 import * as transceivers from "./engine/transceiverModules.js";
 import * as standaloneConnectors from "./engine/standaloneConnectors.js";
 import { CAGE_DEFINITION_CHOICES, cageDefinitionValue, cageDefinitionPatch, transceiverConfigurationPatch } from "./engine/transceiverConfiguration.js";
@@ -45,7 +46,7 @@ function start() {
   setPhase("loading-catalogue");
   retry.hidden = true;
   message.textContent = "Loading device catalogue...";
-  window.wireNexusReady = load().then(async catalogue => {
+  window.wireNexusReady = Promise.all([load(), loadCabinFonts()]).then(async ([catalogue]) => {
     setPhase("initializing-shell");
     message.textContent = "Starting WireNexus...";
     Object.defineProperty(window, "WireNexusFactoryCatalogue", { value: catalogue });

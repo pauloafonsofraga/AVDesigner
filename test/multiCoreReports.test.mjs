@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import ExcelJS from "exceljs";
-import { inflateSync } from "node:zlib";
+import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { connectedMultiCoreProject, jumpMultiCoreProject, multiCorePort } from "../fixtures/multi-core-connectivity.mjs";
 import { largeMultiCoreProject, hybridMultiCoreProject } from "../fixtures/multi-core.mjs";
 import { multiCoreJumpProject } from "../fixtures/multi-core-jump.mjs";
@@ -111,7 +111,10 @@ test("XLSX uses shared rows, text IDs, filters, frozen headers, no formula cells
   const workbook = new ExcelJS.Workbook(); await workbook.xlsx.load(bytes);
   for (const [name, count] of [["Cable Schedule", 2], ["Multi-Core Assemblies", 1], ["Channel Allocation", 14]]) {
     const sheet = workbook.getWorksheet(name); assert.equal(sheet.rowCount, count + 1); assert(sheet.autoFilter); assert.equal(sheet.views[0].ySplit, 1);
-    sheet.eachRow(row => row.eachCell(cell => assert.notEqual(cell.type, ExcelJS.ValueType.Formula)));
+    sheet.eachRow(row => row.eachCell(cell => {
+      assert.notEqual(cell.type, ExcelJS.ValueType.Formula);
+      assert.equal(cell.font.name, "Cabin");
+    }));
   }
   assert.equal(workbook.getWorksheet("Channel Allocation").getCell("B2").value, "01");
   assert.equal(workbook.getWorksheet("Multi-Core Assemblies").getCell("B2").value, "=1+2");
@@ -127,8 +130,15 @@ for (const count of [8, 16, 32, 64, 256]) test(`${count} channels survive snapsh
     diagnostics: { viewBox: { x: 0, y: 0, width: 100, height: 100 } }, engineScene, reportData: { projectName: "Reports" }, options: { paper: "A4" } });
   const pdf = Buffer.from(result.bytes).toString("latin1");
   assert((pdf.match(/\/Type \/Page\b/g) || []).length >= 4);
-  const streams = [...pdf.matchAll(/stream\r?\n([\s\S]*?)\r?\nendstream/g)].flatMap(m => { try { return [inflateSync(Buffer.from(m[1], "latin1")).toString("latin1")]; } catch { return []; } }).join("\n");
-  assert(streams.includes(Buffer.from(`authored-circuit-${count}`).toString("hex")), "last circuit rendered in PDF text");
+  const task = getDocument({ data: result.bytes, useSystemFonts: true });
+  try {
+    const document = await task.promise;
+    const pages = await Promise.all(Array.from({ length: document.numPages }, async (_, i) =>
+      (await (await document.getPage(i + 1)).getTextContent()).items.map(item => item.str || "").join(" ")));
+    assert(pages.some(page => page.includes(`authored-circuit-${count}`)), "last circuit rendered in PDF text");
+  } finally {
+    await task.destroy();
+  }
   assert.deepEqual(result.warnings, []);
 });
 

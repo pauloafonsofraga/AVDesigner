@@ -52,7 +52,7 @@ export function mountLiveCollaboration({account,bridge,load,apply,readLocal,isDr
         if(x<rect.left || x>rect.right || y<rect.top || y>rect.bottom)return;
         const node=document.createElement('div');node.textContent=label;
         const device=ghost?b.scene.getDevice(peer.drag.id):null;
-        node.style.cssText=`position:absolute;left:${x}px;top:${y}px;color:${color};font:12px sans-serif;white-space:nowrap;${ghost?
+        node.style.cssText=`position:absolute;left:${x}px;top:${y}px;color:${color};font:12px Cabin, system-ui, sans-serif;white-space:nowrap;${ghost?
           `border:1px dashed currentColor;opacity:.5;padding:6px;box-sizing:border-box;width:${Math.min(rect.width,(device?.width || 50)*camera.zoom)}px;height:${Math.min(rect.height,(device?.height || 50)*camera.zoom)}px;overflow:hidden`:
           'border-left:3px solid currentColor;padding-left:4px'}`;
         overlay.append(node);

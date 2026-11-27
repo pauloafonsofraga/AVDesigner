@@ -1,5 +1,6 @@
 import {multibandColors, groupedCoaxMetadata} from "./multibandSignals.js";
 import {multibandCableWidth} from "./multibandGeometry.js";
+import { WIRENEXUS_FONT_STACK } from "./typography.js";
 
 export function cleanCableScheduleColor(value, fallback = "#32b6ff") {
   return /^#[0-9a-f]{6}$/i.test(String(value || "")) ? value : fallback;
@@ -75,14 +76,14 @@ export function cableIdGraphic(id, color, background = "#ffffff") {
   const text = String(id || "");
   const scale = 3;
   const fontPx = 17 * 96 / 72;
-  context.font = `bold ${fontPx}px Arial, sans-serif`;
+  context.font = `bold ${fontPx}px ${WIRENEXUS_FONT_STACK}`;
   const width = Math.ceil(context.measureText(text).width + 12);
   const height = 34;
   canvas.width = width * scale; canvas.height = height * scale;
   context.scale(scale, scale);
   context.fillStyle = background;
   context.fillRect(0, 0, width, height);
-  context.font = `bold ${fontPx}px Arial, sans-serif`;
+  context.font = `bold ${fontPx}px ${WIRENEXUS_FONT_STACK}`;
   context.textBaseline = "middle";
   context.lineJoin = "round";
   context.lineWidth = 0.5 * 96 / 72;

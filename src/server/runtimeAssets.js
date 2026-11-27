@@ -1,6 +1,6 @@
 import path from 'node:path';
 
-const roots=new Set(['index.html','engine-prototype.html','output-viewer.html','viewer.html','VideoCoreLogo.png','data/factory-catalogue.json']);
+const roots=new Set(['index.html','engine-prototype.html','output-viewer.html','viewer.html','VideoCoreLogo.png','data/factory-catalogue.json','assets/fonts/OFL-Cabin.txt']);
 const images=new Set(['.png','.svg','.webp','.jpg','.jpeg','.gif','.ico']);
 const runtime=new Set([...images,'.js','.mjs','.json','.css','.wasm','.bcmap','.pfb','.ttf','.woff','.woff2']);
 export function isPublicRuntimeAsset(file) {
@@ -15,4 +15,4 @@ export function isPublicRuntimeAsset(file) {
 export const runtimeContentType=file=>({'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8',
   '.json':'application/json','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.webp':'image/webp',
   '.jpg':'image/jpeg','.jpeg':'image/jpeg','.gif':'image/gif','.ico':'image/x-icon','.wasm':'application/wasm',
-  '.ttf':'font/ttf','.woff':'font/woff','.woff2':'font/woff2'}[path.posix.extname(file).toLowerCase()]||'application/octet-stream');
+  '.ttf':'font/ttf','.woff':'font/woff','.woff2':'font/woff2','.txt':'text/plain; charset=utf-8'}[path.posix.extname(file).toLowerCase()]||'application/octet-stream');

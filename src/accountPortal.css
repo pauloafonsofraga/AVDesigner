@@ -1,4 +1,4 @@
-#accountPortal{position:fixed;inset:0;z-index:20000;overflow:auto;background:#171b20;color:#edf2f7;font:14px/1.5 Inter,system-ui,sans-serif;letter-spacing:0;color-scheme:dark}
+#accountPortal{position:fixed;inset:0;z-index:20000;overflow:auto;background:#171b20;color:#edf2f7;font:14px/1.5 Cabin, system-ui, sans-serif;letter-spacing:0;color-scheme:dark}
 #accountPortal[hidden],#accountPortal [hidden],.app[hidden]{display:none!important}
 #accountPortal *{box-sizing:border-box;letter-spacing:0}
 #accountPortal button,#accountPortal input,#accountPortal select{font:inherit;border:1px solid #4b5563;border-radius:4px;background:#20262d;color:#edf2f7;min-height:36px;padding:7px 12px}

@@ -106,11 +106,16 @@ test("PDFKit production generator creates vector PDF bytes with reciprocal Jump 
   assert.match(drawing.svg, /stroke="rgba\(0,255,0,0\.82\)"/);
   assert.match(drawing.svg, />FOH<\/text>/);
   assert.match(drawing.svg, />Stage<\/text>/);
+  assert.match(drawing.svg, /font-family="Cabin"/);
   const result = await generatePdf({ svg: drawing.svg, diagnostics: drawing.diagnostics,
     engineScene: scene, reportData: { projectName: "Jump fixture", deviceRows: [
       { quantity: 1, brand: "Test", type: "Source", power: "0W" }
     ] } });
   assert.equal(new TextDecoder().decode(result.bytes.subarray(0, 4)), "%PDF");
+  const embedded = Buffer.from(result.bytes).toString("latin1");
+  assert.match(embedded, /\/BaseFont \/[A-Z]{6}\+Cabin-Regular/);
+  assert.match(embedded, /\/BaseFont \/[A-Z]{6}\+Cabin-Bold/);
+  assert.doesNotMatch(embedded, /\/BaseFont \/Helvetica/);
   assert.equal(result.jumpAnnotations, 4);
   assert.deepEqual(result.warnings, []);
 });

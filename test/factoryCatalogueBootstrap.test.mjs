@@ -8,6 +8,7 @@ import { MULTI_CORE_PROJECT_FIELDS, multiCoreProjectFields } from "../src/engine
 import { breakoutProjectFields } from "../src/engine/qsfpBreakoutModel.js";
 import { isMultiCoreConnection } from "../src/engine/multiCoreConnectivity.js";
 import * as editorLifecycle from "../src/editorLifecycle.js";
+import { loadCabinFonts } from "../src/engine/typography.js";
 import * as transceivers from "../src/engine/transceiverModules.js";
 import * as standaloneConnectors from "../src/engine/standaloneConnectors.js";
 import { CAGE_DEFINITION_CHOICES, cageDefinitionValue, cageDefinitionPatch, transceiverConfigurationPatch } from "../src/engine/transceiverConfiguration.js";
@@ -43,6 +44,7 @@ function harness({ fetchCatalogue = async () => Response.json(catalogue), initia
     body: { append() { calls.scripts++; window.wireNexusShellReady = initialize ? initialize() : Promise.resolve(); } }
   };
   const context = { window, document, URL, Error, FACTORY_AUTHORING, MULTI_CORE_PROJECT_FIELDS, multiCoreProjectFields, breakoutProjectFields, isMultiCoreConnection, editorLifecycle,
+    loadCabinFonts: () => loadCabinFonts(document),
     transceivers, standaloneConnectors, modularCardSafety, multibandSignals, wireRouting, nodeReplacement, ...connectorCompatibility,
     connectorIncludedInMatrixForEngine, defaultMatrixPortForEngineConnector,
     CAGE_DEFINITION_CHOICES, cageDefinitionValue, cageDefinitionPatch, transceiverConfigurationPatch, mountTransceiverInspector,

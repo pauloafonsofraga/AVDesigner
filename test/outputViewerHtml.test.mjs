@@ -10,6 +10,17 @@ import { outputViewerParityFixture } from "../fixtures/output-viewer.mjs";
 import { buildCableSchedule } from "../src/engine/cableSchedule.js";
 import { connectedMultiCoreProject } from "../fixtures/multi-core-connectivity.mjs";
 const bundle = JSON.parse(readFileSync(new URL("../src/engine/generated/outputViewerBundle.json", import.meta.url)));
+
+test("offline Viewer includes both Cabin faces and the redistribution notice", () => {
+  const faces = [...bundle.css.matchAll(/data:font\/woff2;base64,([A-Za-z0-9+/=]+)/g)]
+    .map(match => Buffer.from(match[1], "base64"));
+  assert.equal(faces.length, 2);
+  for (const [index, file] of ["Cabin.woff2", "Cabin-Italic.woff2"].entries()) {
+    assert.deepEqual(faces[index], readFileSync(new URL("../assets/fonts/" + file, import.meta.url)));
+  }
+  assert.match(bundle.css, /SIL OPEN FONT LICENSE Version 1\.1/);
+  assert.doesNotMatch(bundle.css, /url\([^)]*https?:/);
+});
 const png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==";
 const payload = html => JSON.parse(html.match(/id="engineOutputPayload">([\s\S]*?)<\/script>/)[1]);
 const snapshot = () => ({ engineScene: buildEngineOutputScene(outputViewerParityFixture()),

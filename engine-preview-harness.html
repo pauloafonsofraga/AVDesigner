@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Engine Preview Harness</title>
+  <link rel="stylesheet" href="assets/fonts/cabin.css">
   <style>
     :root {
       color-scheme: dark;
@@ -26,7 +27,7 @@
       min-height: 100vh;
       background: var(--bg);
       color: var(--text);
-      font: 14px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font: 14px/1.45 var(--wnx-font-family);
     }
 
     .shell {
@@ -186,6 +187,7 @@
   </div>
 
   <script type="module">
+    import { loadCabinFonts } from "./src/engine/typography.js";
     import {
       ENGINE_PREVIEW_BUILD_ID,
       EnginePreviewSurface,
@@ -205,6 +207,7 @@
     document.getElementById("buildStatus").textContent = ENGINE_PREVIEW_BUILD_ID;
 
     const fixtures = enginePreviewFixtureDefinitions();
+    await loadCabinFonts();
     let activeFixtureId = fixtures[0]?.id || "";
     const baseline = new EnginePreviewSurface(document.getElementById("baselineHost"), {
       scene: enginePreviewFixtureScene(activeFixtureId)

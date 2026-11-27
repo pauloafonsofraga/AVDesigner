@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>WireNexus Engine Prototype</title>
+  <link rel="stylesheet" href="assets/fonts/cabin.css">
   <style>
     :root {
       color-scheme: dark;
@@ -27,7 +28,7 @@
       overflow: hidden;
       background: var(--bg);
       color: var(--text);
-      font: 13px/1.4 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font: 13px/1.4 var(--wnx-font-family);
     }
 
     .shell {
@@ -286,7 +287,7 @@
       padding-top: 9px;
       border-top: 1px solid rgba(255, 255, 255, .1);
       color: var(--muted);
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-family: var(--wnx-font-family);
       font-size: 12px;
     }
 
@@ -434,6 +435,7 @@
 
   <script type="module">
     import { createEnginePrototype } from "./src/engine/prototypeApp.js";
+    import { loadCabinFonts } from "./src/engine/typography.js";
 
     const errorPanel = document.getElementById("errorPanel");
     const showError = error => {
@@ -446,6 +448,7 @@
     window.addEventListener("unhandledrejection", event => showError(event.reason));
 
     try {
+      await loadCabinFonts();
       const app = createEnginePrototype({
         canvas: document.getElementById("engineCanvas"),
         labelCanvas: document.getElementById("labelCanvas"),

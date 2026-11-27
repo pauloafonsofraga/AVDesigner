@@ -1,22 +1,23 @@
 import { EngineOutputViewer } from "./outputViewerApp.js";
 import { installOutputReport } from "./outputViewerReport.js";
 import { installOutputCableSchedule } from "./outputViewerCableSchedule.js";
+import { loadCabinFonts } from "./typography.js";
 
 const host = document.getElementById("outputViewer");
-try {
+window.engineOutputReady = (async () => {
   const payload = JSON.parse(document.getElementById("engineOutputPayload").textContent);
+  await loadCabinFonts();
   const viewer = new EngineOutputViewer(host, payload.engineScene, { assets: payload.assets, icons: payload.icons,
     title: payload.title, signalChains: payload.engineScene.modelData?.reports?.signalPaths || payload.signalChains });
   window.outputViewer = viewer;
   window.engineOutputMetadata = Object.freeze(payload.metadata);
   installOutputReport(viewer, payload.reportData, payload.cableGroups, payload.engineScene.modelData?.reports);
   installOutputCableSchedule(viewer, payload.engineScene.modelData?.reports?.cableRows || payload.cableScheduleRows);
-  window.engineOutputReady = viewer.ready.then(diagnostics => {
-    if (diagnostics.assetFailures) throw new Error(`${diagnostics.assetFailures} embedded viewer images could not be decoded.`);
-    return { ...diagnostics, bundleHash: payload.metadata.bundleHash };
-  });
-  window.engineOutputReady.catch(showFailure);
-} catch (error) { showFailure(error); }
+  const diagnostics = await viewer.ready;
+  if (diagnostics.assetFailures) throw new Error(`${diagnostics.assetFailures} embedded viewer images could not be decoded.`);
+  return { ...diagnostics, bundleHash: payload.metadata.bundleHash };
+})();
+window.engineOutputReady.catch(showFailure);
 
 function showFailure(error) {
   console.error("Engine output viewer failed", error);

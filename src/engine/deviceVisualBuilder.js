@@ -1,5 +1,6 @@
 import { engineConnectorInfoFields, engineConnectorCanvasLabelLines, isEngineCageConnector } from "./connectorCompatibility.js";
 import { deviceHeaderLabel, hasOrdinaryDeviceHeader } from "./deviceDisplayName.js";
+import { WIRENEXUS_FONT_STACK } from "./typography.js";
 import "./stageboxSnakeCore.js";
 import {
   adapterColorStops,
@@ -782,7 +783,7 @@ function drawInfoBoxText(ctx, x, y, width, height, scale, title, text) {
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.lineJoin = "round";
-  ctx.font = `800 ${labelFontSize}px system-ui, -apple-system, Segoe UI, sans-serif`;
+  ctx.font = `800 ${labelFontSize}px ${WIRENEXUS_FONT_STACK}`;
   ctx.strokeStyle = "#18202a";
   ctx.lineWidth = 3.5 * scale;
   ctx.fillStyle = "#28bdfd";
@@ -792,7 +793,7 @@ function drawInfoBoxText(ctx, x, y, width, height, scale, title, text) {
   const lines = wrapInfoBoxLines(text, Math.max(8, width - 7 * scale), valueFontSize, 2);
   const lineHeight = valueFontSize * 1.12;
   const startY = y + height / 2 + 3.3 * scale - (lines.length - 1) * lineHeight / 2;
-  ctx.font = `700 ${valueFontSize}px system-ui, -apple-system, Segoe UI, sans-serif`;
+  ctx.font = `700 ${valueFontSize}px ${WIRENEXUS_FONT_STACK}`;
   ctx.strokeStyle = "transparent";
   ctx.lineWidth = 0;
   ctx.fillStyle = "#edf2f7";
@@ -1140,11 +1141,11 @@ function drawTitleBlockField(ctx, rect, label, value) {
   const lineHeight = 9;
   const maxLines = Math.max(1, Math.floor((rect.height - 10) / lineHeight));
   ctx.save();
-  ctx.font = "700 6px system-ui, -apple-system, Segoe UI, sans-serif";
+  ctx.font = `700 6px ${WIRENEXUS_FONT_STACK}`;
   ctx.fillStyle = "#d7e6f5";
   ctx.textBaseline = "middle";
   ctx.fillText(label, x, rect.y + rect.height / 2);
-  ctx.font = "800 7px system-ui, -apple-system, Segoe UI, sans-serif";
+  ctx.font = `800 7px ${WIRENEXUS_FONT_STACK}`;
   const lines = wrapTitleBlockValue(ctx, String(value || ""), valueWidth, maxLines);
   const firstY = rect.y + rect.height / 2 - (lines.length - 1) * lineHeight / 2;
   lines.forEach((line, index) => ctx.fillText(line, valueX, firstY + index * lineHeight));
@@ -1188,7 +1189,7 @@ function drawWrappedText(ctx, text, x, y, maxWidth, maxHeight, options = {}) {
   const lines = [];
   let line = "";
   ctx.save();
-  ctx.font = `${options.weight || 700} ${size}px system-ui, -apple-system, Segoe UI, sans-serif`;
+  ctx.font = `${options.weight || 700} ${size}px ${WIRENEXUS_FONT_STACK}`;
   words.forEach(word => {
     const candidate = line ? `${line} ${word}` : word;
     if (ctx.measureText(candidate).width <= maxWidth || !line) {
@@ -1277,7 +1278,7 @@ function drawFittedText(ctx, text, x, y, maxWidth, maxSize, options = {}) {
   ctx.textBaseline = options.baseline || "alphabetic";
   ctx.lineJoin = "round";
   do {
-    ctx.font = `${options.weight || 700} ${size}px system-ui, -apple-system, Segoe UI, sans-serif`;
+    ctx.font = `${options.weight || 700} ${size}px ${WIRENEXUS_FONT_STACK}`;
     if (ctx.measureText(value).width <= maxWidth || size <= minSize) break;
     size -= 0.75;
   } while (size > minSize);
